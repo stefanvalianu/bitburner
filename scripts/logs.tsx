@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { NS } from "@ns";
 import { LOG_PORT, type LogEntry, type LogLevel } from "./lib/log";
-import { Badge, Col, Panel, Row, colors, space } from "./lib/ui";
+import { Badge, Col, NotificationDot, Panel, Row, colors, space, useNotification } from "./lib/ui";
 
 const MAX_BUFFER = 250;
 const POLL_MS = 200;
@@ -13,6 +13,8 @@ const levelColor: Record<LogLevel, string> = {
   error: colors.error,
 };
 
+const levelSeverity: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
+
 function ts(t: number): string {
   const d = new Date(t);
   const pad = (n: number, w = 2) => n.toString().padStart(w, "0");
@@ -22,6 +24,7 @@ function ts(t: number): string {
 function LogStream({ ns }: { ns: NS }) {
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const { notification, notify } = useNotification();
 
   useEffect(() => {
     const port = ns.getPortHandle(LOG_PORT);
@@ -38,15 +41,29 @@ function LogStream({ ns }: { ns: NS }) {
       }
       if (fresh.length > 0) {
         setEntries((prev) => [...prev, ...fresh].slice(-MAX_BUFFER));
+        // Notify with the highest-severity color in the batch — error wins
+        // over warn wins over info wins over debug.
+        const top = fresh.reduce((a, b) =>
+          levelSeverity[b.level] > levelSeverity[a.level] ? b : a,
+        );
+        notify(levelColor[top.level]);
       }
     }, POLL_MS);
     return () => clearInterval(id);
-  }, [ns]);
+  }, [ns, notify]);
 
-  // Auto-scroll on new entries.
+  // Auto-scroll on new entries, and reflect the count + notification dot in
+  // the tail title bar so it's readable even when the window is collapsed.
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
-  }, [entries.length]);
+    ns.ui.setTailTitle(
+      <>
+        &nbsp;
+        {notification && <NotificationDot color={notification.color} />}
+        logs · {entries.length}/{MAX_BUFFER}
+      </>,
+    );
+  }, [entries.length, notification, ns]);
 
   return (
     <Panel title={`logs · ${entries.length}/${MAX_BUFFER}`} style={{ minWidth: 520, maxHeight: 500, overflowY: "auto" }}>

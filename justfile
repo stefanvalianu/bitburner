@@ -2,5 +2,5 @@ _default:
     @just --list
 
 # Starts the sync server for Bitburner connection
-start:
+run:
     @vp run start

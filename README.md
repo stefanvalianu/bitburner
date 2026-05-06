@@ -6,7 +6,7 @@ A tiny WebSocket sync server (`tools/sync-server.ts`) bundles `scripts/` with Vi
 
 ## Usage
 
-1. `just start` — boots the bundler in watch mode and the sync server on `ws://localhost:12525`.
+1. `just run` — boots the bundler in watch mode and the sync server on `ws://localhost:12525`.
 2. In Bitburner: **Options → Remote API**, set port to `12525`, click **Connect**.
 3. Write scripts in `scripts/`. Saves are bundled and pushed to the `home` server automatically.
 

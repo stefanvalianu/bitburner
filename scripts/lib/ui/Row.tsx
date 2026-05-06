@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { colors, fonts, space } from "./tokens";
+import { useTheme } from "./theme";
 
 interface RowProps {
   children: ReactNode;
@@ -8,7 +8,8 @@ interface RowProps {
   style?: CSSProperties;
 }
 
-export function Row({ children, gap = space.md, align = "center", style }: RowProps) {
+export function Row({ children, gap, align = "center", style }: RowProps) {
+  const { colors, fonts, space } = useTheme();
   return (
     <div
       style={{
@@ -16,7 +17,7 @@ export function Row({ children, gap = space.md, align = "center", style }: RowPr
         color: colors.fg,
         display: "flex",
         flexDirection: "row",
-        gap,
+        gap: gap ?? space.md,
         alignItems: align,
         ...style,
       }}

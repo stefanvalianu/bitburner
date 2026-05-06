@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { colors, fonts, space } from "./tokens";
+import { useTheme } from "./theme";
 
 interface ButtonProps {
   children: ReactNode;
@@ -8,6 +8,7 @@ interface ButtonProps {
 }
 
 export function Button({ children, onClick, variant = "default" }: ButtonProps) {
+  const { colors, fonts, space } = useTheme();
   const c = variant === "warn" ? colors.warn : variant === "error" ? colors.error : colors.fg;
   return (
     <button

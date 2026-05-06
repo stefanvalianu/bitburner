@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { colors, fonts, space } from "./tokens";
+import { useTheme } from "./theme";
 
 interface ColProps {
   children: ReactNode;
@@ -8,7 +8,8 @@ interface ColProps {
   style?: CSSProperties;
 }
 
-export function Col({ children, gap = space.sm, align, style }: ColProps) {
+export function Col({ children, gap, align, style }: ColProps) {
+  const { colors, fonts, space } = useTheme();
   return (
     <div
       style={{
@@ -16,7 +17,7 @@ export function Col({ children, gap = space.sm, align, style }: ColProps) {
         color: colors.fg,
         display: "flex",
         flexDirection: "column",
-        gap,
+        gap: gap ?? space.sm,
         alignItems: align,
         ...style,
       }}

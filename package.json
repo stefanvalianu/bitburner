@@ -4,9 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "tsx tools/sync-server.ts",
-    "build": "vp build",
-    "build:watch": "vp build --watch"
+    "start": "tsx tools/sync-server.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

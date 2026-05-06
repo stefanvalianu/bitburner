@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { colors, space } from "./tokens";
 import { Row } from "./Row";
+import { useTheme } from "./theme";
 
 interface StatProps {
   label: ReactNode;
@@ -8,11 +8,12 @@ interface StatProps {
   color?: string;
 }
 
-export function Stat({ label, value, color = colors.fg }: StatProps) {
+export function Stat({ label, value, color }: StatProps) {
+  const { colors, space } = useTheme();
   return (
     <Row gap={space.sm}>
       <span style={{ color: colors.muted }}>{label}:</span>
-      <span style={{ color }}>{value}</span>
+      <span style={{ color: color ?? colors.fg }}>{value}</span>
     </Row>
   );
 }

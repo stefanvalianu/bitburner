@@ -5,5 +5,5 @@ export * from "./NotificationDot";
 export * from "./Panel";
 export * from "./Row";
 export * from "./Stat";
-export * from "./tokens";
+export * from "./theme";
 export * from "./useNotification";

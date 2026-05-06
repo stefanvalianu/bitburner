@@ -1,4 +1,4 @@
-import { space } from "./tokens";
+import { useTheme } from "./theme";
 
 interface NotificationDotProps {
   color: string;
@@ -6,6 +6,7 @@ interface NotificationDotProps {
 }
 
 export function NotificationDot({ color, size = 8 }: NotificationDotProps) {
+  const { space } = useTheme();
   return (
     <span
       style={{

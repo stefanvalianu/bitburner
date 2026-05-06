@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { colors, fonts, space } from "./tokens";
+import { useTheme } from "./theme";
 
 interface PanelProps {
   title?: ReactNode;
@@ -8,6 +8,7 @@ interface PanelProps {
 }
 
 export function Panel({ title, children, style }: PanelProps) {
+  const { colors, fonts, space } = useTheme();
   return (
     <div
       style={{

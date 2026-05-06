@@ -4,6 +4,7 @@ import { createLogger } from "./lib/log";
 import {
   Button,
   Col,
+  GameStatePanel,
   LogStream,
   Modal,
   NotificationDot,
@@ -55,7 +56,7 @@ function Dashboard({ ns }: { ns: NS }) {
   };
 
   return (
-    <>
+    <Col gap={8}>
       <Panel title="Home Dashboard">
         <Col gap={4}>
           <Stat label="Money" value={`$${moneyStr}`} color={colors.money} />
@@ -75,10 +76,11 @@ function Dashboard({ ns }: { ns: NS }) {
           </Button>
         </Row>
       </Panel>
+      <GameStatePanel ns={ns} />
       <Modal open={logsOpen} onClose={() => setLogsOpen(false)} title={`logs · ${entries.length}`}>
         <LogStream entries={entries} />
       </Modal>
-    </>
+    </Col>
   );
 }
 

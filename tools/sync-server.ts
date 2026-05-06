@@ -94,9 +94,10 @@ async function deleteFile(ws: WebSocket, absPath: string) {
   console.log(`✗ ${filename}`);
 }
 
+// Plain ws here; Tailscale Funnel (started by `just run`) terminates TLS at
+// the edge and forwards to this port, so external clients see wss://.
 const wss = new WebSocketServer({ port: PORT });
-console.log(`Listening for Bitburner on ws://localhost:${PORT}`);
-console.log("In-game: Options → Remote API → set port and Connect.\n");
+console.log(`Listening on ws://localhost:${PORT} (Funnel forwards wss:// → here)\n`);
 
 // One Bitburner client at a time. Each connection gets its own watcher; closing
 // the socket tears the watcher down so reconnects don't leak handlers.

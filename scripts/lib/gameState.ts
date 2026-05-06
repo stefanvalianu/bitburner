@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import type { NS } from "@ns";
+import { scanAll, type ServerInfo } from "./utils/serverMap";
 
 const DEFAULT_INTERVAL_MS = 10_000;
 
 export interface GameState {
   hasTorRouter: boolean;
   programs: { name: string; owned: boolean }[];
+  servers: ServerInfo[];
 }
 
 function snapshot(ns: NS): GameState {
@@ -16,6 +18,7 @@ function snapshot(ns: NS): GameState {
   return {
     hasTorRouter: ns.hasTorRouter(),
     programs,
+    servers: scanAll(ns),
   };
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { NS } from "@ns";
 import { createLogger } from "./lib/log";
+import { useGameState } from "./lib/gameState";
 import {
   Button,
   Col,
@@ -10,6 +11,7 @@ import {
   NotificationDot,
   Panel,
   Row,
+  ServerMapPanel,
   Stat,
   ThemeProvider,
   useLevelColor,
@@ -27,6 +29,7 @@ function Dashboard({ ns }: { ns: NS }) {
   const [tick, setTick] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
   const { notification, notify, clear } = useNotification();
+  const gameState = useGameState(ns);
 
   // Poll logs continuously so the notification dot reflects activity even
   // while the modal is closed. Skip notifying on entries that arrive while
@@ -36,7 +39,6 @@ function Dashboard({ ns }: { ns: NS }) {
   });
 
   useEffect(() => {
-    log.info("dashboard mounted");
     const id = setInterval(() => {
       setMoney(ns.getServerMoneyAvailable("home"));
       setHackLevel(ns.getHackingLevel());
@@ -44,7 +46,6 @@ function Dashboard({ ns }: { ns: NS }) {
     }, 500);
     return () => {
       clearInterval(id);
-      log.info("dashboard unmounted");
     };
   }, [ns, log]);
 
@@ -76,7 +77,8 @@ function Dashboard({ ns }: { ns: NS }) {
           </Button>
         </Row>
       </Panel>
-      <GameStatePanel ns={ns} />
+      <GameStatePanel state={gameState} />
+      <ServerMapPanel state={gameState} />
       <Modal open={logsOpen} onClose={() => setLogsOpen(false)} title={`logs · ${entries.length}`}>
         <LogStream entries={entries} />
       </Modal>

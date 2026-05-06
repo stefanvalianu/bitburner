@@ -8,6 +8,7 @@ export * from "./Modal";
 export * from "./NotificationDot";
 export * from "./Panel";
 export * from "./Row";
+export * from "./ServerMapPanel";
 export * from "./Stat";
 export * from "./theme";
 export * from "./useNotification";

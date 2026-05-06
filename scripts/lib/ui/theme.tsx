@@ -16,6 +16,8 @@ export interface Theme {
     success: string;
     muted: string;
     border: string;
+    well: string;
+    wellLight: string;
     money: string;
     hack: string;
     hp: string;
@@ -40,6 +42,8 @@ export function buildTheme(ns: NS): Theme {
       success: t.success,
       muted: t.secondary,
       border: t.welllight,
+      well: t.well,
+      wellLight: t.welllight,
       money: t.money,
       hack: t.hack,
       hp: t.hp,

@@ -46,7 +46,10 @@ export default defineConfig({
       output: {
         format: "es",
         entryFileNames: "[name].js",
-        chunkFileNames: "_chunks/[name]-[hash].js",
+        // Stable chunk names — hashed names would litter the game with stale
+        // files across rebuilds (sync server can only delete files it sees go
+        // away, and old hashes vanish silently from this tree).
+        chunkFileNames: "_chunks/[name].js",
       },
     },
   },

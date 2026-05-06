@@ -1,0 +1,81 @@
+import { useEffect, useRef, useState } from "react";
+import type { NS } from "@ns";
+import { LOG_PORT, type LogEntry, type LogLevel } from "./lib/log";
+import { Badge, Col, Panel, Row, colors, space } from "./lib/ui";
+
+const MAX_BUFFER = 250;
+const POLL_MS = 200;
+
+const levelColor: Record<LogLevel, string> = {
+  debug: colors.muted,
+  info: colors.fg,
+  warn: colors.warn,
+  error: colors.error,
+};
+
+function ts(t: number): string {
+  const d = new Date(t);
+  const pad = (n: number, w = 2) => n.toString().padStart(w, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+}
+
+function LogStream({ ns }: { ns: NS }) {
+  const [entries, setEntries] = useState<LogEntry[]>([]);
+  const endRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const port = ns.getPortHandle(LOG_PORT);
+    const id = setInterval(() => {
+      const fresh: LogEntry[] = [];
+      while (!port.empty()) {
+        const raw = port.read();
+        if (typeof raw !== "string" || raw === "NULL PORT DATA") break;
+        try {
+          fresh.push(JSON.parse(raw) as LogEntry);
+        } catch {
+          // Drop malformed entries silently — better than nuking the viewer.
+        }
+      }
+      if (fresh.length > 0) {
+        setEntries((prev) => [...prev, ...fresh].slice(-MAX_BUFFER));
+      }
+    }, POLL_MS);
+    return () => clearInterval(id);
+  }, [ns]);
+
+  // Auto-scroll on new entries.
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end" });
+  }, [entries.length]);
+
+  return (
+    <Panel title={`logs · ${entries.length}/${MAX_BUFFER}`} style={{ minWidth: 520, maxHeight: 500, overflowY: "auto" }}>
+      {entries.length === 0 ? (
+        <span style={{ color: colors.muted }}>waiting for logs… (port {LOG_PORT})</span>
+      ) : (
+        <Col gap={2}>
+          {entries.map((e, i) => (
+            <Row key={i} gap={space.sm} align="baseline">
+              <span style={{ color: colors.muted, fontSize: 10, minWidth: 90 }}>{ts(e.ts)}</span>
+              <Badge color={levelColor[e.level]}>{e.level}</Badge>
+              <span style={{ color: colors.muted, minWidth: 80 }}>{e.source}</span>
+              <span style={{ color: levelColor[e.level] }}>{e.msg}</span>
+              {e.data !== undefined && (
+                <span style={{ color: colors.muted }}>{JSON.stringify(e.data)}</span>
+              )}
+            </Row>
+          ))}
+          <div ref={endRef} />
+        </Col>
+      )}
+    </Panel>
+  );
+}
+
+export async function main(ns: NS): Promise<void> {
+  ns.disableLog("ALL");
+  ns.clearLog();
+  ns.ui.openTail();
+  ns.printRaw(<LogStream ns={ns} />);
+  while (true) await ns.asleep(60_000);
+}

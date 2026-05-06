@@ -16,6 +16,21 @@ const entries = Object.fromEntries(
 );
 
 export default defineConfig({
+  // Redirect `import "react"` etc. to local shims that pull from globalThis.
+  // User code looks like a normal React app; the bundle inlines the shims so
+  // Bitburner's runtime never has to resolve a "react" specifier.
+  resolve: {
+    // Regex form because Rolldown's alias matcher treats specifiers with
+    // slashes (`react/jsx-runtime`) as filesystem paths in the string form.
+    alias: [
+      { find: /^react$/, replacement: resolve(root, "tools/react-shim.ts") },
+      { find: /^react-dom$/, replacement: resolve(root, "tools/react-dom-shim.ts") },
+      {
+        find: /^react\/jsx-(dev-)?runtime$/,
+        replacement: resolve(root, "tools/react-jsx-runtime-shim.ts"),
+      },
+    ],
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,
@@ -28,9 +43,6 @@ export default defineConfig({
     rollupOptions: {
       input: entries,
       preserveEntrySignatures: "strict",
-      // Bitburner's runtime provides these; bundling them would either fail
-      // or duplicate the game's own copy.
-      external: ["react", "react-dom"],
       output: {
         format: "es",
         entryFileNames: "[name].js",

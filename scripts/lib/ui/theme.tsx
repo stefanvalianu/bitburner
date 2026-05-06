@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { NS } from "@ns";
+import { useNs } from "../ns";
 
 // Theme tokens derived from the in-game theme (ns.ui.getTheme) and styles
 // (ns.ui.getStyles). Components must consume these via useTheme() — never
@@ -56,7 +57,8 @@ export function buildTheme(ns: NS): Theme {
 
 const ThemeContext = createContext<Theme | null>(null);
 
-export function ThemeProvider({ ns, children }: { ns: NS; children: ReactNode }) {
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const ns = useNs();
   const theme = useMemo(() => buildTheme(ns), [ns]);
   return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
 }

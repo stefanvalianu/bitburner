@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { NS } from "@ns";
-import { createLogger } from "./lib/log";
-import { useGameState } from "./lib/gameState";
+import { useLogger } from "./lib/log";
+import { GameStateProvider } from "./lib/gameState";
+import { NsProvider, useNs } from "./lib/ns";
 import {
   Button,
   Col,
@@ -20,21 +21,21 @@ import {
   useTheme,
 } from "./lib/ui";
 
-function Dashboard({ ns }: { ns: NS }) {
+function Dashboard() {
+  const ns = useNs();
   const { colors } = useTheme();
   const levelColor = useLevelColor();
-  const log = useMemo(() => createLogger(ns, "dashboard"), [ns]);
+  const log = useLogger("dashboard");
   const [money, setMoney] = useState(ns.getServerMoneyAvailable("home"));
   const [hackLevel, setHackLevel] = useState(ns.getHackingLevel());
   const [tick, setTick] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
   const { notification, notify, clear } = useNotification();
-  const gameState = useGameState(ns);
 
   // Poll logs continuously so the notification dot reflects activity even
   // while the modal is closed. Skip notifying on entries that arrive while
   // the user already has the modal open — they're seeing them in real time.
-  const entries = useLogStream(ns, (top) => {
+  const entries = useLogStream((top) => {
     if (!logsOpen) notify(levelColor[top.level]);
   });
 
@@ -47,7 +48,7 @@ function Dashboard({ ns }: { ns: NS }) {
     return () => {
       clearInterval(id);
     };
-  }, [ns, log]);
+  }, [ns]);
 
   const moneyStr = money.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
@@ -77,8 +78,8 @@ function Dashboard({ ns }: { ns: NS }) {
           </Button>
         </Row>
       </Panel>
-      <GameStatePanel state={gameState} />
-      <ServerMapPanel state={gameState} />
+      <GameStatePanel />
+      <ServerMapPanel />
       <Modal open={logsOpen} onClose={() => setLogsOpen(false)} title={`logs · ${entries.length}`}>
         <LogStream entries={entries} />
       </Modal>
@@ -91,9 +92,13 @@ export async function main(ns: NS): Promise<void> {
   ns.clearLog();
   ns.ui.openTail();
   ns.printRaw(
-    <ThemeProvider ns={ns}>
-      <Dashboard ns={ns} />
-    </ThemeProvider>,
+    <NsProvider ns={ns}>
+      <ThemeProvider>
+        <GameStateProvider>
+          <Dashboard />
+        </GameStateProvider>
+      </ThemeProvider>
+    </NsProvider>,
   );
   while (true) await ns.asleep(60_000);
 }

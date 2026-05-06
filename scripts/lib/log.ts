@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import type { NS } from "@ns";
+import { useNs } from "./ns";
 
 // Shared port between producers (any script that logs) and the consumer
 // (scripts/tail-logs.tsx). Bitburner ports are FIFO with bounded capacity;
@@ -37,4 +39,11 @@ export function createLogger(ns: NS, source: string): Logger {
     warn: (m, d) => emit("warn", m, d),
     error: (m, d) => emit("error", m, d),
   };
+}
+
+// Hook variant that pulls ns from context, so call sites don't have to thread
+// it through props. The returned logger is stable per (ns, source).
+export function useLogger(source: string): Logger {
+  const ns = useNs();
+  return useMemo(() => createLogger(ns, source), [ns, source]);
 }

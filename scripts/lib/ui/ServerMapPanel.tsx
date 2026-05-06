@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { GameState } from "../gameState";
+import { useGameState } from "../gameState";
 import { Panel } from "./Panel";
 import { useTheme } from "./theme";
 
@@ -40,9 +40,9 @@ function RailColumn({ kind }: { kind: RailKind }) {
   );
 }
 
-export function ServerMapPanel({ state }: { state: GameState }) {
+export function ServerMapPanel() {
   const { colors, fonts, space } = useTheme();
-  const { servers } = state;
+  const { servers } = useGameState();
 
   const cellPadding = `${space.xs}px ${space.sm}px`;
   const headerStyle: CSSProperties = {

@@ -1,4 +1,4 @@
-import type { GameState } from "../gameState";
+import { useGameState } from "../gameState";
 import { Check } from "./Check";
 import { Col } from "./Col";
 import { Panel } from "./Panel";
@@ -37,7 +37,8 @@ function SectionHeading({ children }: { children: string }) {
   );
 }
 
-export function GameStatePanel({ state }: { state: GameState }) {
+export function GameStatePanel() {
+  const state = useGameState();
   return (
     <Panel title="Game state" collapsible defaultOpen>
       <Col gap={4}>

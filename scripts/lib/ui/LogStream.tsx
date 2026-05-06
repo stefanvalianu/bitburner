@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { NS } from "@ns";
 import { LOG_PORT, type LogEntry, type LogLevel } from "../log";
 import { Badge } from "./Badge";
 import { Col } from "./Col";
+import { useNs } from "../ns";
 import { Row } from "./Row";
 import { useTheme } from "./theme";
 
@@ -21,10 +21,8 @@ function ts(t: number): string {
 // entries. onFresh fires once per poll that produced new entries, with the
 // highest-severity entry from that batch — useful for badging the trigger
 // that opens the log view.
-export function useLogStream(
-  ns: NS,
-  onFresh?: (top: LogEntry) => void,
-): LogEntry[] {
+export function useLogStream(onFresh?: (top: LogEntry) => void): LogEntry[] {
+  const ns = useNs();
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const onFreshRef = useRef(onFresh);
   onFreshRef.current = onFresh;

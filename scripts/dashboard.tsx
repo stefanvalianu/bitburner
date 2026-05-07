@@ -23,6 +23,26 @@ import {
   useTheme,
 } from "./lib/ui";
 
+function PropagationStamp() {
+  const { colors } = useTheme();
+  const { propagatedVersion } = useGameState();
+  if (!propagatedVersion) return null;
+  return (
+    <span
+      style={{
+        position: "fixed",
+        bottom: 4,
+        right: 6,
+        fontSize: 10,
+        color: colors.fgDim,
+        pointerEvents: "none",
+      }}
+    >
+      {propagatedVersion}
+    </span>
+  );
+}
+
 function Dashboard() {
   const { colors } = useTheme();
   const levelColor = useLevelColor();
@@ -78,6 +98,7 @@ function Dashboard() {
       <Modal open={stateOpen} onClose={() => setStateOpen(false)} title="Game state">
         <GameState />
       </Modal>
+      <PropagationStamp />
     </Col>
   );
 }

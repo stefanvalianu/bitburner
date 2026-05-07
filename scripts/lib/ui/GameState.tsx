@@ -36,21 +36,6 @@ function SectionHeading({ children }: { children: string }) {
   );
 }
 
-function PropagationRow() {
-  const { colors, space } = useTheme();
-  const { currentVersion, propagatedVersion } = useGameState();
-  const inSync = currentVersion && currentVersion === propagatedVersion;
-  const label = propagatedVersion
-    ? new Date(parseInt(propagatedVersion, 10)).toLocaleString()
-    : "never";
-  return (
-    <Row gap={space.sm}>
-      <Check ok={Boolean(inSync)} />
-      <span style={{ color: inSync ? colors.fg : colors.muted }}>Last propagated: {label}</span>
-    </Row>
-  );
-}
-
 export function GameState() {
   const state = useGameState();
   return (
@@ -60,8 +45,6 @@ export function GameState() {
       {state.programs.map((p) => (
         <BoolRow key={p.name} label={p.name} ok={p.owned} />
       ))}
-      <SectionHeading>Propagation</SectionHeading>
-      <PropagationRow />
     </Col>
   );
 }

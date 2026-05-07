@@ -4,37 +4,8 @@ import { useLogger } from "../log";
 import { useNs } from "../ns";
 import { Panel } from "./Panel";
 import { Row } from "./Row";
+import { Spinner } from "./Spinner";
 import { useTheme } from "./theme";
-
-function Spinner({ active }: { active: boolean }) {
-  const { colors } = useTheme();
-  const stroke = active ? colors.accent : colors.muted;
-  return (
-    <svg width={14} height={14} viewBox="0 0 16 16" role="img" aria-hidden>
-      <circle
-        cx={8}
-        cy={8}
-        r={6}
-        fill="none"
-        stroke={stroke}
-        strokeWidth={1.5}
-        strokeDasharray="20 12"
-        strokeLinecap="round"
-      >
-        {active && (
-          <animateTransform
-            attributeName="transform"
-            type="rotate"
-            from="0 8 8"
-            to="360 8 8"
-            dur="1s"
-            repeatCount="indefinite"
-          />
-        )}
-      </circle>
-    </svg>
-  );
-}
 
 export function ServerPanel() {
   const ns = useNs();
@@ -64,17 +35,24 @@ export function ServerPanel() {
       ownedPortOpeners >= s.numOpenPortsRequired,
   );
 
-  // Re-runs every gameState tick — `servers` is a fresh array per snapshot,
-  // mirroring the cadence used by usePropagate.
+  // NUKE every pwnable server every gameState tick. The port-opener calls
+  // throw if the corresponding .exe isn't owned, so we gate each one on
+  // inventory. NUKE itself is unconditional — the pwnable filter already
+  // confirmed admin rights are missing and the requirements are met.
   useEffect(() => {
     if (pwnable.length === 0) return;
-    let started = 0;
-    for (const t of pwnable) {
-      const pid = ns.exec("lib/hacks/pwn.js", "home", 1, t.hostname);
-      if (pid > 0) started++;
+    const PN = ns.enums.ProgramName;
+    const owned = new Set(inventory.portOpeners.filter((p) => p.owned).map((p) => p.name));
+    for (const { hostname } of pwnable) {
+      if (owned.has(PN.bruteSsh)) ns.brutessh(hostname);
+      if (owned.has(PN.ftpCrack)) ns.ftpcrack(hostname);
+      if (owned.has(PN.relaySmtp)) ns.relaysmtp(hostname);
+      if (owned.has(PN.httpWorm)) ns.httpworm(hostname);
+      if (owned.has(PN.sqlInject)) ns.sqlinject(hostname);
+      ns.nuke(hostname);
     }
-    if (started > 0) log.info(`pwn started on ${started}/${pwnable.length} targets`);
-  }, [ns, log, servers, stats.hackingLevel, ownedPortOpeners]);
+    log.info(`nuked ${pwnable.length} target${pwnable.length === 1 ? "" : "s"}`);
+  }, [ns, log, servers, stats.hackingLevel, ownedPortOpeners, inventory.portOpeners]);
 
   return (
     <Panel title="Servers">

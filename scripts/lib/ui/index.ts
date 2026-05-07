@@ -12,6 +12,7 @@ export * from "./Row";
 export * from "./ScrollScope";
 export * from "./ServerMap";
 export * from "./ServerPanel";
+export * from "./Spinner";
 export * from "./Stat";
 export * from "./theme";
 export * from "./useNotification";

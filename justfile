@@ -1,12 +1,12 @@
 _default:
     @just --list
 
-# Bundles scripts/ into dist/. The running sync server picks up the dist/
-# changes and pushes them to Bitburner.
+# Bundles scripts/ into dist/.
 build:
-    vp build
+    @vp i && vp check --fix && vp build
 
-# Starts the sync server and exposes it on the public internet via Tailscale Funnel
+# Runs the sync server (Tailscale Funnel + WS for the game + local control
+# socket for `just deploy`). Holds the connection open; pushes are explicit.
 run:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -15,3 +15,7 @@ run:
     DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
     echo "Funnel up: wss://$DNS"
     vp run start
+
+# Pushes the current dist/ to Bitburner via the running sync server.
+deploy:
+    @curl -fsS -X POST http://127.0.0.1:12526/deploy

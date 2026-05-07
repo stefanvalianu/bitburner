@@ -35,9 +35,7 @@ function Dashboard() {
   const [logsOpen, setLogsOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const { notification, notify, clear } = useNotification();
-  const backdoored = servers.filter(
-    (s) => s.backdoorInstalled || s.purchasedByPlayer,
-  ).length;
+  const backdoored = servers.filter((s) => s.backdoorInstalled || s.purchasedByPlayer).length;
 
   // Poll logs continuously so the notification dot reflects activity even
   // while the modal is closed. Skip notifying on entries that arrive while
@@ -73,9 +71,7 @@ function Dashboard() {
           <Stat label="Tick" value={tick} color={colors.muted} />
         </Col>
         <Row>
-          <Button onClick={() => log.info("snapshot", { money, hackLevel })}>
-            Log snapshot
-          </Button>
+          <Button onClick={() => log.info("snapshot", { money, hackLevel })}>Log snapshot</Button>
           <Button variant="warn" onClick={() => log.warn("manual warn from dashboard")}>
             Emit warn
           </Button>
@@ -94,7 +90,11 @@ function Dashboard() {
       <Modal open={logsOpen} onClose={() => setLogsOpen(false)} title={`logs · ${entries.length}`}>
         <LogStream entries={entries} />
       </Modal>
-      <Modal open={mapOpen} onClose={() => setMapOpen(false)} title={`Server map · ${backdoored}/${servers.length}`}>
+      <Modal
+        open={mapOpen}
+        onClose={() => setMapOpen(false)}
+        title={`Server map · ${backdoored}/${servers.length}`}
+      >
         <ServerMap />
       </Modal>
     </Col>

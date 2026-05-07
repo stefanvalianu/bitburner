@@ -14,8 +14,10 @@ interface ModalProps {
   style?: CSSProperties;
 }
 
+const SCROLL_SCOPE = "bb-modal-scroll";
+
 export function Modal({ open, onClose, title, children, style }: ModalProps) {
-  const { space } = useTheme();
+  const { colors, space } = useTheme();
   const sentinelRef = useRef<HTMLSpanElement>(null);
   const [body, setBody] = useState<HTMLElement | null>(null);
 
@@ -36,12 +38,38 @@ export function Modal({ open, onClose, title, children, style }: ModalProps) {
     return () => body.removeEventListener("keydown", onKey);
   }, [open, body, onClose]);
 
+  // Bitburner's global stylesheet hides webkit scrollbars, so overflow inside
+  // the modal silently clips. Re-enable them — and theme them — but only
+  // within the modal subtree so we don't disturb the rest of the game UI.
+  const scrollbarCss = `
+    .${SCROLL_SCOPE}, .${SCROLL_SCOPE} * {
+      scrollbar-width: thin !important;
+      scrollbar-color: ${colors.fgDim} ${colors.well} !important;
+    }
+    .${SCROLL_SCOPE} ::-webkit-scrollbar,
+    .${SCROLL_SCOPE}::-webkit-scrollbar {
+      width: 10px !important;
+      height: 10px !important;
+      display: block !important;
+    }
+    .${SCROLL_SCOPE} ::-webkit-scrollbar-thumb,
+    .${SCROLL_SCOPE}::-webkit-scrollbar-thumb {
+      background: ${colors.fgDim} !important;
+      border-radius: 2px !important;
+    }
+    .${SCROLL_SCOPE} ::-webkit-scrollbar-track,
+    .${SCROLL_SCOPE}::-webkit-scrollbar-track {
+      background: ${colors.well} !important;
+    }
+  `;
+
   return (
     <>
       <span ref={sentinelRef} style={{ display: "none" }} />
       {open && body
         ? createPortal(
             <div
+              className={SCROLL_SCOPE}
               onClick={onClose}
               style={{
                 position: "fixed",
@@ -53,7 +81,15 @@ export function Modal({ open, onClose, title, children, style }: ModalProps) {
                 zIndex: 9999,
               }}
             >
-              <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: "90vw", maxHeight: "90vh" }}>
+              <style>{scrollbarCss}</style>
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  maxWidth: "90vw",
+                  maxHeight: "90vh",
+                  overflow: "auto",
+                }}
+              >
                 <Panel title={title} style={{ minWidth: 480, ...style }}>
                   {children}
                   <Row gap={space.sm} style={{ justifyContent: "flex-end" }}>

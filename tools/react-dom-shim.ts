@@ -3,10 +3,4 @@ const ReactDOM = (globalThis as unknown as { ReactDOM: typeof import("react-dom"
 
 export default ReactDOM;
 
-export const {
-  createPortal,
-  flushSync,
-  findDOMNode,
-  render,
-  unmountComponentAtNode,
-} = ReactDOM;
+export const { createPortal, flushSync, findDOMNode, render, unmountComponentAtNode } = ReactDOM;

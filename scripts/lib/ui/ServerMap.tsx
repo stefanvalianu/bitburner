@@ -15,7 +15,12 @@ function RailColumn({ kind }: { kind: RailKind }) {
   if (kind === "none") {
     return (
       <span
-        style={{ display: "inline-block", width: INDENT_PX, height: ROW_HEIGHT, verticalAlign: "middle" }}
+        style={{
+          display: "inline-block",
+          width: INDENT_PX,
+          height: ROW_HEIGHT,
+          verticalAlign: "middle",
+        }}
       />
     );
   }
@@ -219,12 +224,11 @@ function StateCell({ s, hackingLevel }: { s: ServerInfo; hackingLevel: number })
   const portsMissing = s.openPortCount < s.numOpenPortsRequired;
   if (!levelTooLow && !portsMissing) return <HackReadyIcon color={colors.hack} />;
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: space.sm, color: colors.muted }}>
+    <span
+      style={{ display: "inline-flex", alignItems: "center", gap: space.sm, color: colors.muted }}
+    >
       {levelTooLow && (
-        <IconWithValue
-          icon={<LevelIcon color={colors.warn} />}
-          value={s.requiredHackingSkill}
-        />
+        <IconWithValue icon={<LevelIcon color={colors.warn} />} value={s.requiredHackingSkill} />
       )}
       {portsMissing && (
         <IconWithValue
@@ -274,7 +278,9 @@ export function ServerMap() {
       >
         <thead>
           <tr>
-            <th style={{ ...headerStyle, textAlign: "left", width: 1, whiteSpace: "nowrap" }}>State</th>
+            <th style={{ ...headerStyle, textAlign: "left", width: 1, whiteSpace: "nowrap" }}>
+              State
+            </th>
             <th style={{ ...headerStyle, width: "100%" }}>Server</th>
           </tr>
         </thead>
@@ -310,10 +316,7 @@ export function ServerMap() {
                         width: CORES_WIDTH_PX,
                       }}
                     >
-                      <IconWithValue
-                        icon={<CoresIcon color={colors.fgDim} />}
-                        value={s.cpuCores}
-                      />
+                      <IconWithValue icon={<CoresIcon color={colors.fgDim} />} value={s.cpuCores} />
                     </span>
                     <span
                       style={{

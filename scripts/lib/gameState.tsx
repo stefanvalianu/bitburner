@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { NS } from "@ns";
 import { useNs } from "./ns";
 import { scanAll, type ServerInfo } from "./utils/serverMap";
@@ -50,9 +44,7 @@ export function GameStateProvider({
     const id = setInterval(() => setState(snapshot(ns)), intervalMs);
     return () => clearInterval(id);
   }, [ns, intervalMs]);
-  return (
-    <GameStateContext.Provider value={state}>{children}</GameStateContext.Provider>
-  );
+  return <GameStateContext.Provider value={state}>{children}</GameStateContext.Provider>;
 }
 
 export function useGameState(): GameState {

@@ -13,7 +13,12 @@ function RailColumn({ kind }: { kind: RailKind }) {
   if (kind === "none") {
     return (
       <span
-        style={{ display: "inline-block", width: INDENT_PX, height: ROW_HEIGHT, verticalAlign: "middle" }}
+        style={{
+          display: "inline-block",
+          width: INDENT_PX,
+          height: ROW_HEIGHT,
+          verticalAlign: "middle",
+        }}
       />
     );
   }

@@ -11,9 +11,10 @@ A tiny WebSocket sync server (`tools/sync-server.ts`) bundles `scripts/` with Vi
 
 ## Usage
 
-1. `just run` — boots the bundler in watch mode, the sync server on `ws://localhost:12525`, and a Tailscale Funnel that exposes it publicly as `wss://<host>.<tailnet>.ts.net` if the `--remote` option is provided. The recipe prints the URL on startup and tears the Funnel down on Ctrl-C.
+1. `just run` — boots the sync server on `ws://localhost:12525` and a Tailscale Funnel that exposes it publicly as `wss://<host>.<tailnet>.ts.net`. The recipe prints the URL on startup and tears the Funnel down on Ctrl-C. The server stays connected to the game but does not push anything until told to.
 2. In Bitburner: **Options → Remote API** → enable external connection and paste the printed `wss://...` URL (port 443).
-3. Write scripts in `scripts/`. Saves are bundled and pushed to the `home` server automatically.
+3. `just build` — bundles `scripts/` into `dist/`.
+4. `just deploy` — pushes the current `dist/` to the `home` server. Run this whenever you want to ship changes; the sync server must be running and the game must be connected.
 
 > First time using Funnel? Enable it once for this tailnet at <https://login.tailscale.com/admin/acls> (Funnel node attribute) and run `tailscale up` if needed.
 

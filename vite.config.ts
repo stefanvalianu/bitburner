@@ -9,10 +9,12 @@ import { resolve } from "node:path";
 // that would shift RAM costs in non-obvious ways.
 const root = fileURLToPath(new URL(".", import.meta.url));
 const entries = Object.fromEntries(
-  glob.sync("scripts/**/*.{ts,tsx,js,jsx}").map((file) => [
-    file.slice("scripts/".length).replace(/\.(ts|tsx|js|jsx)$/, ""),
-    resolve(root, file),
-  ]),
+  glob
+    .sync("scripts/**/*.{ts,tsx,js,jsx}")
+    .map((file) => [
+      file.slice("scripts/".length).replace(/\.(ts|tsx|js|jsx)$/, ""),
+      resolve(root, file),
+    ]),
 );
 
 export default defineConfig({

@@ -83,9 +83,7 @@ export function LogStream({ entries }: LogStreamProps) {
   }, [entries.length]);
 
   if (entries.length === 0) {
-    return (
-      <span style={{ color: colors.muted }}>waiting for logs… (port {LOG_PORT})</span>
-    );
+    return <span style={{ color: colors.muted }}>waiting for logs… (port {LOG_PORT})</span>;
   }
   return (
     <Col gap={2} style={{ maxHeight: 400, overflowY: "auto", minWidth: 520 }}>

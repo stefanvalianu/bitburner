@@ -52,15 +52,13 @@ export function scanAll(ns: NS, root: string = "home"): ServerInfo[] {
       rails: [...rails],
       isLastSibling,
       purchasedByPlayer: data.purchasedByPlayer,
-      numOpenPortsRequired:
-        "numOpenPortsRequired" in data ? data.numOpenPortsRequired ?? 0 : 0,
-      openPortCount: "openPortCount" in data ? data.openPortCount ?? 0 : 0,
+      numOpenPortsRequired: "numOpenPortsRequired" in data ? (data.numOpenPortsRequired ?? 0) : 0,
+      openPortCount: "openPortCount" in data ? (data.openPortCount ?? 0) : 0,
       cpuCores: data.cpuCores,
       ramUsed: data.ramUsed,
       maxRam: data.maxRam,
       backdoorInstalled: data.backdoorInstalled ?? false,
-      requiredHackingSkill:
-        "requiredHackingSkill" in data ? data.requiredHackingSkill ?? 0 : 0,
+      requiredHackingSkill: "requiredHackingSkill" in data ? (data.requiredHackingSkill ?? 0) : 0,
     });
 
     const children = ns.scan(host).filter((n) => !visited.has(n));

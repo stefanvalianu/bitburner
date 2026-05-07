@@ -1,11 +1,12 @@
 import { WebSocketServer, type WebSocket } from "ws";
-import chokidar from "chokidar";
-import { readFile, writeFile } from "node:fs/promises";
-import { relative, resolve } from "node:path";
+import { createServer } from "node:http";
+import { readdir, readFile, writeFile } from "node:fs/promises";
+import { relative, resolve, join } from "node:path";
 
-const PORT = Number(process.env.PORT) || 12525;
-// We watch the build output, not source. Builds are triggered explicitly via
-// `just build`; this server only mirrors dist/ → game.
+// WS port is exposed publicly via Tailscale Funnel; HTTP control port is bound
+// to loopback only so the deploy trigger can't be hit from the funnel.
+const WS_PORT = Number(process.env.PORT) || 12525;
+const CONTROL_PORT = Number(process.env.CONTROL_PORT) || 12526;
 const DIST_DIR = resolve("dist");
 const SERVER = "home";
 // Built output is JS only; .ts/.tsx have already been compiled away.
@@ -13,8 +14,6 @@ const VALID_EXT = /\.(js|jsx|txt|script)$/i;
 
 type RpcResponse = { jsonrpc: "2.0"; id: number; result?: unknown; error?: unknown };
 
-// We initiate JSON-RPC calls; the game replies asynchronously by `id`. The map
-// resolves the right promise when its matching response comes back.
 let nextId = 1;
 const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: unknown) => void }>();
 
@@ -26,34 +25,45 @@ function call(ws: WebSocket, method: string, params?: unknown): Promise<unknown>
   });
 }
 
-// Game uses POSIX-style paths regardless of host OS, so normalize separators.
+// Game uses POSIX-style paths regardless of host OS.
 function toGameFilename(absPath: string): string {
   return relative(DIST_DIR, absPath).split(/[\\/]/).join("/");
 }
 
-async function pushFile(ws: WebSocket, absPath: string) {
-  const filename = toGameFilename(absPath);
-  if (!VALID_EXT.test(filename)) return;
-  const content = await readFile(absPath, "utf8");
-  await call(ws, "pushFile", { filename, content, server: SERVER });
-  console.log(`→ ${filename}`);
+async function* walk(dir: string): AsyncGenerator<string> {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const p = join(dir, entry.name);
+    if (entry.isDirectory()) yield* walk(p);
+    else if (entry.isFile()) yield p;
+  }
 }
 
-async function deleteFile(ws: WebSocket, absPath: string) {
-  const filename = toGameFilename(absPath);
-  if (!VALID_EXT.test(filename)) return;
-  await call(ws, "deleteFile", { filename, server: SERVER });
-  console.log(`✗ ${filename}`);
+async function pushAll(ws: WebSocket): Promise<number> {
+  let count = 0;
+  for await (const abs of walk(DIST_DIR)) {
+    const filename = toGameFilename(abs);
+    if (!VALID_EXT.test(filename)) continue;
+    const content = await readFile(abs, "utf8");
+    await call(ws, "pushFile", { filename, content, server: SERVER });
+    console.log(`→ ${filename}`);
+    count++;
+  }
+  return count;
 }
 
-// Plain ws here; Tailscale Funnel (started by `just run`) terminates TLS at
-// the edge and forwards to this port, so external clients see wss://.
-const wss = new WebSocketServer({ port: PORT });
-console.log(`Listening on ws://localhost:${PORT} (Funnel forwards wss:// → here)\n`);
+let connectedWs: WebSocket | null = null;
 
-// One Bitburner client at a time. Each connection gets its own watcher; closing
-// the socket tears the watcher down so reconnects don't leak handlers.
+const wss = new WebSocketServer({ port: WS_PORT });
+console.log(`WS listening on ws://localhost:${WS_PORT} (Funnel forwards wss:// → here)`);
+
 wss.on("connection", async (ws) => {
+  if (connectedWs) {
+    // Keep one game session at a time — drop the older socket so the newest
+    // connection wins. Otherwise stale watchers/RPCs from the previous tab
+    // can race the live one.
+    connectedWs.close();
+  }
+  connectedWs = ws;
   console.log("Bitburner connected.");
 
   ws.on("message", (data) => {
@@ -70,23 +80,15 @@ wss.on("connection", async (ws) => {
     else p.resolve(msg.result);
   });
 
-  // ignoreInitial: false → on connect, every existing file fires "add" and
-  // gets pushed, ensuring the game starts in sync with disk.
-  const watcher = chokidar.watch(DIST_DIR, { ignoreInitial: false });
-  watcher.on("add", (p) => pushFile(ws, p).catch(console.error));
-  watcher.on("change", (p) => pushFile(ws, p).catch(console.error));
-  watcher.on("unlink", (p) => deleteFile(ws, p).catch(console.error));
-
   ws.on("close", () => {
     console.log("Bitburner disconnected.");
-    watcher.close();
+    if (connectedWs === ws) connectedWs = null;
     pending.forEach((p) => p.reject(new Error("connection closed")));
     pending.clear();
   });
 
-  // Pull the NS type definitions from the running game and overwrite the
-  // checked-in placeholder. This keeps intellisense aligned with the game
-  // version the user is actually playing (BN/source-file changes can shift it).
+  // Pull the NS type definitions on connect so intellisense stays aligned with
+  // the BN/source-file state of the game we're playing.
   try {
     const defs = (await call(ws, "getDefinitionFile")) as string;
     await writeFile("NetscriptDefinitions.d.ts", defs);
@@ -94,4 +96,30 @@ wss.on("connection", async (ws) => {
   } catch (e) {
     console.error("Failed to fetch type definitions:", e);
   }
+});
+
+// Local-only HTTP control surface. `just deploy` POSTs /deploy here, which
+// walks dist/ and pushes every file over the live WS connection.
+const control = createServer(async (req, res) => {
+  if (req.method === "POST" && req.url === "/deploy") {
+    if (!connectedWs) {
+      res.writeHead(503, { "content-type": "text/plain" }).end("Bitburner not connected\n");
+      return;
+    }
+    try {
+      const count = await pushAll(connectedWs);
+      const msg = `Deployed ${count} file${count === 1 ? "" : "s"}.\n`;
+      console.log(msg.trim());
+      res.writeHead(200, { "content-type": "text/plain" }).end(msg);
+    } catch (e) {
+      console.error("Deploy failed:", e);
+      res.writeHead(500, { "content-type": "text/plain" }).end(`Deploy failed: ${e}\n`);
+    }
+    return;
+  }
+  res.writeHead(404).end();
+});
+
+control.listen(CONTROL_PORT, "127.0.0.1", () => {
+  console.log(`Control listening on http://127.0.0.1:${CONTROL_PORT} (POST /deploy)`);
 });

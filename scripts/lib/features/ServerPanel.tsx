@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useGameState } from "../util/gameState";
-import { useServerManager } from "../util/serverManager";
+import { useTaskManager } from "../util/tasks/manager";
 import { useLogger } from "../util/log";
 import { useNs } from "../util/ns";
 import {
@@ -11,6 +11,8 @@ import {
   numOpenPortsRequired,
   requiredHackingSkill,
 } from "../util/serverMap";
+import type { ScoutTaskState } from "../util/tasks/definitions";
+import type { TaskState } from "../util/tasks/types";
 import { Button } from "../ui/Button";
 import { HomeIcon, MoneyIcon, ShieldIcon, TargetIcon, WorldIcon } from "../ui/Icons";
 import { Panel } from "../ui/Panel";
@@ -22,11 +24,12 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const ns = useNs();
   const log = useLogger("servers");
   const { colors, space } = useTheme();
-  const { servers, stats, inventory, scoutState } = useGameState();
-  const { activeTasks } = useServerManager();
+  const { servers, stats, inventory } = useGameState();
+  const { taskState } = useTaskManager();
 
-  const targetServer = scoutState?.target
-    ? servers.find((s) => s.hostname === scoutState.target)
+  const scoutSlot = taskState["scout-server"] as TaskState<ScoutTaskState> | undefined;
+  const targetServer = scoutSlot?.target
+    ? servers.find((s) => s.hostname === scoutSlot.target)
     : undefined;
 
   // Categorize once. Backdoored implies admin rights, so the nuked bucket
@@ -77,6 +80,11 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
     </Button>
   ) : undefined;
 
+  // Show only running/stopping slots — idle ones don't need a row.
+  const liveTasks = Object.entries(taskState).filter(
+    ([, slot]) => slot.status === "running" || slot.status === "stopping",
+  );
+
   return (
     <Panel title="Servers" actions={actions}>
       <Row gap={space.sm}>
@@ -103,11 +111,13 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
           </span>
         </Row>
       )}
-      {activeTasks.map((t) => {
-        const ram = t.allocation.servers.reduce((sum, s) => sum + s.ram, 0);
+      {liveTasks.map(([id, slot]) => {
+        const slices = slot.lastAllocation?.servers ?? [];
+        const ram = slices.reduce((sum, s) => sum + s.ram, 0);
+        const suffix = slot.status === "stopping" ? " (stopping)" : "";
         return (
-          <Row key={t.taskId} gap={space.sm}>
-            <HomeIcon color={colors.accent} title={`Controller host: ${t.controllerHost}`} />
+          <Row key={id} gap={space.sm}>
+            <HomeIcon color={colors.accent} title={`Controller host: ${slot.host}`} />
             <span
               style={{
                 fontFamily: "serif",
@@ -115,10 +125,10 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
                 color: colors.fg,
               }}
             >
-              {t.controllerHost}
+              {slot.host}
             </span>
             <span style={{ color: colors.muted }}>
-              {t.taskId}: {t.allocation.servers.length} hosts / {ram}GB
+              {id}: {slices.length} hosts / {ram}GB{suffix}
             </span>
           </Row>
         );

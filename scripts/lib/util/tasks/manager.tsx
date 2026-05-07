@@ -1,0 +1,343 @@
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import type { NS } from "@ns";
+import { useGameState, type GameState } from "../gameState";
+import { useLogger } from "../log";
+import { useNs } from "../ns";
+import type { ServerInfo } from "../serverMap";
+import { allocate } from "./allocator";
+import { TASKS } from "./definitions";
+import {
+  BASE_STATE_KEYS,
+  drainEvents,
+  writeTaskState,
+  type Allocation,
+  type BaseTaskState,
+  type TaskDefinition,
+  type TaskId,
+  type TaskState,
+  type TaskStateSnapshot,
+} from "./types";
+
+const TICK_MS = 10_000;
+
+// Home runs the dashboard and is preferred for controllers, but stays out
+// of the worker pool so worker RAM and controller RAM don't compete.
+const EXCLUDE_WORKERS_FROM = new Set(["home"]);
+
+// Build the initial slot for a definition: base lifecycle defaults plus the
+// task-specific initialState.
+function makeInitialSlot(def: TaskDefinition): TaskState {
+  const base: BaseTaskState = {
+    pid: null,
+    host: null,
+    childPids: [],
+    shutdownRequested: false,
+    status: "idle",
+    lastAllocation: null,
+  };
+  return { ...base, ...(def.initialState as Record<string, unknown>) } as TaskState;
+}
+
+function makeInitialSnapshot(): TaskStateSnapshot {
+  const snap: TaskStateSnapshot = {};
+  for (const def of TASKS) snap[def.id] = makeInitialSlot(def);
+  return snap;
+}
+
+// Reset base lifecycle fields to "idle" while keeping task-specific fields
+// intact. We deliberately preserve task fields across stops/crashes so the
+// next needsRerun comparison has the most recent observed state to work with
+// (e.g. scout's `available` list).
+function resetSlotToIdle(slot: TaskState): TaskState {
+  return {
+    ...slot,
+    pid: null,
+    host: null,
+    childPids: [],
+    shutdownRequested: false,
+    status: "idle",
+    lastAllocation: null,
+  };
+}
+
+// Pick a host for a controller. Prefers home; falls back to the smallest
+// non-home admin server that fits.
+function pickControllerHost(
+  ns: NS,
+  servers: ServerInfo[],
+  ramNeeded: number,
+  ourHomeFootprint: number,
+  reserved: Set<string>,
+): string | null {
+  const homeFree = ns.getServerMaxRam("home") - ns.getServerUsedRam("home") + ourHomeFootprint;
+  if (homeFree >= ramNeeded) return "home";
+
+  const candidates = servers
+    .filter(
+      (s) =>
+        s.hostname !== "home" &&
+        s.hasAdminRights &&
+        !reserved.has(s.hostname) &&
+        s.maxRam >= ramNeeded,
+    )
+    .sort((a, b) => a.maxRam - b.maxRam);
+  return candidates[0]?.hostname ?? null;
+}
+
+export interface TaskManagerApi {
+  taskState: TaskStateSnapshot;
+  lastTickAt: number | null;
+  // Hard-kill every tracked controller + reported worker. The dashboard's
+  // kill-all button uses this; cooperative shutdown is reserved for the
+  // tick loop's normal restart flow.
+  killAll: () => void;
+}
+
+const TaskManagerContext = createContext<TaskManagerApi | null>(null);
+
+export function TaskManagerProvider({
+  tickMs = TICK_MS,
+  children,
+}: {
+  tickMs?: number;
+  children: ReactNode;
+}) {
+  const ns = useNs();
+  const log = useLogger("manager");
+  const gameState = useGameState();
+  const [taskState, setTaskState] = useState<TaskStateSnapshot>(() => makeInitialSnapshot());
+  const [lastTickAt, setLastTickAt] = useState<number | null>(null);
+
+  // Refs prevent the interval from being torn down on every gameState tick
+  // (every 10s), which would risk dropping inbound events between ticks.
+  const stateRef = useRef<TaskStateSnapshot>(taskState);
+  stateRef.current = taskState;
+  const gameRef = useRef<GameState>(gameState);
+  gameRef.current = gameState;
+
+  useEffect(() => {
+    const runTick = () => {
+      const game = gameRef.current;
+      // Mutable working copy. Slot objects are also cloned where mutated to
+      // avoid sharing references with the previous snapshot.
+      const snap: TaskStateSnapshot = {};
+      for (const [id, slot] of Object.entries(stateRef.current)) {
+        snap[id] = { ...slot, childPids: [...slot.childPids] };
+      }
+
+      // Re-seed slots for any newly-registered tasks (definitions changed
+      // since last tick — rare in practice, but cheap to handle).
+      for (const def of TASKS) {
+        if (!snap[def.id]) snap[def.id] = makeInitialSlot(def);
+      }
+
+      // -------------------------------------------------------------------
+      // 1. Drain events from tasks and apply them to the snapshot.
+      // -------------------------------------------------------------------
+      const events = drainEvents(ns);
+      for (const ev of events) {
+        const slot = snap[ev.taskId];
+        if (!slot) continue;
+        if (ev.type === "child-spawned") {
+          if (!slot.childPids.includes(ev.pid)) slot.childPids.push(ev.pid);
+          continue;
+        }
+        if (ev.type === "state-patch") {
+          for (const [k, v] of Object.entries(ev.patch)) {
+            if (BASE_STATE_KEYS.has(k)) continue; // reject manager-owned fields
+            (slot as Record<string, unknown>)[k] = v;
+          }
+        }
+      }
+
+      // -------------------------------------------------------------------
+      // 2. Reap any slot whose PID is gone — manual kill, exec failure,
+      //    voluntary exit, or graceful shutdown after seeing the flag.
+      // -------------------------------------------------------------------
+      for (const [id, slot] of Object.entries(snap)) {
+        if (slot.pid !== null && !ns.isRunning(slot.pid)) {
+          if (slot.status === "stopping") {
+            log.info(`task ${id} exited cleanly`);
+          } else if (slot.status === "running") {
+            log.warn(`task ${id} died unexpectedly (pid=${slot.pid})`);
+          }
+          snap[id] = resetSlotToIdle(slot);
+        }
+      }
+
+      // -------------------------------------------------------------------
+      // 3. Evaluate needsRerun for each definition. Build the spawn list
+      //    AND apply shutdown flags as needed.
+      //
+      //    needsRerun gets a "view" gameState whose `tasks` field is the
+      //    manager's authoritative snapshot (the port-published copy is
+      //    always one tick behind during this evaluation).
+      // -------------------------------------------------------------------
+      const view: GameState = { ...game, tasks: snap };
+      const spawnCandidates: TaskDefinition[] = [];
+      for (const def of TASKS) {
+        const slot = snap[def.id];
+        const rerun = def.needsRerun(view, slot);
+        if (slot.status === "stopping") continue; // already winding down
+        if (slot.status === "running") {
+          if (rerun) {
+            slot.shutdownRequested = true;
+            slot.status = "stopping";
+            log.info(`task ${def.id} requested shutdown — needsRerun=true`);
+          }
+          continue;
+        }
+        // status === "idle"
+        if (rerun) spawnCandidates.push(def);
+      }
+
+      // -------------------------------------------------------------------
+      // 4. Apply the "one unbounded task at a time" policy. If any
+      //    growUnbounded slot is currently running or stopping, no
+      //    growUnbounded task spawns this tick. Otherwise pick the first
+      //    growUnbounded candidate (registration order is the priority).
+      // -------------------------------------------------------------------
+      const unboundedActive = TASKS.some(
+        (def) =>
+          def.requirements.growUnbounded === true &&
+          (snap[def.id].status === "running" || snap[def.id].status === "stopping"),
+      );
+      const finalSpawns: TaskDefinition[] = [];
+      let chosenUnbounded: TaskDefinition | null = null;
+      for (const def of spawnCandidates) {
+        if (def.requirements.growUnbounded === true) {
+          if (unboundedActive) continue; // a different unbounded slot owns the fleet
+          if (chosenUnbounded) continue; // already picked one this tick
+          chosenUnbounded = def;
+          finalSpawns.push(def);
+        } else {
+          finalSpawns.push(def);
+        }
+      }
+
+      // -------------------------------------------------------------------
+      // 5. Place + spawn each chosen task. Allocation goes through
+      //    allocator.allocate; controller-only tasks get empty allocations.
+      // -------------------------------------------------------------------
+      const placements = new Map<TaskId, { host: string; ram: number }>();
+      const reserved = new Set<string>();
+      // Account for our own controllers already on home (so the free-RAM
+      // probe doesn't fight with sibling controllers we're respawning).
+      const ourHomeFootprint = Object.values(snap)
+        .filter((s) => s.host === "home" && s.pid !== null)
+        .reduce((sum) => sum + 0, 0); // controllers being spawned here are net-new
+
+      for (const def of finalSpawns) {
+        const ram = ns.getScriptRam(def.scriptPath);
+        if (ram === 0) {
+          log.error(`script not found: ${def.scriptPath}`);
+          continue;
+        }
+        const host = pickControllerHost(ns, game.servers, ram, ourHomeFootprint, reserved);
+        if (!host) {
+          log.warn(`no host fits ${def.id} controller (${ram}GB)`);
+          continue;
+        }
+        placements.set(def.id, { host, ram });
+        if (host !== "home") reserved.add(host);
+      }
+
+      const exclude = new Set([...EXCLUDE_WORKERS_FROM, ...reserved]);
+      const controllerOnlyIds = finalSpawns
+        .filter((d) => d.requirements.growUnbounded !== true)
+        .map((d) => d.id);
+      const allocations = allocate(game.servers, chosenUnbounded?.id ?? null, controllerOnlyIds, {
+        exclude,
+      });
+
+      for (const def of finalSpawns) {
+        const place = placements.get(def.id);
+        if (!place) continue;
+        const allocation: Allocation = allocations.get(def.id) ?? {
+          taskId: def.id,
+          servers: [],
+        };
+        if (def.requirements.growUnbounded === true && allocation.servers.length === 0) {
+          log.info(`skip ${def.id}: requested all RAM but no worker servers available`);
+          continue;
+        }
+        const pid = ns.exec(def.scriptPath, place.host, 1, def.id, JSON.stringify(allocation));
+        if (pid === 0) {
+          log.warn(`failed to exec ${def.scriptPath} on ${place.host}`);
+          continue;
+        }
+        const totalRam = allocation.servers.reduce((sum, s) => sum + s.ram, 0);
+        log.info(
+          `${def.id} on ${place.host} → ${allocation.servers.length} hosts (${totalRam}GB) pid=${pid}`,
+        );
+        // Update slot in-place. Task-specific fields are preserved; base
+        // fields are reset for the new run.
+        snap[def.id] = {
+          ...snap[def.id],
+          pid,
+          host: place.host,
+          childPids: [],
+          shutdownRequested: false,
+          status: "running",
+          lastAllocation: allocation,
+        };
+      }
+
+      // -------------------------------------------------------------------
+      // 6. Publish the snapshot to TASK_STATE_PORT (latest-value).
+      // -------------------------------------------------------------------
+      writeTaskState(ns, snap);
+
+      stateRef.current = snap;
+      setTaskState(snap);
+      setLastTickAt(Date.now());
+    };
+
+    // Run once immediately so first allocation isn't delayed by tickMs.
+    runTick();
+    const id = setInterval(runTick, tickMs);
+    return () => clearInterval(id);
+  }, [ns, log, tickMs]);
+
+  const api = useMemo<TaskManagerApi>(
+    () => ({
+      taskState,
+      lastTickAt,
+      killAll: () => {
+        const snap = stateRef.current;
+        let count = 0;
+        for (const slot of Object.values(snap)) {
+          for (const pid of slot.childPids) {
+            if (ns.isRunning(pid)) ns.kill(pid);
+          }
+          if (slot.pid !== null && ns.isRunning(slot.pid)) {
+            ns.kill(slot.pid);
+            count++;
+          }
+        }
+        const fresh = makeInitialSnapshot();
+        writeTaskState(ns, fresh);
+        stateRef.current = fresh;
+        setTaskState(fresh);
+        log.info(`killed ${count} task(s) and their workers`);
+      },
+    }),
+    [ns, log, taskState, lastTickAt],
+  );
+
+  return <TaskManagerContext.Provider value={api}>{children}</TaskManagerContext.Provider>;
+}
+
+export function useTaskManager(): TaskManagerApi {
+  const v = useContext(TaskManagerContext);
+  if (!v) throw new Error("useTaskManager must be used inside <TaskManagerProvider>");
+  return v;
+}

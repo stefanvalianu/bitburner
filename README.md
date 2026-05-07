@@ -46,18 +46,8 @@ Scripts that are deployed to home via a repository sync are also copied to all a
 
 ### Tasks and the server manager
 
-The dashboard is the only place that calls `ns.getServer` — it polls every server every 10 seconds and exposes the result through React context. Built on top of that snapshot is a **server manager** that decides what the network should be doing and hands out RAM accordingly.
+A central **task manager** runs every 10 seconds inside the dashboard. It owns the authoritative state for every task in `scripts/lib/util/tasks/definitions.ts`, decides which ones should be running based on each task's `needsRerun` predicate, and publishes a single per-task state snapshot to a port that tasks `peek`. Tasks emit events back through a second port to update their own slots and announce spawned workers.
 
-The unit of work is a **task** — a top-level game intent like `"hack"` or (eventually) `"find best target"`. Each task has a relative priority that can depend on the current game state. Tasks are listed in `scripts/lib/util/tasks/registry.ts`.
+Shutdown is **cooperative**: when conditions change, the manager flips `shutdownRequested = true` in the task's state and waits for it to exit cleanly on the next tick before respawning. Tasks own their own teardown.
 
-The manager runs a tick every 30 seconds. On each tick:
-
-1. **Score.** Every task is asked for its current priority weight. Weights are normalized into percentage shares of the network's total free RAM.
-2. **Place each controller.** The manager picks a host for each task's controller script. It tries `home` first; if `home` doesn't have enough free RAM, it falls back to the smallest non-home admin server that fits. Higher-priority tasks pick first, so when capacity is tight they get the better hosts. Whatever non-home host a controller lands on is then taken out of the worker pool so the controller and workers don't fight for the same RAM.
-3. **Allocate workers.** The remaining eligible servers (admin rights, not `home`, not reserved by a controller) are sorted largest-first. The manager walks tasks in priority order and hands each one whole servers from the front of the list until its RAM budget is met. Each server belongs to exactly one task per tick — no fragmentation.
-4. **Skip if unchanged.** If the new placement and allocation are identical to the current ones, nothing is restarted. This lets long-running work (like HWGW cycles) keep going when capacity is stable.
-5. **Otherwise rebalance.** The manager kills the previous tasks (and all the worker scripts they spawned), then starts each new task fresh by `ns.exec`-ing its script on the chosen host with its allocation passed in as a JSON string in `ns.args[0]`.
-
-A task script reads its allocation with `readAllocation(ns)` (`scripts/lib/util/tasks/client.ts`), then spawns whatever workers it needs on the assigned hosts. Every time it spawns one, it calls `reportChild(ns, taskId, pid, hostname)` so the manager has a record. On the next rebalance the manager uses those records to clean up the entire task tree — no per-task shutdown handshake.
-
-Adding a new task is one entry in the registry plus a script that follows the read-allocation / report-children contract.
+See [`docs/task-system.md`](docs/task-system.md) for the full architecture — lifecycle states, the tick loop, port semantics, and how to add a new task.

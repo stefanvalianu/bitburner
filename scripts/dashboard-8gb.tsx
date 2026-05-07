@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { NS } from "@ns";
 import { GameStateProvider, useGameState } from "./lib/util/gameState";
-import { ServerManagerProvider, useServerManager } from "./lib/util/serverManager";
+import { TaskManagerProvider, useTaskManager } from "./lib/util/tasks/manager";
 import { NsProvider, useNs } from "./lib/util/ns";
 import { usePropagate } from "./lib/util/propagate";
 import {
@@ -45,7 +45,7 @@ function Dashboard() {
   const { colors, space } = useTheme();
   const levelColor = useLevelColor();
   const ns = useNs();
-  const { killAll } = useServerManager();
+  const { killAll } = useTaskManager();
   const [logsOpen, setLogsOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [stateOpen, setStateOpen] = useState(false);
@@ -123,9 +123,9 @@ export async function main(ns: NS): Promise<void> {
     <NsProvider ns={ns}>
       <ThemeProvider>
         <GameStateProvider>
-          <ServerManagerProvider>
+          <TaskManagerProvider>
             <Dashboard />
-          </ServerManagerProvider>
+          </TaskManagerProvider>
         </GameStateProvider>
       </ThemeProvider>
     </NsProvider>,

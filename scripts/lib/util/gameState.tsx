@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { NS } from "@ns";
 import { useNs } from "./ns";
 import { scanAll, type ServerInfo } from "./serverMap";
-import { getScoutState, type ScoutState } from "./scout";
+import { peekTaskState, type TaskStateSnapshot } from "./tasks/types";
 
 const DEFAULT_INTERVAL_MS = 10_000;
 
@@ -25,7 +25,11 @@ export interface GameState {
   servers: ServerInfo[];
   currentVersion: string;
   propagatedVersion: string;
-  scoutState: ScoutState | null;
+  // Latest task-state snapshot the manager has published. The manager
+  // overrides this with its in-memory copy when calling needsRerun (the
+  // port copy is one tick behind during a tick); other consumers read it
+  // here for a unified view of NS data + task state.
+  tasks: TaskStateSnapshot | null;
 }
 
 function snapshot(ns: NS): GameState {
@@ -55,7 +59,7 @@ function snapshot(ns: NS): GameState {
     servers: scanAll(ns),
     currentVersion: ns.read("version.txt").trim(),
     propagatedVersion: ns.read(".state/version.txt").trim(),
-    scoutState: getScoutState(ns),
+    tasks: peekTaskState(ns),
   };
 }
 

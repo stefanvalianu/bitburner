@@ -68,8 +68,8 @@ export const TASKS: TaskDefinition[] = [
     scriptPath: "lib/features/hack-controller-v1.js",
     requirements: { growUnbounded: true },
     initialState: { target: null } satisfies HackTaskState,
-    needsRerun: (game, state) => {
-      const scoutSlot = game.tasks?.["scout-server"] as TaskState<ScoutTaskState> | undefined;
+    needsRerun: (_game, state, snapshot) => {
+      const scoutSlot = snapshot["scout-server"] as TaskState<ScoutTaskState> | undefined;
       const desired = scoutSlot?.target ?? null;
       const myTarget = (state as TaskState<HackTaskState>).target;
       // Only run when scout has produced a target, and only restart when

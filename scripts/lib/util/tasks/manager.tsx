@@ -11,22 +11,55 @@ import type { NS } from "@ns";
 import { useGameState, type GameState } from "../gameState";
 import { useLogger } from "../log";
 import { useNs } from "../ns";
+import { TASK_EVENTS_PORT, TASK_STATE_PORT } from "../ports";
 import type { ServerInfo } from "../serverMap";
 import { allocate } from "./allocator";
 import { TASKS } from "./definitions";
 import {
   BASE_STATE_KEYS,
-  drainEvents,
-  writeTaskState,
   type Allocation,
   type BaseTaskState,
   type TaskDefinition,
+  type TaskEvent,
   type TaskId,
   type TaskState,
   type TaskStateSnapshot,
 } from "./types";
 
 const TICK_MS = 10_000;
+
+// ---------------------------------------------------------------------------
+// Port I/O — the manager owns *both* directions of the wire.
+//
+//   • TASK_STATE_PORT: write-only side. The manager publishes its
+//     authoritative in-memory snapshot here at the end of every tick.
+//     Tasks peek; the manager itself never reads back.
+//   • TASK_EVENTS_PORT: read-only side. Tasks emit events here; the
+//     manager drains and applies them at the start of every tick.
+//
+// The manager's React context is the source of truth for task state.
+// ---------------------------------------------------------------------------
+
+function publishSnapshot(ns: NS, snapshot: TaskStateSnapshot): void {
+  ns.clearPort(TASK_STATE_PORT);
+  ns.writePort(TASK_STATE_PORT, JSON.stringify(snapshot));
+}
+
+function drainEvents(ns: NS): TaskEvent[] {
+  const port = ns.getPortHandle(TASK_EVENTS_PORT);
+  const out: TaskEvent[] = [];
+  while (!port.empty()) {
+    const raw = port.read();
+    if (typeof raw !== "string") continue;
+    try {
+      const parsed = JSON.parse(raw) as TaskEvent;
+      if (parsed && typeof parsed === "object" && "type" in parsed) out.push(parsed);
+    } catch {
+      // ignore malformed payloads
+    }
+  }
+  return out;
+}
 
 // Home runs the dashboard and is preferred for controllers, but stays out
 // of the worker pool so worker RAM and controller RAM don't compete.
@@ -153,7 +186,7 @@ export function TaskManagerProvider({
         if (ev.type === "state-patch") {
           for (const [k, v] of Object.entries(ev.patch)) {
             if (BASE_STATE_KEYS.has(k)) continue; // reject manager-owned fields
-            (slot as Record<string, unknown>)[k] = v;
+            slot[k] = v;
           }
         }
       }
@@ -177,15 +210,14 @@ export function TaskManagerProvider({
       // 3. Evaluate needsRerun for each definition. Build the spawn list
       //    AND apply shutdown flags as needed.
       //
-      //    needsRerun gets a "view" gameState whose `tasks` field is the
-      //    manager's authoritative snapshot (the port-published copy is
-      //    always one tick behind during this evaluation).
+      //    needsRerun receives the live in-memory snapshot directly — the
+      //    manager owns the authoritative state, so we don't roundtrip
+      //    through the port to read it back.
       // -------------------------------------------------------------------
-      const view: GameState = { ...game, tasks: snap };
       const spawnCandidates: TaskDefinition[] = [];
       for (const def of TASKS) {
         const slot = snap[def.id];
-        const rerun = def.needsRerun(view, slot);
+        const rerun = def.needsRerun(game, slot, snap);
         if (slot.status === "stopping") continue; // already winding down
         if (slot.status === "running") {
           if (rerun) {
@@ -269,7 +301,10 @@ export function TaskManagerProvider({
           log.info(`skip ${def.id}: requested all RAM but no worker servers available`);
           continue;
         }
-        const pid = ns.exec(def.scriptPath, place.host, 1, def.id, JSON.stringify(allocation));
+        // No script args — the task reads its own slot (incl. allocation)
+        // from the published TASK_STATE_PORT snapshot via BaseTask. Each
+        // task script declares its own taskId as a constant.
+        const pid = ns.exec(def.scriptPath, place.host, 1);
         if (pid === 0) {
           log.warn(`failed to exec ${def.scriptPath} on ${place.host}`);
           continue;
@@ -294,7 +329,7 @@ export function TaskManagerProvider({
       // -------------------------------------------------------------------
       // 6. Publish the snapshot to TASK_STATE_PORT (latest-value).
       // -------------------------------------------------------------------
-      writeTaskState(ns, snap);
+      publishSnapshot(ns, snap);
 
       stateRef.current = snap;
       setTaskState(snap);
@@ -324,7 +359,7 @@ export function TaskManagerProvider({
           }
         }
         const fresh = makeInitialSnapshot();
-        writeTaskState(ns, fresh);
+        publishSnapshot(ns, fresh);
         stateRef.current = fresh;
         setTaskState(fresh);
         log.info(`killed ${count} task(s) and their workers`);

@@ -1,6 +1,4 @@
-import type { NS } from "@ns";
 import type { GameState } from "../gameState";
-import { TASK_EVENTS_PORT, TASK_STATE_PORT } from "../ports";
 
 // ---------------------------------------------------------------------------
 // Identity & allocation
@@ -43,11 +41,13 @@ export interface BaseTaskState {
   shutdownRequested: boolean;
   status: TaskStatus;
   // Last allocation handed to the controller — kept in the slot so the UI
-  // can render hosts/RAM stats without coupling to manager internals.
+  // can render hosts/RAM stats and so tasks can read their own allocation
+  // from the published snapshot without being passed args.
   lastAllocation: Allocation | null;
 }
 
-export type TaskState<T = unknown> = BaseTaskState & T;
+export type TaskState<T extends Record<string, unknown> = Record<string, unknown>> = BaseTaskState &
+  T;
 
 export type TaskStateSnapshot = Record<TaskId, TaskState>;
 
@@ -72,57 +72,23 @@ export type TaskEvent =
 
 // ---------------------------------------------------------------------------
 // Task definition
+//
+// `needsRerun` receives:
+//   - gameState: the latest NS-derived game snapshot
+//   - taskState: this task's own slot in the manager's authoritative
+//                snapshot
+//   - snapshot:  the full authoritative snapshot, for cross-task reads
+//                (e.g. hack reading scout's published target)
 // ---------------------------------------------------------------------------
 
 export interface TaskDefinition<TState extends Record<string, unknown> = Record<string, unknown>> {
   id: TaskId;
   scriptPath: string;
   requirements: TaskRequirements;
-  // Initial task-specific fields when the manager first instantiates the slot.
   initialState: TState;
-  // Pure: should this task be running fresh given the current conditions?
-  // Answers both "should start" (when status === idle) and "should restart"
-  // (when status === running — manager flips shutdownRequested and waits for
-  // graceful exit). Returning false while idle keeps the task idle; returning
-  // false while running leaves it running.
-  needsRerun: (gameState: GameState, taskState: TaskState<TState>) => boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Port I/O
-// ---------------------------------------------------------------------------
-
-export function writeTaskState(ns: NS, snapshot: TaskStateSnapshot): void {
-  ns.clearPort(TASK_STATE_PORT);
-  ns.writePort(TASK_STATE_PORT, JSON.stringify(snapshot));
-}
-
-export function peekTaskState(ns: NS): TaskStateSnapshot | null {
-  const raw = ns.peek(TASK_STATE_PORT);
-  if (raw === "NULL PORT DATA") return null;
-  try {
-    return JSON.parse(raw as string) as TaskStateSnapshot;
-  } catch {
-    return null;
-  }
-}
-
-export function emitEvent(ns: NS, event: TaskEvent): void {
-  ns.getPortHandle(TASK_EVENTS_PORT).write(JSON.stringify(event));
-}
-
-export function drainEvents(ns: NS): TaskEvent[] {
-  const port = ns.getPortHandle(TASK_EVENTS_PORT);
-  const out: TaskEvent[] = [];
-  while (!port.empty()) {
-    const raw = port.read();
-    if (typeof raw !== "string") continue;
-    try {
-      const parsed = JSON.parse(raw) as TaskEvent;
-      if (parsed && typeof parsed === "object" && "type" in parsed) out.push(parsed);
-    } catch {
-      // ignore malformed payloads
-    }
-  }
-  return out;
+  needsRerun: (
+    gameState: GameState,
+    taskState: TaskState<TState>,
+    snapshot: TaskStateSnapshot,
+  ) => boolean;
 }

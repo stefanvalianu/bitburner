@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { NS } from "@ns";
 import { GameStateProvider, useGameState } from "./lib/util/gameState";
-import { LeaseProvider } from "./lib/util/leases";
-import { NsProvider } from "./lib/util/ns";
+import { ServerManagerProvider, useServerManager } from "./lib/util/serverManager";
+import { NsProvider, useNs } from "./lib/util/ns";
 import { usePropagate } from "./lib/util/propagate";
 import {
   Button,
@@ -11,6 +11,8 @@ import {
   LogsIcon,
   Modal,
   NotificationDot,
+  PowerIcon,
+  Row,
   ThemeProvider,
   useLevelColor,
   useLogStream,
@@ -40,8 +42,10 @@ function PropagationStamp() {
 }
 
 function Dashboard() {
-  const { colors } = useTheme();
+  const { colors, space } = useTheme();
   const levelColor = useLevelColor();
+  const ns = useNs();
+  const { killAll } = useServerManager();
   const [logsOpen, setLogsOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [stateOpen, setStateOpen] = useState(false);
@@ -60,17 +64,31 @@ function Dashboard() {
     setLogsOpen(true);
   };
 
-  const logsAction = (
-    <Button onClick={openLogs}>
-      {notification && <NotificationDot color={notification.color} />}
-      <LogsIcon color={colors.muted} />
-      View logs ({entries.length})
-    </Button>
+  // Kill every tracked controller + worker, then exit the dashboard itself.
+  // ns.exit() terminates this script synchronously, so anything after it is
+  // unreachable.
+  const onKillAll = () => {
+    killAll();
+    ns.exit();
+  };
+
+  const headerActions = (
+    <Row gap={space.sm}>
+      <Button onClick={openLogs}>
+        {notification && <NotificationDot color={notification.color} />}
+        <LogsIcon color={colors.muted} />
+        View logs ({entries.length})
+      </Button>
+      <Button onClick={onKillAll} variant="error">
+        <PowerIcon color={colors.error} />
+        Kill all
+      </Button>
+    </Row>
   );
 
   return (
     <>
-      <DashboardPanel actions={logsAction}>
+      <DashboardPanel actions={headerActions}>
         <ToolsPanel onOpen={() => setStateOpen(true)} />
         <ServerPanel onOpenMap={() => setMapOpen(true)} />
       </DashboardPanel>
@@ -105,9 +123,9 @@ export async function main(ns: NS): Promise<void> {
     <NsProvider ns={ns}>
       <ThemeProvider>
         <GameStateProvider>
-          <LeaseProvider>
+          <ServerManagerProvider>
             <Dashboard />
-          </LeaseProvider>
+          </ServerManagerProvider>
         </GameStateProvider>
       </ThemeProvider>
     </NsProvider>,

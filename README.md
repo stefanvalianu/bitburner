@@ -44,17 +44,20 @@ Scripts that are deployed to home via a repository sync are also copied to all a
 
 - Servers are also tracked explicitly, and a server map is provided for convenience and status at a glance. The dashboard system will periodically attempt to nuke (and evenutally backdoor) servers as the player's hacking level and available tools enables new hacks
 
-### Server leases
+### Tasks and the server manager
 
-The dashboard is the only place that calls `ns.getServer` — it polls every server every 10 seconds and exposes the result through React context. To avoid every controller script paying that RAM cost again, controllers don't look up servers directly. Instead they ask the dashboard for one.
+The dashboard is the only place that calls `ns.getServer` — it polls every server every 10 seconds and exposes the result through React context. Built on top of that snapshot is a **server manager** that decides what the network should be doing and hands out RAM accordingly.
 
-Asking is called a **lease**. A lease is just a record kept in the dashboard's memory that says "this hostname is reserved for this purpose, by this script." Leases live in memory only — they vanish when the dashboard restarts.
+The unit of work is a **task** — a top-level game intent like `"hack"` or (eventually) `"find best target"`. Each task has a relative priority that can depend on the current game state. Tasks are listed in `scripts/lib/util/tasks/registry.ts`.
 
-How it works:
+The manager runs a tick every 30 seconds. On each tick:
 
-1. **Request.** A controller calls `requestServer(ns, { purpose: "hack", ramNeeded? })` from `scripts/lib/leaseClient.ts`. This writes a request to a shared port (`SERVER_MANAGEMENT_PORT`) and waits for a reply on a port the controller picks itself (we use the script's own PID — guaranteed unique among live scripts).
-2. **Decide.** The dashboard reads the request, runs it through a small set of rules in `scripts/lib/utils/leasePolicy.ts`. Rules score each known server: a score of `-Infinity` means "ineligible" (e.g. the server is `home`, has no admin rights, or doesn't have enough free RAM). The highest-scoring eligible server wins. If nothing fits, the request is denied.
-3. **Reply.** The dashboard records the lease in its in-memory ledger and writes a response back to the controller's reply port. The controller now knows which hostname it owns.
-4. **Release.** When the controller is done, it calls `releaseLease(ns, leaseId)` and the dashboard drops the record. If the controller crashes without releasing, the dashboard notices on its next tick (it checks `ns.isRunning(pid)`) and reaps the lease automatically. No leaked reservations.
+1. **Score.** Every task is asked for its current priority weight. Weights are normalized into percentage shares of the network's total free RAM.
+2. **Place each controller.** The manager picks a host for each task's controller script. It tries `home` first; if `home` doesn't have enough free RAM, it falls back to the smallest non-home admin server that fits. Higher-priority tasks pick first, so when capacity is tight they get the better hosts. Whatever non-home host a controller lands on is then taken out of the worker pool so the controller and workers don't fight for the same RAM.
+3. **Allocate workers.** The remaining eligible servers (admin rights, not `home`, not reserved by a controller) are sorted largest-first. The manager walks tasks in priority order and hands each one whole servers from the front of the list until its RAM budget is met. Each server belongs to exactly one task per tick — no fragmentation.
+4. **Skip if unchanged.** If the new placement and allocation are identical to the current ones, nothing is restarted. This lets long-running work (like HWGW cycles) keep going when capacity is stable.
+5. **Otherwise rebalance.** The manager kills the previous tasks (and all the worker scripts they spawned), then starts each new task fresh by `ns.exec`-ing its script on the chosen host with its allocation passed in as a JSON string in `ns.args[0]`.
 
-The rule system is intentionally just a list of small functions — adding new policy (e.g. "for `share` purpose, prefer player-owned servers") is one more function in `leasePolicy.ts`. The same rules can later drive other automation goals beyond leasing.
+A task script reads its allocation with `readAllocation(ns)` (`scripts/lib/util/tasks/client.ts`), then spawns whatever workers it needs on the assigned hosts. Every time it spawns one, it calls `reportChild(ns, taskId, pid, hostname)` so the manager has a record. On the next rebalance the manager uses those records to clean up the entire task tree — no per-task shutdown handshake.
+
+Adding a new task is one entry in the registry plus a script that follows the read-allocation / report-children contract.

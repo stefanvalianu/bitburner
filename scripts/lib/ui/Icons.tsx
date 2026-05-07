@@ -94,6 +94,15 @@ export function LogsIcon({ color, title = "Logs", size }: NamedIconProps) {
   );
 }
 
+export function PowerIcon({ color, title = "Kill all", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <path d="M5 5 A4.5 4.5 0 1 0 11 5" />
+      <path d="M8 2 V8" />
+    </Icon>
+  );
+}
+
 export function ProgramsIcon({ color, title = "Programs", size }: NamedIconProps) {
   return (
     <Icon color={color} title={title} size={size}>

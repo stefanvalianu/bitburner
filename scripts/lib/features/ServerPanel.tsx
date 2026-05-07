@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useGameState } from "../util/gameState";
-import { useLeases } from "../util/leases";
+import { useServerManager } from "../util/serverManager";
 import { useLogger } from "../util/log";
 import { useNs } from "../util/ns";
 import { numOpenPortsRequired, requiredHackingSkill } from "../util/serverMap";
@@ -16,7 +16,7 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const log = useLogger("servers");
   const { colors, space } = useTheme();
   const { servers, stats, inventory } = useGameState();
-  const { leases } = useLeases();
+  const { activeTasks } = useServerManager();
 
   // Categorize once. Backdoored implies admin rights, so the nuked bucket
   // excludes backdoored to avoid double-counting. Player-owned is its own
@@ -66,17 +66,29 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
     </Button>
   ) : undefined;
 
+  const taskSummary = activeTasks
+    .map((t) => {
+      const ram = t.allocation.servers.reduce((sum, s) => sum + s.ram, 0);
+      return `${t.taskId}: ${t.allocation.servers.length} hosts / ${ram}GB`;
+    })
+    .join(" · ");
+
   return (
     <Panel title="Servers" actions={actions}>
       <Row gap={space.sm}>
         <span style={{ color: colors.fg }}>
-          {playerOwned} owned · {nuked} nuked · {backdoored} backdoored · {leases.length} leased ·
+          {playerOwned} owned · {nuked} nuked · {backdoored} backdoored ·
         </span>
         <Spinner active={targets > 0} />
         <span style={{ color: colors.fg }}>
           {targets} targets ({pwnable.length} valid)
         </span>
       </Row>
+      {taskSummary && (
+        <Row gap={space.sm}>
+          <span style={{ color: colors.muted }}>{taskSummary}</span>
+        </Row>
+      )}
     </Panel>
   );
 }

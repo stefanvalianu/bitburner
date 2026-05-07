@@ -1,13 +1,13 @@
 import type { CSSProperties, ReactNode } from "react";
-import { useGameState } from "../gameState";
+import { useGameState } from "../util/gameState";
 import {
   numOpenPortsRequired,
   openPortCount,
   requiredHackingSkill,
   type ServerInfo,
-} from "../utils/serverMap";
-import { Icon, PortsIcon } from "./Icons";
-import { useTheme } from "./theme";
+} from "../util/serverMap";
+import { Icon, PortsIcon } from "../ui/Icons";
+import { useTheme } from "../ui/theme";
 
 const INDENT_PX = 18;
 const ROW_HEIGHT = "1.6em";

@@ -1,6 +1,6 @@
 import type { NS } from "@ns";
-import type { LeasePurpose } from "./utils/leasePolicy";
-import { awaitResponse, newId, writeLeaseRelease, writeLeaseRequest } from "./utils/leaseProtocol";
+import type { LeasePurpose } from "./leasePolicy";
+import { awaitResponse, newId, writeLeaseRelease, writeLeaseRequest } from "./leaseProtocol";
 
 export interface GrantedLease {
   leaseId: string;

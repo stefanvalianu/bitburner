@@ -1,6 +1,6 @@
 import { NS } from "@ns";
-import { createLogger } from "./log";
-import { releaseLease, requestServer } from "./leaseClient";
+import { createLogger } from "../util/log";
+import { releaseLease, requestServer } from "../util/leaseClient";
 
 // simple hack controller that implements basic HWGW for early-game hacking
 export async function main(ns: NS): Promise<void> {

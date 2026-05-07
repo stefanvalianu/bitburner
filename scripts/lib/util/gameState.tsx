@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { NS } from "@ns";
 import { useNs } from "./ns";
-import { scanAll, type ServerInfo } from "./utils/serverMap";
+import { scanAll, type ServerInfo } from "./serverMap";
 
 const DEFAULT_INTERVAL_MS = 10_000;
 

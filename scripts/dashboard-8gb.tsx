@@ -1,26 +1,23 @@
 import { useState } from "react";
 import type { NS } from "@ns";
-import { GameStateProvider, useGameState } from "./lib/gameState";
-import { LeaseProvider } from "./lib/leases";
-import { NsProvider } from "./lib/ns";
-import { usePropagate } from "./lib/propagate";
+import { GameStateProvider, useGameState } from "./lib/util/gameState";
+import { LeaseProvider } from "./lib/util/leases";
+import { NsProvider } from "./lib/util/ns";
+import { usePropagate } from "./lib/util/propagate";
 import {
   Button,
   DashboardPanel,
-  GameState,
   LogStream,
   LogsIcon,
   Modal,
   NotificationDot,
-  ServerMap,
-  ServerPanel,
   ThemeProvider,
-  ToolsPanel,
   useLevelColor,
   useLogStream,
   useNotification,
   useTheme,
 } from "./lib/ui";
+import { GameState, ServerMap, ServerPanel, ToolsPanel } from "./lib/features";
 
 function PropagationStamp() {
   const { colors } = useTheme();

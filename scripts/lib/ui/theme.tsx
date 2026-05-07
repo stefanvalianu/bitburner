@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { NS } from "@ns";
-import { useNs } from "../ns";
+import { useNs } from "../util/ns";
 
 // Theme tokens derived from the in-game theme (ns.ui.getTheme) and styles
 // (ns.ui.getStyles). Components must consume these via useTheme() — never

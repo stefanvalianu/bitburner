@@ -1,0 +1,23 @@
+{
+  "folders": [
+    {
+      "name": "🌳 root",
+      "path": ".",
+    },
+    {
+      "name": "👾 scripts",
+      "path": "scripts",
+    },
+  ],
+  "settings": {
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/pnpm-lock.yaml": true,
+      "**/dist": true,
+    },
+    "files.watcherExclude": {
+      "**/node_modules/**": true,
+      "**/dist/**": true,
+    },
+  },
+}

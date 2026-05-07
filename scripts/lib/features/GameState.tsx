@@ -1,8 +1,8 @@
-import { useGameState } from "../gameState";
-import { Check } from "./Check";
-import { Col } from "./Col";
-import { Row } from "./Row";
-import { useTheme } from "./theme";
+import { useGameState } from "../util/gameState";
+import { Check } from "../ui/Check";
+import { Col } from "../ui/Col";
+import { Row } from "../ui/Row";
+import { useTheme } from "../ui/theme";
 
 interface BoolRowProps {
   label: string;

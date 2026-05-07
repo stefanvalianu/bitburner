@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
-import { useGameState } from "../gameState";
-import { Button } from "./Button";
-import { FormulasIcon, PortsIcon, ProgramsIcon, TorIcon, WrenchIcon } from "./Icons";
-import { Panel } from "./Panel";
-import { Row } from "./Row";
-import { useTheme } from "./theme";
+import { useGameState } from "../util/gameState";
+import { Button } from "../ui/Button";
+import { FormulasIcon, PortsIcon, ProgramsIcon, TorIcon, WrenchIcon } from "../ui/Icons";
+import { Panel } from "../ui/Panel";
+import { Row } from "../ui/Row";
+import { useTheme } from "../ui/theme";
 
 interface ToolItemProps {
   icon: ReactNode;

@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
-import { useGameState } from "../gameState";
-import { Panel } from "./Panel";
-import { useTheme } from "./theme";
+import { useGameState } from "../util/gameState";
+import { Panel } from "../ui/Panel";
+import { useTheme } from "../ui/theme";
 
 const INDENT_PX = 16;
 const ROW_HEIGHT = "1.6em";

@@ -10,8 +10,8 @@ import {
 import { useGameState } from "./gameState";
 import { useLogger } from "./log";
 import { useNs } from "./ns";
-import { freeRamForHost, pickServer, type Lease } from "./utils/leasePolicy";
-import { drainInbound, writeLeaseResponse } from "./utils/leaseProtocol";
+import { freeRamForHost, pickServer, type Lease } from "./leasePolicy";
+import { drainInbound, writeLeaseResponse } from "./leaseProtocol";
 
 const DEFAULT_POLL_MS = 2000;
 

@@ -1,6 +1,6 @@
 import type { NS } from "@ns";
-import { createLogger } from "./lib/log";
-import { scanAll } from "./lib/utils/serverMap";
+import { createLogger } from "./lib/util/log";
+import { scanAll } from "./lib/util/serverMap";
 
 function fmt(v: string): string {
   if (!v) return "none";

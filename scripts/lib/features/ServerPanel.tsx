@@ -1,15 +1,15 @@
 import { useEffect } from "react";
-import { useGameState } from "../gameState";
-import { useLeases } from "../leases";
-import { useLogger } from "../log";
-import { useNs } from "../ns";
-import { numOpenPortsRequired, requiredHackingSkill } from "../utils/serverMap";
-import { Button } from "./Button";
-import { WorldIcon } from "./Icons";
-import { Panel } from "./Panel";
-import { Row } from "./Row";
-import { Spinner } from "./Spinner";
-import { useTheme } from "./theme";
+import { useGameState } from "../util/gameState";
+import { useLeases } from "../util/leases";
+import { useLogger } from "../util/log";
+import { useNs } from "../util/ns";
+import { numOpenPortsRequired, requiredHackingSkill } from "../util/serverMap";
+import { Button } from "../ui/Button";
+import { WorldIcon } from "../ui/Icons";
+import { Panel } from "../ui/Panel";
+import { Row } from "../ui/Row";
+import { Spinner } from "../ui/Spinner";
+import { useTheme } from "../ui/theme";
 
 export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const ns = useNs();

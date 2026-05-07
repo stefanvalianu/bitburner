@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useGameState } from "./gameState";
 import { useLogger } from "./log";
 import { useNs } from "./ns";
-import { scanAll } from "./utils/serverMap";
+import { scanAll } from "./serverMap";
 
 function fmt(v: string): string {
   if (!v) return "none";

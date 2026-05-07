@@ -11,7 +11,7 @@ export * from "./Panel";
 export * from "./Row";
 export * from "./ScrollScope";
 export * from "./ServerMap";
-export * from "./ServerStealingPanel";
+export * from "./ServerPanel";
 export * from "./Stat";
 export * from "./theme";
 export * from "./useNotification";

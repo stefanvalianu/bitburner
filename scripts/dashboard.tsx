@@ -14,7 +14,7 @@ import {
   NotificationDot,
   Row,
   ServerMap,
-  ServerStealingPanel,
+  ServerPanel,
   ThemeProvider,
   WorldIcon,
   useLevelColor,
@@ -82,7 +82,7 @@ function Dashboard() {
             Game state
           </Button>
         </Row>
-        <ServerStealingPanel />
+        <ServerPanel />
       </DashboardPanel>
       <Modal open={logsOpen} onClose={() => setLogsOpen(false)} title={`logs · ${entries.length}`}>
         <LogStream entries={entries} />

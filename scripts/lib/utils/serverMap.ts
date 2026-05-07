@@ -21,6 +21,7 @@ export interface ServerInfo {
   cpuCores: number;
   ramUsed: number;
   maxRam: number;
+  hasAdminRights: boolean;
   backdoorInstalled: boolean;
   // Darknet servers don't gate by hacking skill — we report 0 there so the
   // skill-gate check never fires for them.
@@ -57,6 +58,7 @@ export function scanAll(ns: NS, root: string = "home"): ServerInfo[] {
       cpuCores: data.cpuCores,
       ramUsed: data.ramUsed,
       maxRam: data.maxRam,
+      hasAdminRights: data.hasAdminRights,
       backdoorInstalled: data.backdoorInstalled ?? false,
       requiredHackingSkill: "requiredHackingSkill" in data ? (data.requiredHackingSkill ?? 0) : 0,
     });

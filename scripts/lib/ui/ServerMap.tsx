@@ -124,6 +124,17 @@ function PortsIcon({ color }: { color: string }) {
   );
 }
 
+function NukedIcon({ color }: { color: string }) {
+  return (
+    <Icon color={color} title="Nuked — admin rights, backdoor pending">
+      <path d="M4 13.5 H12" />
+      <path d="M5.5 13.5 V8 A2.5 2.5 0 0 1 10.5 8 V13.5" />
+      <path d="M8 5.5 V2.5" />
+      <circle cx="8" cy="5.5" r="1" fill={color} stroke="none" />
+    </Icon>
+  );
+}
+
 function BackdoorIcon({ color }: { color: string }) {
   return (
     <Icon color={color} title="Backdoor installed">
@@ -220,6 +231,7 @@ function StateCell({ s, hackingLevel }: { s: ServerInfo; hackingLevel: number })
   const { colors, space } = useTheme();
   if (s.purchasedByPlayer) return <PlayerIcon color={colors.accent} />;
   if (s.backdoorInstalled) return <BackdoorIcon color={colors.success} />;
+  if (s.hasAdminRights) return <NukedIcon color={colors.hack} />;
   const levelTooLow = hackingLevel < s.requiredHackingSkill;
   const portsMissing = s.openPortCount < s.numOpenPortsRequired;
   if (!levelTooLow && !portsMissing) return <HackReadyIcon color={colors.hack} />;

@@ -45,18 +45,18 @@ export function ServerPanel() {
   // Categorize once. Backdoored implies admin rights, so the nuked bucket
   // excludes backdoored to avoid double-counting. Player-owned is its own
   // bucket — purchased servers always have admin rights but shouldn't inflate
-  // the nuked/backdoored tallies.
+  // the nuked/backdoored tallies. "Targets" is the leftover: everything not
+  // yet nuked and not player-owned, regardless of whether we can pwn it now.
   const playerOwned = servers.filter((s) => s.purchasedByPlayer).length;
-  const backdoored = servers.filter(
-    (s) => s.backdoorInstalled && !s.purchasedByPlayer,
-  ).length;
+  const backdoored = servers.filter((s) => s.backdoorInstalled && !s.purchasedByPlayer).length;
   const nuked = servers.filter(
     (s) => s.hasAdminRights && !s.backdoorInstalled && !s.purchasedByPlayer,
   ).length;
+  const targets = servers.length - playerOwned - nuked - backdoored;
 
   const ownedPortOpeners = inventory.portOpeners.filter((p) => p.owned).length;
 
-  const targets = servers.filter(
+  const pwnable = servers.filter(
     (s) =>
       !s.hasAdminRights &&
       !s.purchasedByPlayer &&
@@ -64,26 +64,27 @@ export function ServerPanel() {
       ownedPortOpeners >= s.numOpenPortsRequired,
   );
 
-  const active = targets.length > 0;
-
   // Re-runs every gameState tick — `servers` is a fresh array per snapshot,
   // mirroring the cadence used by usePropagate.
   useEffect(() => {
-    if (targets.length === 0) return;
+    if (pwnable.length === 0) return;
     let started = 0;
-    for (const t of targets) {
+    for (const t of pwnable) {
       const pid = ns.exec("lib/hacks/pwn.js", "home", 1, t.hostname);
       if (pid > 0) started++;
     }
-    if (started > 0) log.info(`pwn started on ${started}/${targets.length} targets`);
+    if (started > 0) log.info(`pwn started on ${started}/${pwnable.length} targets`);
   }, [ns, log, servers, stats.hackingLevel, ownedPortOpeners]);
 
   return (
     <Panel title="Servers">
       <Row gap={space.sm}>
-        <Spinner active={active} />
         <span style={{ color: colors.fg }}>
-          {playerOwned} owned · {nuked} nuked · {backdoored} backdoored
+          {playerOwned} owned · {nuked} nuked · {backdoored} backdoored ·
+        </span>
+        <Spinner active={targets > 0} />
+        <span style={{ color: colors.fg }}>
+          {targets} targets ({pwnable.length} valid)
         </span>
       </Row>
     </Panel>

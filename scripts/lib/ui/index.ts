@@ -2,7 +2,7 @@ export * from "./Badge";
 export * from "./Button";
 export * from "./Check";
 export * from "./Col";
-export * from "./GameStatePanel";
+export * from "./GameState";
 export * from "./LogStream";
 export * from "./Modal";
 export * from "./NotificationDot";

@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { NS } from "@ns";
-import { useLogger } from "./lib/log";
 import { GameStateProvider, useGameState } from "./lib/gameState";
-import { NsProvider, useNs } from "./lib/ns";
+import { NsProvider } from "./lib/ns";
 import {
   Button,
   Col,
-  GameStatePanel,
+  GameState,
+  GameStateIcon,
   LogStream,
   LogsIcon,
   Modal,
@@ -14,7 +14,6 @@ import {
   Panel,
   Row,
   ServerMap,
-  Stat,
   ThemeProvider,
   WorldIcon,
   useLevelColor,
@@ -24,16 +23,12 @@ import {
 } from "./lib/ui";
 
 function Dashboard() {
-  const ns = useNs();
   const { colors } = useTheme();
   const levelColor = useLevelColor();
-  const log = useLogger("dashboard");
   const { servers } = useGameState();
-  const [money, setMoney] = useState(ns.getServerMoneyAvailable("home"));
-  const [hackLevel, setHackLevel] = useState(ns.getHackingLevel());
-  const [tick, setTick] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [stateOpen, setStateOpen] = useState(false);
   const { notification, notify, clear } = useNotification();
   const backdoored = servers.filter((s) => s.backdoorInstalled || s.purchasedByPlayer).length;
 
@@ -44,19 +39,6 @@ function Dashboard() {
     if (!logsOpen) notify(levelColor[top.level]);
   });
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      setMoney(ns.getServerMoneyAvailable("home"));
-      setHackLevel(ns.getHackingLevel());
-      setTick((t) => t + 1);
-    }, 500);
-    return () => {
-      clearInterval(id);
-    };
-  }, [ns]);
-
-  const moneyStr = money.toLocaleString(undefined, { maximumFractionDigits: 0 });
-
   const openLogs = () => {
     clear();
     setLogsOpen(true);
@@ -65,16 +47,7 @@ function Dashboard() {
   return (
     <Col gap={8}>
       <Panel title="Home Dashboard">
-        <Col gap={4}>
-          <Stat label="Money" value={`$${moneyStr}`} color={colors.money} />
-          <Stat label="Hacking level" value={hackLevel} color={colors.hack} />
-          <Stat label="Tick" value={tick} color={colors.muted} />
-        </Col>
         <Row>
-          <Button onClick={() => log.info("snapshot", { money, hackLevel })}>Log snapshot</Button>
-          <Button variant="warn" onClick={() => log.warn("manual warn from dashboard")}>
-            Emit warn
-          </Button>
           <Button onClick={openLogs}>
             {notification && <NotificationDot color={notification.color} />}
             <LogsIcon color={colors.muted} />
@@ -84,9 +57,12 @@ function Dashboard() {
             <WorldIcon color={colors.accent} />
             Server map ({backdoored}/{servers.length})
           </Button>
+          <Button onClick={() => setStateOpen(true)}>
+            <GameStateIcon color={colors.success} />
+            Game state
+          </Button>
         </Row>
       </Panel>
-      <GameStatePanel />
       <Modal open={logsOpen} onClose={() => setLogsOpen(false)} title={`logs · ${entries.length}`}>
         <LogStream entries={entries} />
       </Modal>
@@ -97,6 +73,9 @@ function Dashboard() {
       >
         <ServerMap />
       </Modal>
+      <Modal open={stateOpen} onClose={() => setStateOpen(false)} title="Game state">
+        <GameState />
+      </Modal>
     </Col>
   );
 }
@@ -105,6 +84,15 @@ export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
   ns.clearLog();
   ns.ui.openTail();
+  // Pin the dashboard to the top-right: full viewport height, half width,
+  // with a small margin around the edges. Bitburner's tail windows persist
+  // across restarts, so re-apply size and position on every launch.
+  const margin = 8; // matches theme.space.md
+  const [vpW, vpH] = ns.ui.windowSize();
+  const width = Math.floor(vpW / 2) - margin * 2;
+  const height = vpH - margin * 2;
+  ns.ui.resizeTail(width, height);
+  ns.ui.moveTail(vpW - width - margin, margin);
   ns.printRaw(
     <NsProvider ns={ns}>
       <ThemeProvider>

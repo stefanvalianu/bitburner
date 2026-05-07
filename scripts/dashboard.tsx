@@ -5,14 +5,13 @@ import { NsProvider } from "./lib/ns";
 import { usePropagate } from "./lib/propagate";
 import {
   Button,
-  Col,
+  DashboardPanel,
   GameState,
   GameStateIcon,
   LogStream,
   LogsIcon,
   Modal,
   NotificationDot,
-  Panel,
   Row,
   ServerMap,
   ThemeProvider,
@@ -67,8 +66,8 @@ function Dashboard() {
   };
 
   return (
-    <Col gap={8}>
-      <Panel title="Home Dashboard">
+    <>
+      <DashboardPanel title="Home Dashboard">
         <Row>
           <Button onClick={openLogs}>
             {notification && <NotificationDot color={notification.color} />}
@@ -84,7 +83,7 @@ function Dashboard() {
             Game state
           </Button>
         </Row>
-      </Panel>
+      </DashboardPanel>
       <Modal open={logsOpen} onClose={() => setLogsOpen(false)} title={`logs · ${entries.length}`}>
         <LogStream entries={entries} />
       </Modal>
@@ -99,7 +98,7 @@ function Dashboard() {
         <GameState />
       </Modal>
       <PropagationStamp />
-    </Col>
+    </>
   );
 }
 

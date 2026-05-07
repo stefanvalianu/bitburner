@@ -17,5 +17,5 @@ run:
     vp run start
 
 # Pushes the current dist/ to Bitburner via the running sync server.
-deploy:
+deploy: build
     @curl -fsS -X POST http://127.0.0.1:12526/deploy

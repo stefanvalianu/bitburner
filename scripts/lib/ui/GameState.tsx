@@ -41,6 +41,10 @@ export function GameState() {
   return (
     <Col gap={4}>
       <BoolRow label="TOR router" ok={state.inventory.hasTorRouter} />
+      <SectionHeading>Port openers</SectionHeading>
+      {state.inventory.portOpeners.map((p) => (
+        <BoolRow key={p.name} label={p.name} ok={p.owned} />
+      ))}
       <SectionHeading>Programs</SectionHeading>
       {state.inventory.programs.map((p) => (
         <BoolRow key={p.name} label={p.name} ok={p.owned} />

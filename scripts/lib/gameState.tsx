@@ -5,8 +5,11 @@ import { scanAll, type ServerInfo } from "./utils/serverMap";
 
 const DEFAULT_INTERVAL_MS = 10_000;
 
+const PORT_OPENER_KEYS = ["bruteSsh", "ftpCrack", "relaySmtp", "httpWorm", "sqlInject"] as const;
+
 export interface Inventory {
   hasTorRouter: boolean;
+  portOpeners: { name: string; owned: boolean }[];
   programs: { name: string; owned: boolean }[];
 }
 
@@ -23,13 +26,17 @@ export interface GameState {
 }
 
 function snapshot(ns: NS): GameState {
-  const programs = Object.values(ns.enums.ProgramName).map((name) => ({
+  const portOpenerNames = new Set(PORT_OPENER_KEYS.map((k) => ns.enums.ProgramName[k]));
+  const allPrograms = Object.values(ns.enums.ProgramName).map((name) => ({
     name,
     owned: ns.fileExists(name, "home"),
   }));
+  const portOpeners = allPrograms.filter((p) => portOpenerNames.has(p.name));
+  const programs = allPrograms.filter((p) => !portOpenerNames.has(p.name));
   return {
     inventory: {
       hasTorRouter: ns.hasTorRouter(),
+      portOpeners,
       programs,
     },
     stats: {

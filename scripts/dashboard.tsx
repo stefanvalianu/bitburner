@@ -14,6 +14,7 @@ import {
   NotificationDot,
   Row,
   ServerMap,
+  ServerStealingPanel,
   ThemeProvider,
   WorldIcon,
   useLevelColor,
@@ -45,12 +46,10 @@ function PropagationStamp() {
 function Dashboard() {
   const { colors } = useTheme();
   const levelColor = useLevelColor();
-  const { servers } = useGameState();
   const [logsOpen, setLogsOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [stateOpen, setStateOpen] = useState(false);
   const { notification, notify, clear } = useNotification();
-  const backdoored = servers.filter((s) => s.backdoorInstalled || s.purchasedByPlayer).length;
   usePropagate();
 
   // Poll logs continuously so the notification dot reflects activity even
@@ -76,22 +75,19 @@ function Dashboard() {
           </Button>
           <Button onClick={() => setMapOpen(true)}>
             <WorldIcon color={colors.accent} />
-            Server map ({backdoored}/{servers.length})
+            Server map
           </Button>
           <Button onClick={() => setStateOpen(true)}>
             <GameStateIcon color={colors.success} />
             Game state
           </Button>
         </Row>
+        <ServerStealingPanel />
       </DashboardPanel>
       <Modal open={logsOpen} onClose={() => setLogsOpen(false)} title={`logs · ${entries.length}`}>
         <LogStream entries={entries} />
       </Modal>
-      <Modal
-        open={mapOpen}
-        onClose={() => setMapOpen(false)}
-        title={`Server map · ${backdoored}/${servers.length}`}
-      >
+      <Modal open={mapOpen} onClose={() => setMapOpen(false)} title="Server map">
         <ServerMap />
       </Modal>
       <Modal open={stateOpen} onClose={() => setStateOpen(false)} title="Game state">

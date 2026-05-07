@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { NS } from "@ns";
 import { GameStateProvider, useGameState } from "./lib/gameState";
 import { NsProvider } from "./lib/ns";
+import { usePropagate } from "./lib/propagate";
 import {
   Button,
   Col,
@@ -31,6 +32,7 @@ function Dashboard() {
   const [stateOpen, setStateOpen] = useState(false);
   const { notification, notify, clear } = useNotification();
   const backdoored = servers.filter((s) => s.backdoorInstalled || s.purchasedByPlayer).length;
+  usePropagate();
 
   // Poll logs continuously so the notification dot reflects activity even
   // while the modal is closed. Skip notifying on entries that arrive while

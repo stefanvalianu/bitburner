@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import { glob } from "glob";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
+import { writeFileSync } from "node:fs";
 
 // One Vite entry per source file so the dist/ tree mirrors scripts/.
 // Bitburner's RAM accounting walks `import` chains across files, so we
@@ -16,6 +17,18 @@ const entries = Object.fromEntries(
       resolve(root, file),
     ]),
 );
+
+// Stamps dist/version.txt with the build epoch. The dashboard polls this and
+// fires propagate.js when it diverges from .state/version.txt on home, which
+// scp's every *.js to every reachable server.
+function versionStamp() {
+  return {
+    name: "version-stamp",
+    closeBundle() {
+      writeFileSync(resolve(root, "dist/version.txt"), Date.now().toString());
+    },
+  };
+}
 
 export default defineConfig({
   // Redirect `import "react"` etc. to local shims that pull from globalThis.
@@ -33,6 +46,7 @@ export default defineConfig({
       },
     ],
   },
+  plugins: [versionStamp()],
   build: {
     outDir: "dist",
     emptyOutDir: true,

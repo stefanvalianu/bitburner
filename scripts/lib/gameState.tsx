@@ -10,6 +10,8 @@ export interface GameState {
   hackingLevel: number;
   programs: { name: string; owned: boolean }[];
   servers: ServerInfo[];
+  currentVersion: string;
+  propagatedVersion: string;
 }
 
 function snapshot(ns: NS): GameState {
@@ -22,6 +24,8 @@ function snapshot(ns: NS): GameState {
     hackingLevel: ns.getHackingLevel(),
     programs,
     servers: scanAll(ns),
+    currentVersion: ns.read("version.txt").trim(),
+    propagatedVersion: ns.read(".state/version.txt").trim(),
   };
 }
 

@@ -6,7 +6,7 @@ import { readAllocation, reportChild } from "../util/tasks/client";
 // always-pwnable for early game.
 const TARGET = "n00dles";
 
-const WORKER_SCRIPT = "lib/hacks/weaken.js";
+const WORKER_SCRIPT = "lib/util/hacks/weaken.js";
 
 // Hack controller (v1). Receives an Allocation from the server manager via
 // ns.args[0]. For each allocated host: compute how many threads fit, exec,
@@ -20,7 +20,7 @@ export async function main(ns: NS): Promise<void> {
   const log = createLogger(ns, "hack-v1");
   const allocation = readAllocation(ns);
 
-  const workerRam = ns.getScriptRam(WORKER_SCRIPT);
+  const workerRam = ns.getScriptRam(WORKER_SCRIPT, "home");
   if (workerRam === 0) {
     log.error(`worker script not found: ${WORKER_SCRIPT}`);
     return;
@@ -29,13 +29,15 @@ export async function main(ns: NS): Promise<void> {
   let totalThreads = 0;
   for (const slice of allocation.servers) {
     const threads = Math.floor(slice.ram / workerRam);
-    // if (threads <= 0) continue;
+    if (threads <= 0) continue;
     const pid = ns.exec(WORKER_SCRIPT, slice.hostname, threads, TARGET);
     if (pid === 0) {
       log.warn(`exec failed on ${slice.hostname} (threads=${threads})`);
       continue;
+    } else {
+      log.info(`started ${threads} threads from ${slice.hostname}`);
     }
-    reportChild(ns, allocation.taskId, pid, slice.hostname);
+    //reportChild(ns, allocation.taskId, pid, slice.hostname);
     totalThreads += threads;
   }
   log.info(`started ${totalThreads} threads across ${allocation.servers.length} hosts → ${TARGET}`);

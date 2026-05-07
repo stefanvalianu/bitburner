@@ -25,12 +25,19 @@ export function allocate(
 
   const totalRam = eligible.reduce((sum, s) => sum + s.ram, 0);
 
-  const weights = tasks.map((t) => ({ task: t, weight: Math.max(0, t.priority(state)) }));
+  // Tasks that don't opt into the worker fleet get empty allocations and are
+  // excluded from weight calculations entirely — they run on their controller
+  // host only.
+  const ramHungry = tasks.filter((t) => t.requestsAllRam === true);
+  const weights = ramHungry.map((t) => ({ task: t, weight: Math.max(0, t.priority(state)) }));
   const totalWeight = weights.reduce((sum, w) => sum + w.weight, 0);
 
   const result = new Map<TaskId, Allocation>();
+  for (const t of tasks) {
+    if (t.requestsAllRam !== true) result.set(t.id, { taskId: t.id, servers: [] });
+  }
   if (totalWeight === 0 || totalRam === 0) {
-    for (const t of tasks) result.set(t.id, { taskId: t.id, servers: [] });
+    for (const t of ramHungry) result.set(t.id, { taskId: t.id, servers: [] });
     return result;
   }
 
@@ -56,8 +63,9 @@ export function allocate(
     remaining = leftover;
   }
 
-  // Tasks not in `ordered` (defensive — shouldn't happen): empty allocations.
-  for (const t of tasks) {
+  // Defensive fallback: any RAM-hungry task that didn't get filled in above
+  // (shouldn't happen) gets an empty allocation rather than being missing.
+  for (const t of ramHungry) {
     if (!result.has(t.id)) result.set(t.id, { taskId: t.id, servers: [] });
   }
   return result;

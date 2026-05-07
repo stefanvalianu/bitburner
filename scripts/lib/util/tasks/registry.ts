@@ -10,6 +10,7 @@ export const TASKS: TaskDefinition[] = [
     scriptPath: "lib/features/hack-controller-v1.js",
     // Only run when scout-server has published a valid target.
     priority: (state) => (state.scoutState?.target ? 1 : 0),
+    requestsAllRam: true,
   },
   {
     id: "scout-server",

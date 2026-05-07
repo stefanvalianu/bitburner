@@ -16,6 +16,11 @@ export interface TaskDefinition {
   id: TaskId;
   scriptPath: string;
   priority: (state: GameState) => number;
+  // When true, the allocator hands this task a proportional share of
+  // worker-server RAM. When false/unset (default), the task gets only its
+  // controller host — sufficient to run the script itself, with no worker
+  // fleet attached.
+  requestsAllRam?: boolean;
 }
 
 export interface ActiveTask {

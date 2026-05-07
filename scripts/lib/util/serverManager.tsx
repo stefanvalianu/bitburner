@@ -131,9 +131,13 @@ export function ServerManagerProvider({
       const ourHomeFootprint = next
         .filter((t) => t.controllerHost === "home")
         .reduce((sum, t) => sum + t.controllerRam, 0);
-      const orderedDefs: TaskDefinition[] = [...TASKS].sort(
-        (a, b) => b.priority(snapshot) - a.priority(snapshot),
-      );
+      // Drop priority-0 tasks before placement: they shouldn't run, period.
+      // (Previously the empty-allocation skip in step 5/7 caught this, but
+      // tasks that don't request worker RAM legitimately have empty
+      // allocations even when running, so we have to gate on priority here.)
+      const orderedDefs: TaskDefinition[] = [...TASKS]
+        .filter((t) => t.priority(snapshot) > 0)
+        .sort((a, b) => b.priority(snapshot) - a.priority(snapshot));
       const placements = new Map<TaskId, { host: string; ram: number }>();
       const reserved = new Set<string>();
       for (const def of orderedDefs) {
@@ -161,7 +165,10 @@ export function ServerManagerProvider({
       const targetPlan = TASKS.flatMap((def) => {
         const place = placements.get(def.id);
         const alloc = target.get(def.id);
-        if (!place || !alloc || alloc.servers.length === 0) return [];
+        if (!place || !alloc) return [];
+        // RAM-hungry tasks need at least one worker server to be useful;
+        // controller-only tasks can run with an empty allocation.
+        if (def.requestsAllRam && alloc.servers.length === 0) return [];
         return [{ taskId: def.id, controllerHost: place.host, servers: alloc.servers }];
       });
       const currentPlan = next.map((t) => ({
@@ -191,8 +198,12 @@ export function ServerManagerProvider({
       for (const def of TASKS) {
         const place = placements.get(def.id);
         const allocation = target.get(def.id);
-        if (!place || !allocation || allocation.servers.length === 0) {
-          log.info(`skip ${def.id}: no placement or no worker servers`);
+        if (!place || !allocation) {
+          log.info(`skip ${def.id}: no placement`);
+          continue;
+        }
+        if (def.requestsAllRam && allocation.servers.length === 0) {
+          log.info(`skip ${def.id}: requested all RAM but no worker servers available`);
           continue;
         }
         if (place.host !== "home") {

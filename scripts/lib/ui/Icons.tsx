@@ -103,6 +103,16 @@ export function PowerIcon({ color, title = "Kill all", size }: NamedIconProps) {
   );
 }
 
+export function HomeIcon({ color, title = "Controller host", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <path d="M2 8 L8 2 L14 8" />
+      <path d="M4 8 V14 H12 V8" />
+      <path d="M7 14 V11 H9 V14" />
+    </Icon>
+  );
+}
+
 export function ProgramsIcon({ color, title = "Programs", size }: NamedIconProps) {
   return (
     <Icon color={color} title={title} size={size}>

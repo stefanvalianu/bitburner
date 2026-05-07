@@ -5,7 +5,7 @@ import { useLogger } from "../util/log";
 import { useNs } from "../util/ns";
 import { numOpenPortsRequired, requiredHackingSkill } from "../util/serverMap";
 import { Button } from "../ui/Button";
-import { WorldIcon } from "../ui/Icons";
+import { HomeIcon, WorldIcon } from "../ui/Icons";
 import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { Spinner } from "../ui/Spinner";
@@ -66,13 +66,6 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
     </Button>
   ) : undefined;
 
-  const taskSummary = activeTasks
-    .map((t) => {
-      const ram = t.allocation.servers.reduce((sum, s) => sum + s.ram, 0);
-      return `${t.taskId}: ${t.allocation.servers.length} hosts / ${ram}GB`;
-    })
-    .join(" · ");
-
   return (
     <Panel title="Servers" actions={actions}>
       <Row gap={space.sm}>
@@ -84,11 +77,26 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
           {targets} targets ({pwnable.length} valid)
         </span>
       </Row>
-      {taskSummary && (
-        <Row gap={space.sm}>
-          <span style={{ color: colors.muted }}>{taskSummary}</span>
-        </Row>
-      )}
+      {activeTasks.map((t) => {
+        const ram = t.allocation.servers.reduce((sum, s) => sum + s.ram, 0);
+        return (
+          <Row key={t.taskId} gap={space.sm}>
+            <HomeIcon color={colors.accent} title={`Controller host: ${t.controllerHost}`} />
+            <span
+              style={{
+                fontFamily: "serif",
+                fontStyle: "italic",
+                color: colors.fg,
+              }}
+            >
+              {t.controllerHost}
+            </span>
+            <span style={{ color: colors.muted }}>
+              {t.taskId}: {t.allocation.servers.length} hosts / {ram}GB
+            </span>
+          </Row>
+        );
+      })}
     </Panel>
   );
 }

@@ -40,9 +40,9 @@ export function GameState() {
   const state = useGameState();
   return (
     <Col gap={4}>
-      <BoolRow label="TOR router" ok={state.hasTorRouter} />
+      <BoolRow label="TOR router" ok={state.inventory.hasTorRouter} />
       <SectionHeading>Programs</SectionHeading>
-      {state.programs.map((p) => (
+      {state.inventory.programs.map((p) => (
         <BoolRow key={p.name} label={p.name} ok={p.owned} />
       ))}
     </Col>

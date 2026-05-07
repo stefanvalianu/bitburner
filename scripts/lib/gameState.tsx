@@ -5,10 +5,18 @@ import { scanAll, type ServerInfo } from "./utils/serverMap";
 
 const DEFAULT_INTERVAL_MS = 10_000;
 
-export interface GameState {
+export interface Inventory {
   hasTorRouter: boolean;
-  hackingLevel: number;
   programs: { name: string; owned: boolean }[];
+}
+
+export interface Stats {
+  hackingLevel: number;
+}
+
+export interface GameState {
+  inventory: Inventory;
+  stats: Stats;
   servers: ServerInfo[];
   currentVersion: string;
   propagatedVersion: string;
@@ -20,9 +28,13 @@ function snapshot(ns: NS): GameState {
     owned: ns.fileExists(name, "home"),
   }));
   return {
-    hasTorRouter: ns.hasTorRouter(),
-    hackingLevel: ns.getHackingLevel(),
-    programs,
+    inventory: {
+      hasTorRouter: ns.hasTorRouter(),
+      programs,
+    },
+    stats: {
+      hackingLevel: ns.getHackingLevel(),
+    },
     servers: scanAll(ns),
     currentVersion: ns.read("version.txt").trim(),
     propagatedVersion: ns.read(".state/version.txt").trim(),

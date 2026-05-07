@@ -30,10 +30,10 @@ function PropagationStamp() {
     <span
       style={{
         position: "fixed",
-        bottom: 4,
+        top: 34,
         right: 6,
         fontSize: 10,
-        color: colors.fgDim,
+        color: colors.muted,
         pointerEvents: "none",
       }}
     >

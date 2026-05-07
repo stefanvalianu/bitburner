@@ -249,7 +249,8 @@ const RAM_WIDTH_PX = 110;
 
 export function ServerMap() {
   const { colors, fonts, space } = useTheme();
-  const { servers, hackingLevel } = useGameState();
+  const { servers, stats } = useGameState();
+  const { hackingLevel } = stats;
 
   const headerStyle: CSSProperties = {
     color: colors.fgDim,

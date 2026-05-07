@@ -1,6 +1,6 @@
 import type { GameState } from "../gameState";
 
-export type TaskId = "hack";
+export type TaskId = "hack" | "scout-server";
 
 export interface ServerSlice {
   hostname: string;

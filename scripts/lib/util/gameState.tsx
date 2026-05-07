@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { NS } from "@ns";
 import { useNs } from "./ns";
 import { scanAll, type ServerInfo } from "./serverMap";
+import { getScoutState, type ScoutState } from "./scout";
 
 const DEFAULT_INTERVAL_MS = 10_000;
 
@@ -24,6 +25,7 @@ export interface GameState {
   servers: ServerInfo[];
   currentVersion: string;
   propagatedVersion: string;
+  scoutState: ScoutState | null;
 }
 
 function snapshot(ns: NS): GameState {
@@ -53,6 +55,7 @@ function snapshot(ns: NS): GameState {
     servers: scanAll(ns),
     currentVersion: ns.read("version.txt").trim(),
     propagatedVersion: ns.read(".state/version.txt").trim(),
+    scoutState: getScoutState(ns),
   };
 }
 

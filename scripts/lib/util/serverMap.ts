@@ -75,3 +75,7 @@ export function numOpenPortsRequired(s: ServerInfo): number {
 export function openPortCount(s: ServerInfo): number {
   return "openPortCount" in s ? (s.openPortCount ?? 0) : 0;
 }
+
+export function moneyMax(s: ServerInfo): number {
+  return "moneyMax" in s ? (s.moneyMax ?? 0) : 0;
+}

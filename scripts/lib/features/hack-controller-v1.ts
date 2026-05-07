@@ -1,10 +1,7 @@
 import { NS } from "@ns";
 import { createLogger } from "../util/log";
 import { readAllocation, reportChild } from "../util/tasks/client";
-
-// Placeholder target until the "find-target" task lands. Picks something
-// always-pwnable for early game.
-const TARGET = "n00dles";
+import { getScoutState } from "../util/scout";
 
 const WORKER_SCRIPT = "lib/util/hacks/weaken.js";
 
@@ -19,6 +16,16 @@ export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
   const log = createLogger(ns, "hack-v1");
   const allocation = readAllocation(ns);
+
+  // Defensive: priority gate should already have prevented us from spawning
+  // without a scout target, but bail cleanly if the port was cleared between
+  // the priority check and exec.
+  const scout = getScoutState(ns);
+  if (!scout?.target) {
+    log.error("no scout target");
+    return;
+  }
+  const TARGET = scout.target;
 
   const workerRam = ns.getScriptRam(WORKER_SCRIPT, "home");
   if (workerRam === 0) {

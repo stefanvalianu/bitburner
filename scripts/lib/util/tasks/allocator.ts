@@ -20,7 +20,7 @@ export function allocate(
   const exclude = opts.exclude ?? new Set<string>();
   const eligible = servers
     .filter((s) => s.hasAdminRights && !exclude.has(s.hostname) && s.maxRam > 0)
-    .map((s) => ({ hostname: s.hostname, ram: s.maxRam }))
+    .map((s) => ({ hostname: s.hostname, ram: s.maxRam, cores: s.cpuCores }))
     .sort((a, b) => b.ram - a.ram);
 
   const totalRam = eligible.reduce((sum, s) => sum + s.ram, 0);

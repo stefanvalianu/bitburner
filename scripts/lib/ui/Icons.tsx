@@ -103,6 +103,34 @@ export function PowerIcon({ color, title = "Kill all", size }: NamedIconProps) {
   );
 }
 
+export function MoneyIcon({ color, title = "Money", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M10.5 5.5 Q9 5 7.5 5.5 Q5.5 6 5.5 7.5 Q5.5 9 7.5 9.5 Q10.5 10 10.5 11.5 Q10.5 12.5 9 13 Q7 13.5 5.5 12.5" />
+      <path d="M8 3.5 V12.5" />
+    </Icon>
+  );
+}
+
+export function ShieldIcon({ color, title = "Security", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <path d="M8 2 L13 4 V8 Q13 12 8 14 Q3 12 3 8 V4 Z" />
+    </Icon>
+  );
+}
+
+export function TargetIcon({ color, title = "Target", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <circle cx="8" cy="8" r="6" />
+      <circle cx="8" cy="8" r="3" />
+      <circle cx="8" cy="8" r="0.6" fill={color} stroke="none" />
+    </Icon>
+  );
+}
+
 export function HomeIcon({ color, title = "Controller host", size }: NamedIconProps) {
   return (
     <Icon color={color} title={title} size={size}>

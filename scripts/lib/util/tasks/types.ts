@@ -5,6 +5,7 @@ export type TaskId = "hack" | "scout-server";
 export interface ServerSlice {
   hostname: string;
   ram: number;
+  cores: number;
 }
 
 export interface Allocation {

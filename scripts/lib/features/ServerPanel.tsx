@@ -3,9 +3,16 @@ import { useGameState } from "../util/gameState";
 import { useServerManager } from "../util/serverManager";
 import { useLogger } from "../util/log";
 import { useNs } from "../util/ns";
-import { numOpenPortsRequired, requiredHackingSkill } from "../util/serverMap";
+import {
+  hackDifficulty,
+  minDifficulty,
+  moneyAvailable,
+  moneyMax,
+  numOpenPortsRequired,
+  requiredHackingSkill,
+} from "../util/serverMap";
 import { Button } from "../ui/Button";
-import { HomeIcon, WorldIcon } from "../ui/Icons";
+import { HomeIcon, MoneyIcon, ShieldIcon, TargetIcon, WorldIcon } from "../ui/Icons";
 import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { Spinner } from "../ui/Spinner";
@@ -15,8 +22,12 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const ns = useNs();
   const log = useLogger("servers");
   const { colors, space } = useTheme();
-  const { servers, stats, inventory } = useGameState();
+  const { servers, stats, inventory, scoutState } = useGameState();
   const { activeTasks } = useServerManager();
+
+  const targetServer = scoutState?.target
+    ? servers.find((s) => s.hostname === scoutState.target)
+    : undefined;
 
   // Categorize once. Backdoored implies admin rights, so the nuked bucket
   // excludes backdoored to avoid double-counting. Player-owned is its own
@@ -77,6 +88,21 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
           {targets} targets ({pwnable.length} valid)
         </span>
       </Row>
+      {targetServer && (
+        <Row gap={space.sm}>
+          <TargetIcon color={colors.accent} title={`Active target: ${targetServer.hostname}`} />
+          <span style={{ color: colors.fg }}>{targetServer.hostname}</span>
+          <MoneyIcon color={colors.money} />
+          <span style={{ color: colors.muted }}>
+            ${ns.format.number(moneyAvailable(targetServer))}/$
+            {ns.format.number(moneyMax(targetServer))}
+          </span>
+          <ShieldIcon color={colors.hack} />
+          <span style={{ color: colors.muted }}>
+            {hackDifficulty(targetServer).toFixed(2)}/{minDifficulty(targetServer).toFixed(2)}
+          </span>
+        </Row>
+      )}
       {activeTasks.map((t) => {
         const ram = t.allocation.servers.reduce((sum, s) => sum + s.ram, 0);
         return (

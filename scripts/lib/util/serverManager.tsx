@@ -192,8 +192,7 @@ export function ServerManagerProvider({
       }
 
       // 7. Spawn new controllers on their chosen hosts. Each gets its
-      //    Allocation JSON as ns.args[0]. scp first if not home — propagate
-      //    usually has copies in place but a per-spawn scp is cheap insurance.
+      //    Allocation JSON as ns.args[0].
       const fresh: ActiveTask[] = [];
       for (const def of TASKS) {
         const place = placements.get(def.id);
@@ -205,9 +204,6 @@ export function ServerManagerProvider({
         if (def.requestsAllRam && allocation.servers.length === 0) {
           log.info(`skip ${def.id}: requested all RAM but no worker servers available`);
           continue;
-        }
-        if (place.host !== "home") {
-          ns.scp(def.scriptPath, place.host, "home");
         }
         const arg = JSON.stringify(allocation);
         const pid = ns.exec(def.scriptPath, place.host, 1, arg);

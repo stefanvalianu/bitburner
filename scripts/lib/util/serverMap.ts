@@ -79,3 +79,15 @@ export function openPortCount(s: ServerInfo): number {
 export function moneyMax(s: ServerInfo): number {
   return "moneyMax" in s ? (s.moneyMax ?? 0) : 0;
 }
+
+export function moneyAvailable(s: ServerInfo): number {
+  return "moneyAvailable" in s ? (s.moneyAvailable ?? 0) : 0;
+}
+
+export function hackDifficulty(s: ServerInfo): number {
+  return "hackDifficulty" in s ? (s.hackDifficulty ?? 0) : 0;
+}
+
+export function minDifficulty(s: ServerInfo): number {
+  return "minDifficulty" in s ? (s.minDifficulty ?? 0) : 0;
+}

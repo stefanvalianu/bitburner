@@ -1,13 +1,12 @@
 import { useMemo } from "react";
 import type { NS } from "@ns";
 import { useNs } from "./ns";
+import { LOG_PORT } from "./utils/ports";
 
 // Shared port between producers (any script that logs) and the consumer
 // (scripts/tail-logs.tsx). Bitburner ports are FIFO with bounded capacity;
 // when full, oldest entries get evicted — fine for an unbounded log stream
 // when no viewer happens to be running.
-export const LOG_PORT = 1;
-
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface LogEntry {

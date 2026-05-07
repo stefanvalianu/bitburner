@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LOG_PORT, type LogEntry, type LogLevel } from "../log";
+import { type LogEntry, type LogLevel } from "../log";
 import { Badge } from "./Badge";
 import { Col } from "./Col";
 import { useNs } from "../ns";
 import { Row } from "./Row";
 import { useTheme } from "./theme";
+import { LOG_PORT } from "../utils/ports";
 
 const MAX_BUFFER = 250;
 const POLL_MS = 200;

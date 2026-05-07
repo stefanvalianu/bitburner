@@ -2,14 +2,16 @@ import { useEffect } from "react";
 import { useGameState } from "../gameState";
 import { useLogger } from "../log";
 import { useNs } from "../ns";
+import { Button } from "./Button";
+import { WorldIcon } from "./Icons";
 import { Panel } from "./Panel";
 import { Row } from "./Row";
 import { Spinner } from "./Spinner";
 import { useTheme } from "./theme";
 
-export function ServerPanel() {
+export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const ns = useNs();
-  const log = useLogger("steal");
+  const log = useLogger("servers");
   const { colors, space } = useTheme();
   const { servers, stats, inventory } = useGameState();
 
@@ -54,8 +56,15 @@ export function ServerPanel() {
     log.info(`nuked ${pwnable.length} target${pwnable.length === 1 ? "" : "s"}`);
   }, [ns, log, servers, stats.hackingLevel, ownedPortOpeners, inventory.portOpeners]);
 
+  const actions = onOpenMap ? (
+    <Button onClick={onOpenMap}>
+      <WorldIcon color={colors.accent} />
+      Server map
+    </Button>
+  ) : undefined;
+
   return (
-    <Panel title="Servers">
+    <Panel title="Servers" actions={actions}>
       <Row gap={space.sm}>
         <span style={{ color: colors.fg }}>
           {playerOwned} owned · {nuked} nuked · {backdoored} backdoored ·

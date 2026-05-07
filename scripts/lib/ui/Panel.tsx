@@ -3,6 +3,7 @@ import { useTheme } from "./theme";
 
 interface PanelProps {
   title?: ReactNode;
+  actions?: ReactNode;
   children: ReactNode;
   style?: CSSProperties;
   collapsible?: boolean;
@@ -11,6 +12,7 @@ interface PanelProps {
 
 export function Panel({
   title,
+  actions,
   children,
   style,
   collapsible = false,
@@ -18,7 +20,7 @@ export function Panel({
 }: PanelProps) {
   const { colors, fonts, space } = useTheme();
   const [open, setOpen] = useState(defaultOpen);
-  const showHeader = title !== undefined;
+  const showHeader = title !== undefined || actions !== undefined;
   const showBody = !collapsible || open;
 
   return (
@@ -53,6 +55,14 @@ export function Panel({
         >
           {collapsible && <Chevron open={open} />}
           {title}
+          {actions && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: space.sm }}
+            >
+              {actions}
+            </div>
+          )}
         </div>
       )}
       {showBody && children}

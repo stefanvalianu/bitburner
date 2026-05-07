@@ -9,6 +9,7 @@ const PORT_OPENER_KEYS = ["bruteSsh", "ftpCrack", "relaySmtp", "httpWorm", "sqlI
 
 export interface Inventory {
   hasTorRouter: boolean;
+  hasFormulas: boolean;
   portOpeners: { name: string; owned: boolean }[];
   programs: { name: string; owned: boolean }[];
 }
@@ -26,16 +27,23 @@ export interface GameState {
 }
 
 function snapshot(ns: NS): GameState {
-  const portOpenerNames = new Set(PORT_OPENER_KEYS.map((k) => ns.enums.ProgramName[k]));
-  const allPrograms = Object.values(ns.enums.ProgramName).map((name) => ({
+  const PN = ns.enums.ProgramName;
+  const portOpenerNames = new Set<string>(PORT_OPENER_KEYS.map((k) => PN[k]));
+  const allPrograms = Object.values(PN).map((name) => ({
     name,
     owned: ns.fileExists(name, "home"),
   }));
   const portOpeners = allPrograms.filter((p) => portOpenerNames.has(p.name));
-  const programs = allPrograms.filter((p) => !portOpenerNames.has(p.name));
+  // Formulas is elevated to its own field — keep it out of the generic
+  // programs list so the UI can call it out separately.
+  const programs = allPrograms.filter(
+    (p) => !portOpenerNames.has(p.name) && p.name !== PN.formulas,
+  );
+  const hasFormulas = ns.fileExists(PN.formulas, "home");
   return {
     inventory: {
       hasTorRouter: ns.hasTorRouter(),
+      hasFormulas,
       portOpeners,
       programs,
     },

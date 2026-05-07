@@ -1,12 +1,12 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useGameState } from "../gameState";
 import type { ServerInfo } from "../utils/serverMap";
+import { Icon, PortsIcon } from "./Icons";
 import { useTheme } from "./theme";
 
 const INDENT_PX = 18;
 const ROW_HEIGHT = "1.6em";
 const FONT_SIZE = 14;
-const ICON_SIZE = 14;
 
 type RailKind = "none" | "full" | "elbow" | "tee";
 
@@ -62,32 +62,6 @@ function RailColumn({ kind }: { kind: RailKind }) {
   );
 }
 
-interface IconProps {
-  color: string;
-  title: string;
-  children: ReactNode;
-}
-
-function Icon({ color, title, children }: IconProps) {
-  return (
-    <svg
-      width={ICON_SIZE}
-      height={ICON_SIZE}
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={{ verticalAlign: "middle", flexShrink: 0 }}
-      role="img"
-    >
-      <title>{title}</title>
-      {children}
-    </svg>
-  );
-}
-
 function PlayerIcon({ color }: { color: string }) {
   return (
     <Icon color={color} title="Player-owned server">
@@ -110,16 +84,6 @@ function LevelIcon({ color }: { color: string }) {
     <Icon color={color} title="Your hacking level is below the server's required level">
       <rect x="5" y="7" width="6" height="6.5" rx="0.5" />
       <path d="M6.5 7 V5 A1.5 1.5 0 0 1 9.5 5 V7" />
-    </Icon>
-  );
-}
-
-function PortsIcon({ color }: { color: string }) {
-  return (
-    <Icon color={color} title="Required ports not yet open">
-      <rect x="2" y="6" width="2.5" height="4" />
-      <rect x="6.75" y="6" width="2.5" height="4" />
-      <rect x="11.5" y="6" width="2.5" height="4" />
     </Icon>
   );
 }
@@ -160,26 +124,6 @@ function RamIcon({ color }: { color: string }) {
       <rect x="2" y="5" width="12" height="6" />
       <path d="M5 5 V11 M8 5 V11 M11 5 V11" />
       <path d="M3.5 11 V13 M12.5 11 V13" />
-    </Icon>
-  );
-}
-
-export function WorldIcon({ color }: { color: string }) {
-  return (
-    <Icon color={color} title="Server map">
-      <circle cx="8" cy="8" r="6" />
-      <ellipse cx="8" cy="8" rx="2.5" ry="6" />
-      <path d="M2 8 H14" />
-    </Icon>
-  );
-}
-
-export function LogsIcon({ color }: { color: string }) {
-  return (
-    <Icon color={color} title="Logs">
-      <path d="M3 4 H13" />
-      <path d="M3 8 H13" />
-      <path d="M3 12 H10" />
     </Icon>
   );
 }
@@ -244,7 +188,7 @@ function StateCell({ s, hackingLevel }: { s: ServerInfo; hackingLevel: number })
       )}
       {portsMissing && (
         <IconWithValue
-          icon={<PortsIcon color={colors.warn} />}
+          icon={<PortsIcon color={colors.warn} title="Required ports not yet open" />}
           value={`${s.openPortCount}/${s.numOpenPortsRequired}`}
         />
       )}

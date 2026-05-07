@@ -40,7 +40,9 @@ export function GameState() {
   const state = useGameState();
   return (
     <Col gap={4}>
+      <SectionHeading>General</SectionHeading>
       <BoolRow label="TOR router" ok={state.inventory.hasTorRouter} />
+      <BoolRow label="Formulas.exe" ok={state.inventory.hasFormulas} />
       <SectionHeading>Port openers</SectionHeading>
       {state.inventory.portOpeners.map((p) => (
         <BoolRow key={p.name} label={p.name} ok={p.owned} />
@@ -50,26 +52,5 @@ export function GameState() {
         <BoolRow key={p.name} label={p.name} ok={p.owned} />
       ))}
     </Col>
-  );
-}
-
-export function GameStateIcon({ color }: { color: string }) {
-  return (
-    <svg
-      width={14}
-      height={14}
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={{ verticalAlign: "middle", flexShrink: 0 }}
-      role="img"
-    >
-      <title>Game state</title>
-      <path d="M8 1.5 L13.5 3.5 V8 C13.5 11 11 13.5 8 14.5 C5 13.5 2.5 11 2.5 8 V3.5 Z" />
-      <path d="M5.5 8 L7.25 9.75 L10.5 6.5" />
-    </svg>
   );
 }

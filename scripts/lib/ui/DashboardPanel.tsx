@@ -9,6 +9,7 @@ const TITLEBAR_HEIGHT = 32;
 
 interface DashboardPanelProps {
   title?: ReactNode;
+  actions?: ReactNode;
   children: ReactNode;
   style?: CSSProperties;
 }
@@ -17,7 +18,7 @@ interface DashboardPanelProps {
 // fills the rest of the window, and re-enables themed scrollbars when the
 // body overflows. Compose with sibling <Modal>s or fixed-position overlays
 // (they render via portal / their own positioning context).
-export function DashboardPanel({ title, children, style }: DashboardPanelProps) {
+export function DashboardPanel({ title, actions, children, style }: DashboardPanelProps) {
   return (
     <ScrollScope
       style={{
@@ -30,7 +31,11 @@ export function DashboardPanel({ title, children, style }: DashboardPanelProps) 
         display: "flex",
       }}
     >
-      <Panel title={title} style={{ flex: 1, minWidth: 0, boxSizing: "border-box", ...style }}>
+      <Panel
+        title={title}
+        actions={actions}
+        style={{ flex: 1, minWidth: 0, boxSizing: "border-box", ...style }}
+      >
         {children}
       </Panel>
     </ScrollScope>

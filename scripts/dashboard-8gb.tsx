@@ -7,16 +7,14 @@ import {
   Button,
   DashboardPanel,
   GameState,
-  GameStateIcon,
   LogStream,
   LogsIcon,
   Modal,
   NotificationDot,
-  Row,
   ServerMap,
   ServerPanel,
   ThemeProvider,
-  WorldIcon,
+  ToolsPanel,
   useLevelColor,
   useLogStream,
   useNotification,
@@ -31,7 +29,7 @@ function PropagationStamp() {
     <span
       style={{
         position: "fixed",
-        top: 34,
+        bottom: 4,
         right: 6,
         fontSize: 10,
         color: colors.muted,
@@ -64,25 +62,19 @@ function Dashboard() {
     setLogsOpen(true);
   };
 
+  const logsAction = (
+    <Button onClick={openLogs}>
+      {notification && <NotificationDot color={notification.color} />}
+      <LogsIcon color={colors.muted} />
+      View logs ({entries.length})
+    </Button>
+  );
+
   return (
     <>
-      <DashboardPanel title="Home Dashboard">
-        <Row>
-          <Button onClick={openLogs}>
-            {notification && <NotificationDot color={notification.color} />}
-            <LogsIcon color={colors.muted} />
-            View logs ({entries.length})
-          </Button>
-          <Button onClick={() => setMapOpen(true)}>
-            <WorldIcon color={colors.accent} />
-            Server map
-          </Button>
-          <Button onClick={() => setStateOpen(true)}>
-            <GameStateIcon color={colors.success} />
-            Game state
-          </Button>
-        </Row>
-        <ServerPanel />
+      <DashboardPanel actions={logsAction}>
+        <ToolsPanel onOpen={() => setStateOpen(true)} />
+        <ServerPanel onOpenMap={() => setMapOpen(true)} />
       </DashboardPanel>
       <Modal open={logsOpen} onClose={() => setLogsOpen(false)} title={`logs · ${entries.length}`}>
         <LogStream entries={entries} />
@@ -90,7 +82,7 @@ function Dashboard() {
       <Modal open={mapOpen} onClose={() => setMapOpen(false)} title="Server map">
         <ServerMap />
       </Modal>
-      <Modal open={stateOpen} onClose={() => setStateOpen(false)} title="Game state">
+      <Modal open={stateOpen} onClose={() => setStateOpen(false)} title="Tools">
         <GameState />
       </Modal>
       <PropagationStamp />

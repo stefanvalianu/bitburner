@@ -20,6 +20,9 @@ export function Button({ children, onClick, variant = "default" }: ButtonProps) 
         border: `1px solid ${c}`,
         padding: `${space.xs}px ${space.md}px`,
         cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: space.sm,
       }}
     >
       {children}

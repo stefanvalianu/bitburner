@@ -12,6 +12,19 @@ export interface ServerInfo {
   // True if this node is the last child of its parent. The renderer uses
   // this to clip the leaf column's vertical line to the top half.
   isLastSibling: boolean;
+  purchasedByPlayer: boolean;
+  // Darknet servers have no port-hack model — we report 0/0 so the
+  // "ports met" check reads as ready (which is moot since admin rights are
+  // gated by Heartbleed/Authenticate, not NUKE).
+  numOpenPortsRequired: number;
+  openPortCount: number;
+  cpuCores: number;
+  ramUsed: number;
+  maxRam: number;
+  backdoorInstalled: boolean;
+  // Darknet servers don't gate by hacking skill — we report 0 there so the
+  // skill-gate check never fires for them.
+  requiredHackingSkill: number;
 }
 
 // DFS-walks the network starting from `root`, returning servers in traversal
@@ -31,7 +44,24 @@ export function scanAll(ns: NS, root: string = "home"): ServerInfo[] {
   ): void {
     if (visited.has(host)) return;
     visited.add(host);
-    result.push({ hostname: host, parent, depth, rails: [...rails], isLastSibling });
+    const data = ns.getServer(host);
+    result.push({
+      hostname: host,
+      parent,
+      depth,
+      rails: [...rails],
+      isLastSibling,
+      purchasedByPlayer: data.purchasedByPlayer,
+      numOpenPortsRequired:
+        "numOpenPortsRequired" in data ? data.numOpenPortsRequired ?? 0 : 0,
+      openPortCount: "openPortCount" in data ? data.openPortCount ?? 0 : 0,
+      cpuCores: data.cpuCores,
+      ramUsed: data.ramUsed,
+      maxRam: data.maxRam,
+      backdoorInstalled: data.backdoorInstalled ?? false,
+      requiredHackingSkill:
+        "requiredHackingSkill" in data ? data.requiredHackingSkill ?? 0 : 0,
+    });
 
     const children = ns.scan(host).filter((n) => !visited.has(n));
     // Skip appending a rail entry when this node is root — root has no

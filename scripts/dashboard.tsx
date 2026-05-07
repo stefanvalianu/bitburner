@@ -1,20 +1,22 @@
 import { useEffect, useState } from "react";
 import type { NS } from "@ns";
 import { useLogger } from "./lib/log";
-import { GameStateProvider } from "./lib/gameState";
+import { GameStateProvider, useGameState } from "./lib/gameState";
 import { NsProvider, useNs } from "./lib/ns";
 import {
   Button,
   Col,
   GameStatePanel,
   LogStream,
+  LogsIcon,
   Modal,
   NotificationDot,
   Panel,
   Row,
-  ServerMapPanel,
+  ServerMap,
   Stat,
   ThemeProvider,
+  WorldIcon,
   useLevelColor,
   useLogStream,
   useNotification,
@@ -26,11 +28,16 @@ function Dashboard() {
   const { colors } = useTheme();
   const levelColor = useLevelColor();
   const log = useLogger("dashboard");
+  const { servers } = useGameState();
   const [money, setMoney] = useState(ns.getServerMoneyAvailable("home"));
   const [hackLevel, setHackLevel] = useState(ns.getHackingLevel());
   const [tick, setTick] = useState(0);
   const [logsOpen, setLogsOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const { notification, notify, clear } = useNotification();
+  const backdoored = servers.filter(
+    (s) => s.backdoorInstalled || s.purchasedByPlayer,
+  ).length;
 
   // Poll logs continuously so the notification dot reflects activity even
   // while the modal is closed. Skip notifying on entries that arrive while
@@ -74,14 +81,21 @@ function Dashboard() {
           </Button>
           <Button onClick={openLogs}>
             {notification && <NotificationDot color={notification.color} />}
+            <LogsIcon color={colors.muted} />
             View logs ({entries.length})
+          </Button>
+          <Button onClick={() => setMapOpen(true)}>
+            <WorldIcon color={colors.accent} />
+            Server map ({backdoored}/{servers.length})
           </Button>
         </Row>
       </Panel>
       <GameStatePanel />
-      <ServerMapPanel />
       <Modal open={logsOpen} onClose={() => setLogsOpen(false)} title={`logs · ${entries.length}`}>
         <LogStream entries={entries} />
+      </Modal>
+      <Modal open={mapOpen} onClose={() => setMapOpen(false)} title={`Server map · ${backdoored}/${servers.length}`}>
+        <ServerMap />
       </Modal>
     </Col>
   );

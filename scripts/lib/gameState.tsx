@@ -13,6 +13,7 @@ const DEFAULT_INTERVAL_MS = 10_000;
 
 export interface GameState {
   hasTorRouter: boolean;
+  hackingLevel: number;
   programs: { name: string; owned: boolean }[];
   servers: ServerInfo[];
 }
@@ -24,6 +25,7 @@ function snapshot(ns: NS): GameState {
   }));
   return {
     hasTorRouter: ns.hasTorRouter(),
+    hackingLevel: ns.getHackingLevel(),
     programs,
     servers: scanAll(ns),
   };

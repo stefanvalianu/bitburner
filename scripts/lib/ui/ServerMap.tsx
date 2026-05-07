@@ -1,6 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useGameState } from "../gameState";
-import type { ServerInfo } from "../utils/serverMap";
+import {
+  numOpenPortsRequired,
+  openPortCount,
+  requiredHackingSkill,
+  type ServerInfo,
+} from "../utils/serverMap";
 import { Icon, PortsIcon } from "./Icons";
 import { useTheme } from "./theme";
 
@@ -176,20 +181,21 @@ function StateCell({ s, hackingLevel }: { s: ServerInfo; hackingLevel: number })
   if (s.purchasedByPlayer) return <PlayerIcon color={colors.accent} />;
   if (s.backdoorInstalled) return <BackdoorIcon color={colors.success} />;
   if (s.hasAdminRights) return <NukedIcon color={colors.hack} />;
-  const levelTooLow = hackingLevel < s.requiredHackingSkill;
-  const portsMissing = s.openPortCount < s.numOpenPortsRequired;
+  const required = requiredHackingSkill(s);
+  const portsRequired = numOpenPortsRequired(s);
+  const portsOpen = openPortCount(s);
+  const levelTooLow = hackingLevel < required;
+  const portsMissing = portsOpen < portsRequired;
   if (!levelTooLow && !portsMissing) return <HackReadyIcon color={colors.hack} />;
   return (
     <span
       style={{ display: "inline-flex", alignItems: "center", gap: space.sm, color: colors.muted }}
     >
-      {levelTooLow && (
-        <IconWithValue icon={<LevelIcon color={colors.warn} />} value={s.requiredHackingSkill} />
-      )}
+      {levelTooLow && <IconWithValue icon={<LevelIcon color={colors.warn} />} value={required} />}
       {portsMissing && (
         <IconWithValue
           icon={<PortsIcon color={colors.warn} title="Required ports not yet open" />}
-          value={`${s.openPortCount}/${s.numOpenPortsRequired}`}
+          value={`${portsOpen}/${portsRequired}`}
         />
       )}
     </span>

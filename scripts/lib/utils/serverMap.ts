@@ -1,8 +1,15 @@
-import type { NS } from "@ns";
+import type { DarknetServerData, NS, Server } from "@ns";
 
-export interface ServerInfo {
-  hostname: string;
+// ns.getServer returns either Server or a Darknet variant; mirroring both
+// keeps the snapshot complete. Fields like requiredHackingSkill and
+// numOpenPortsRequired only exist on the Server branch (Darknet servers omit
+// them) — consumers should `?? 0` at the read site.
+type RawServer = Server | (DarknetServerData & { isOnline: boolean });
+
+export type ServerInfo = RawServer & {
   parent: string | null;
+  // DFS depth from home; intentionally overrides DarknetServerData.depth
+  // (which represents an unrelated net-depth concept).
   depth: number;
   // Per-ancestor "draw vertical line" flags. Length = depth - 1 (covers
   // ancestors at depths 1..depth-1, since depth-0 root has no siblings to
@@ -12,21 +19,7 @@ export interface ServerInfo {
   // True if this node is the last child of its parent. The renderer uses
   // this to clip the leaf column's vertical line to the top half.
   isLastSibling: boolean;
-  purchasedByPlayer: boolean;
-  // Darknet servers have no port-hack model — we report 0/0 so the
-  // "ports met" check reads as ready (which is moot since admin rights are
-  // gated by Heartbleed/Authenticate, not NUKE).
-  numOpenPortsRequired: number;
-  openPortCount: number;
-  cpuCores: number;
-  ramUsed: number;
-  maxRam: number;
-  hasAdminRights: boolean;
-  backdoorInstalled: boolean;
-  // Darknet servers don't gate by hacking skill — we report 0 there so the
-  // skill-gate check never fires for them.
-  requiredHackingSkill: number;
-}
+};
 
 // DFS-walks the network starting from `root`, returning servers in traversal
 // order (parents always before their children). ns.scan is bidirectional —
@@ -47,21 +40,12 @@ export function scanAll(ns: NS, root: string = "home"): ServerInfo[] {
     visited.add(host);
     const data = ns.getServer(host);
     result.push({
-      hostname: host,
+      ...data,
       parent,
       depth,
       rails: [...rails],
       isLastSibling,
-      purchasedByPlayer: data.purchasedByPlayer,
-      numOpenPortsRequired: "numOpenPortsRequired" in data ? (data.numOpenPortsRequired ?? 0) : 0,
-      openPortCount: "openPortCount" in data ? (data.openPortCount ?? 0) : 0,
-      cpuCores: data.cpuCores,
-      ramUsed: data.ramUsed,
-      maxRam: data.maxRam,
-      hasAdminRights: data.hasAdminRights,
-      backdoorInstalled: data.backdoorInstalled ?? false,
-      requiredHackingSkill: "requiredHackingSkill" in data ? (data.requiredHackingSkill ?? 0) : 0,
-    });
+    } as ServerInfo);
 
     const children = ns.scan(host).filter((n) => !visited.has(n));
     // Skip appending a rail entry when this node is root — root has no
@@ -74,4 +58,20 @@ export function scanAll(ns: NS, root: string = "home"): ServerInfo[] {
 
   dfs(root, null, 0, [], true);
   return result;
+}
+
+// Convenience accessors for fields that only exist on the Server branch of
+// ServerInfo. Darknet servers don't gate by hacking skill or open ports, so
+// reporting 0 there makes the gate checks read as "satisfied" — which is
+// correct: those servers are unlocked via Heartbleed/Authenticate, not NUKE.
+export function requiredHackingSkill(s: ServerInfo): number {
+  return "requiredHackingSkill" in s ? (s.requiredHackingSkill ?? 0) : 0;
+}
+
+export function numOpenPortsRequired(s: ServerInfo): number {
+  return "numOpenPortsRequired" in s ? (s.numOpenPortsRequired ?? 0) : 0;
+}
+
+export function openPortCount(s: ServerInfo): number {
+  return "openPortCount" in s ? (s.openPortCount ?? 0) : 0;
 }

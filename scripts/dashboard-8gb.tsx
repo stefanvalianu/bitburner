@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { NS } from "@ns";
 import { GameStateProvider, useGameState } from "./lib/gameState";
+import { LeaseProvider } from "./lib/leases";
 import { NsProvider } from "./lib/ns";
 import { usePropagate } from "./lib/propagate";
 import {
@@ -107,7 +108,9 @@ export async function main(ns: NS): Promise<void> {
     <NsProvider ns={ns}>
       <ThemeProvider>
         <GameStateProvider>
-          <Dashboard />
+          <LeaseProvider>
+            <Dashboard />
+          </LeaseProvider>
         </GameStateProvider>
       </ThemeProvider>
     </NsProvider>,

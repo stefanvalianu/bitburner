@@ -2,62 +2,14 @@ import { WebSocketServer, type WebSocket } from "ws";
 import chokidar from "chokidar";
 import { readFile, writeFile } from "node:fs/promises";
 import { relative, resolve } from "node:path";
-import { spawn } from "node:child_process";
 
 const PORT = Number(process.env.PORT) || 12525;
-const SCRIPTS_DIR = resolve("scripts");
-// We watch the build output, not source. We bundle scripts/ into dist/ on
-// every save (full rebuild, not Vite's incremental watch — Rolldown's watch
-// mode produced inconsistent chunk decisions across rebuilds).
+// We watch the build output, not source. Builds are triggered explicitly via
+// `just build`; this server only mirrors dist/ → game.
 const DIST_DIR = resolve("dist");
 const SERVER = "home";
 // Built output is JS only; .ts/.tsx have already been compiled away.
 const VALID_EXT = /\.(js|jsx|txt|script)$/i;
-
-// Serialized full rebuilds with coalescing: if a save arrives mid-build, we
-// flag a follow-up build for when the current one finishes. Avoids races and
-// guarantees the final state of dist/ matches the final state of scripts/.
-let building = false;
-let pendingBuild = false;
-async function rebuild(): Promise<void> {
-  if (building) {
-    pendingBuild = true;
-    return;
-  }
-  building = true;
-  await new Promise<void>((resolveBuild) => {
-    const proc = spawn("vp", ["build"], { stdio: "inherit" });
-    proc.on("exit", () => resolveBuild());
-  });
-  building = false;
-  if (pendingBuild) {
-    pendingBuild = false;
-    await rebuild();
-  }
-}
-
-// Initial build before opening the WS server, so when the game connects there
-// is already something in dist/ to push.
-console.log("Running initial build...");
-await rebuild();
-
-// Debounce filesystem events — editors often emit several within a few ms.
-let debounceTimer: NodeJS.Timeout | null = null;
-const sourceWatcher = chokidar.watch(SCRIPTS_DIR, { ignoreInitial: true });
-const onSourceChange = () => {
-  if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => void rebuild(), 50);
-};
-sourceWatcher.on("add", onSourceChange);
-sourceWatcher.on("change", onSourceChange);
-sourceWatcher.on("unlink", onSourceChange);
-
-const shutdown = () => {
-  sourceWatcher.close();
-  process.exit();
-};
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
 
 type RpcResponse = { jsonrpc: "2.0"; id: number; result?: unknown; error?: unknown };
 

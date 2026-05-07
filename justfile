@@ -1,6 +1,11 @@
 _default:
     @just --list
 
+# Bundles scripts/ into dist/. The running sync server picks up the dist/
+# changes and pushes them to Bitburner.
+build:
+    vp build
+
 # Starts the sync server and exposes it on the public internet via Tailscale Funnel
 run:
     #!/usr/bin/env bash

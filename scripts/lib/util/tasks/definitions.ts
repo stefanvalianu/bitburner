@@ -1,4 +1,9 @@
-import { SCOUT_SERVER_TASK_ID, HACK_V1_TASK_ID, SERVER_SHARE_TASK_ID } from "./ids";
+import {
+  SCOUT_SERVER_TASK_ID,
+  HACK_V1_TASK_ID,
+  SERVER_SHARE_TASK_ID,
+  SIMPLE_HACKER_TASK_ID,
+} from "./ids";
 import type { TaskDefinition, TaskState } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -104,8 +109,22 @@ export const TASKS: TaskDefinition[] = [
     requirements: { growUnbounded: true },
     initialState: {},
     evaluate: (game, state, snapshot) => {
+      // todo temp
+      return "no-change";
+
       const shareSlot = snapshot.tasks[SERVER_SHARE_TASK_ID] as TaskState | undefined;
       if (shareSlot?.status === "running") return "no-change";
+      return "restart";
+    },
+  },
+  {
+    id: SIMPLE_HACKER_TASK_ID,
+    scriptPath: "lib/tasks/simple-hacker.js",
+    requirements: { growUnbounded: true },
+    initialState: {},
+    evaluate: (game, state, snapshot) => {
+      const simpleHackSlot = snapshot.tasks[SIMPLE_HACKER_TASK_ID] as TaskState | undefined;
+      if (simpleHackSlot?.status === "running") return "no-change";
       return "restart";
     },
   },

@@ -4,9 +4,9 @@ import { NS } from "@ns";
 // to lazily attempt overutilizing weakens/grows
 const PRECISION_BUFFER_MULTIPLIER = 0.9;
 
-const HACK_SCRIPT = "lib/util/script/grow.js";
+const HACK_SCRIPT = "lib/util/script/hack.js";
 const GROW_SCRIPT = "lib/util/script/grow.js";
-const WEAKEN_SCRIPT = "lib/util/script/grow.js";
+const WEAKEN_SCRIPT = "lib/util/script/weaken.js";
 
 // The purpose of this script is to be deployed on a "target" machine
 // and invoked. When running, this script essentially serves as a simple

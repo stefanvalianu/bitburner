@@ -1,7 +1,6 @@
 import { NS } from "@ns";
 import { BaseTask } from "../util/tasks/baseTask";
-
-export const SERVER_SHARE_TASK_ID = "server-sharer";
+import { SERVER_SHARE_TASK_ID } from "../util/tasks/ids";
 
 const SHARE_SCRIPT = "lib/util/script/share.js";
 
@@ -13,7 +12,7 @@ class ServerShareTask extends BaseTask {
   protected async run(): Promise<void> {
     const shareRam = this.ns.getScriptRam(SHARE_SCRIPT, "home");
 
-    if (shareRam) {
+    if (shareRam === 0) {
       this.log.error("share scripts missing");
       return;
     }

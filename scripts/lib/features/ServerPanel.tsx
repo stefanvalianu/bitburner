@@ -19,7 +19,7 @@ import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { Spinner } from "../ui/Spinner";
 import { useTheme } from "../ui/theme";
-import { SCOUT_SERVER_TASK_ID } from "../tasks/scout-server";
+import { SCOUT_SERVER_TASK_ID } from "../util/tasks/ids";
 
 export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const ns = useNs();

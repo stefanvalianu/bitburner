@@ -2,11 +2,7 @@ import { NS } from "@ns";
 import { BaseTask } from "../util/tasks/baseTask";
 import { availableHostnames, type ScoutTaskState } from "../util/tasks/definitions";
 import { moneyMax, scanAll } from "../util/serverMap";
-
-// Must match the id in tasks/definitions.ts. The manager exec's this script
-// without args; the BaseTask bootstrap pairs this constant with our PID
-// against the published snapshot to find our slot.
-export const SCOUT_SERVER_TASK_ID = "scout-server";
+import { SCOUT_SERVER_TASK_ID } from "../util/tasks/ids";
 
 class ScoutTask extends BaseTask<ScoutTaskState> {
   constructor(ns: NS) {

@@ -1,6 +1,4 @@
-import { HACK_V1_TASK_ID } from "../../tasks/hack-controller-v1";
-import { SCOUT_SERVER_TASK_ID } from "../../tasks/scout-server";
-import { SERVER_SHARE_TASK_ID } from "../../tasks/server-share";
+import { SCOUT_SERVER_TASK_ID, HACK_V1_TASK_ID, SERVER_SHARE_TASK_ID } from "./ids";
 import type { TaskDefinition, TaskState } from "./types";
 
 // ---------------------------------------------------------------------------

@@ -7,13 +7,18 @@ build:
 
 # Runs the sync server (Tailscale Funnel + WS for the game + local control
 # socket for `just deploy`). Holds the connection open; pushes are explicit.
-run:
+# Pass --local to skip Tailscale Funnel and run only on localhost.
+run *FLAGS="":
     #!/usr/bin/env bash
     set -euo pipefail
-    trap 'tailscale funnel reset >/dev/null 2>&1 || true' EXIT INT TERM
-    tailscale funnel --bg --https=443 http://localhost:12525 >/dev/null
-    DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
-    echo "Funnel up: wss://$DNS"
+    if [[ " {{FLAGS}} " == *" --local "* ]]; then
+        echo "Local mode: ws://localhost:12525"
+    else
+        trap 'tailscale funnel reset >/dev/null 2>&1 || true' EXIT INT TERM
+        tailscale funnel --bg --https=443 http://localhost:12525 >/dev/null
+        DNS=$(tailscale status --json | jq -r '.Self.DNSName' | sed 's/\.$//')
+        echo "Funnel up: wss://$DNS"
+    fi
     vp run start
 
 # Pushes the current dist/ to Bitburner via the running sync server.

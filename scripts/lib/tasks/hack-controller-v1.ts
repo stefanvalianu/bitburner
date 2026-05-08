@@ -2,9 +2,7 @@ import { NS } from "@ns";
 import { BaseTask } from "../util/tasks/baseTask";
 import type { HackTaskState, ScoutTaskState } from "../util/tasks/definitions";
 import type { TaskState } from "../util/tasks/types";
-import { SCOUT_SERVER_TASK_ID } from "./scout-server";
-
-export const HACK_V1_TASK_ID = "hack-v1";
+import { HACK_V1_TASK_ID, SCOUT_SERVER_TASK_ID } from "../util/tasks/ids";
 
 const WEAKEN_SCRIPT = "lib/util/script/weaken.js";
 const HACK_SCRIPT = "lib/util/script/hack.js";

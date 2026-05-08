@@ -1543,13 +1543,7 @@ export interface Stock {
    * @param positionType - Specifies whether the order is a Long ("L") or Short ("S") position.
    * @returns True if the order is successfully placed, and false otherwise.
    */
-  placeOrder(
-    sym: string,
-    shares: number,
-    price: number,
-    orderType: OrderType,
-    positionType: PositionType,
-  ): boolean;
+  placeOrder(sym: string, shares: number, price: number, orderType: OrderType, positionType: PositionType): boolean;
 
   /**
    * Cancel order for stocks.
@@ -1567,13 +1561,7 @@ export interface Stock {
    * @param orderType - Type of order.
    * @param positionType - Specifies whether the order is a Long ("L") or Short ("S") position.
    */
-  cancelOrder(
-    sym: string,
-    shares: number,
-    price: number,
-    orderType: OrderType,
-    positionType: PositionType,
-  ): void;
+  cancelOrder(sym: string, shares: number, price: number, orderType: OrderType, positionType: PositionType): void;
 
   /**
    * Returns your order book for the stock market.
@@ -1875,13 +1863,7 @@ interface GraftingTask extends PlayerBaseTask {
  *
  * @public
  */
-export type Task =
-  | StudyTask
-  | CompanyWorkTask
-  | CreateProgramWorkTask
-  | CrimeTask
-  | FactionWorkTask
-  | GraftingTask;
+export type Task = StudyTask | CompanyWorkTask | CreateProgramWorkTask | CrimeTask | FactionWorkTask | GraftingTask;
 
 /**
  * Default value:
@@ -1980,11 +1962,7 @@ export interface Singularity {
    * @param focus - Acquire player focus on this class. Optional. Defaults to true.
    * @returns True if action is successfully started, false otherwise.
    */
-  universityCourse(
-    universityName: UniversityLocationName,
-    courseName: UniversityClassType,
-    focus?: boolean,
-  ): boolean;
+  universityCourse(universityName: UniversityLocationName, courseName: UniversityClassType, focus?: boolean): boolean;
 
   /**
    * Workout at the gym.
@@ -2912,11 +2890,7 @@ export interface Singularity {
    * @param callbackScript - Name of the script to launch in the next BN.
    * @param bitNodeOptions - BitNode options for the next BN.
    */
-  destroyW0r1dD43m0n(
-    nextBN: number,
-    callbackScript?: string,
-    bitNodeOptions?: BitNodeOptions,
-  ): void;
+  destroyW0r1dD43m0n(nextBN: number, callbackScript?: string, bitNodeOptions?: BitNodeOptions): void;
 
   /**
    * Get the current work the player is doing.
@@ -3624,11 +3598,7 @@ export interface Bladeburner {
    * @param level - Optional. Action level at which to calculate the gain. Defaults to the action's current level if not specified.
    * @returns Average reputation gain for successfully completing the specified action.
    */
-  getActionRepGain(
-    type: BladeburnerActionType,
-    name: BladeburnerActionName,
-    level?: number,
-  ): number;
+  getActionRepGain(type: BladeburnerActionType, name: BladeburnerActionName, level?: number): number;
 
   /**
    * Get the rank gain of an action.
@@ -3643,11 +3613,7 @@ export interface Bladeburner {
    * @param level - Optional. Action level at which to calculate the gain. Defaults to the action's current level if not specified.
    * @returns Average rank gain for successfully completing the specified action.
    */
-  getActionRankGain(
-    type: BladeburnerActionType,
-    name: BladeburnerActionName,
-    level?: number,
-  ): number;
+  getActionRankGain(type: BladeburnerActionType, name: BladeburnerActionName, level?: number): number;
 
   /**
    * Get the rank loss of an action.
@@ -3662,11 +3628,7 @@ export interface Bladeburner {
    * @param level - Optional. Action level at which to calculate the loss. Defaults to the action's current level if not specified.
    * @returns Average rank loss for failing to complete the specified action.
    */
-  getActionRankLoss(
-    type: BladeburnerActionType,
-    name: BladeburnerActionName,
-    level?: number,
-  ): number;
+  getActionRankLoss(type: BladeburnerActionType, name: BladeburnerActionName, level?: number): number;
 
   /**
    * Get action count remaining.
@@ -3759,11 +3721,7 @@ export interface Bladeburner {
    * @param name - Name of action. Must be an exact match.
    * @param autoLevel - Whether or not to autolevel this action
    */
-  setActionAutolevel(
-    type: BladeburnerActionType,
-    name: BladeburnerActionName,
-    autoLevel: boolean,
-  ): void;
+  setActionAutolevel(type: BladeburnerActionType, name: BladeburnerActionName, autoLevel: boolean): void;
 
   /**
    * Set the level of an action.
@@ -4583,11 +4541,7 @@ export interface Darknet {
    * property. The type of this property is intentionaly undocumented. You are supposed to experiment and discover the
    * content of this property.
    */
-  authenticate(
-    host: string,
-    password: string,
-    additionalMsec?: number,
-  ): Promise<DarknetResult & { data?: any }>;
+  authenticate(host: string, password: string, additionalMsec?: number): Promise<DarknetResult & { data?: any }>;
 
   /**
    * Attempts to connect to a target darkweb server that you have previously authenticated on. Unlike `authenticate`,
@@ -4629,10 +4583,7 @@ export interface Darknet {
    * @returns A promise that resolves to a {@link DarknetResult} object, plus the scraped logs.
    *
    */
-  heartbleed(
-    host: string,
-    options?: HeartbleedOptions,
-  ): Promise<DarknetResult & { logs: string[] }>;
+  heartbleed(host: string, options?: HeartbleedOptions): Promise<DarknetResult & { logs: string[] }>;
 
   /**
    * Opens a .cache file on the current server to acquire its valuable contents.
@@ -5285,11 +5236,7 @@ export interface GoAnalysis {
    *  @param playAsWhite - Optional. Whether to analyze the board state as if the white player is the current player. Defaults to false. Intended to be used when playing as white when the opponent is set to "No AI".
    *  @returns A 2D array of booleans indicating the validity of each move.
    */
-  getValidMoves(
-    boardState?: string[] | boolean,
-    priorBoardState?: string[],
-    playAsWhite?: boolean,
-  ): boolean[][];
+  getValidMoves(boardState?: string[] | boolean, priorBoardState?: string[], playAsWhite?: boolean): boolean[][];
 
   /**
    * Returns an ID for each point. All points that share an ID are part of the same network (or "chain"). Empty points
@@ -6221,20 +6168,11 @@ interface WorkFormulas {
   /** @returns The WorkStats applied every game cycle (200ms) by taking the specified gym class. */
   gymGains(person: Person, gymType: GymType, locationName: LocationName): WorkStats;
   /** @returns The WorkStats applied every game cycle (200ms) by taking the specified university class. */
-  universityGains(
-    person: Person,
-    classType: UniversityClassType,
-    locationName: LocationName,
-  ): WorkStats;
+  universityGains(person: Person, classType: UniversityClassType, locationName: LocationName): WorkStats;
   /** @returns The WorkStats applied every game cycle (200ms) by performing the specified faction work. */
   factionGains(person: Person, workType: FactionWorkType, favor: number): WorkStats;
   /** @returns The WorkStats applied every game cycle (200ms) by performing the specified company work. */
-  companyGains(
-    person: Person,
-    companyName: CompanyName,
-    workType: JobName,
-    favor: number,
-  ): WorkStats;
+  companyGains(person: Person, companyName: CompanyName, workType: JobName, favor: number): WorkStats;
 }
 
 /**
@@ -6463,13 +6401,7 @@ interface HacknetServersFormulas {
    * @param mult - player production mult (default to 1)
    * @returns The calculated hash gain rate.
    */
-  hashGainRate(
-    level: number,
-    ramUsed: number,
-    maxRam: number,
-    cores: number,
-    mult?: number,
-  ): number;
+  hashGainRate(level: number, ramUsed: number, maxRam: number, cores: number, mult?: number): number;
   /**
    * Calculate cost of upgrading hacknet server level.
    * @param startingLevel - starting level
@@ -6600,22 +6532,14 @@ interface DarknetFormulas {
    * @param threads - The number of threads to use for the authentication. Optional, defaults to 1
    * @param player - The player object. Optional, defaults to the current player status
    */
-  getAuthenticateTime(
-    darknetServerData: DarknetServerData,
-    threads?: number,
-    player?: Person,
-  ): number;
+  getAuthenticateTime(darknetServerData: DarknetServerData, threads?: number, player?: Person): number;
   /**
    * Gets the time it will take to scrape logs from a server.
    * @param darknetServerData - The server to check heartbleed log scraping time on.
    * @param threads - The number of threads to use for the authentication. Optional, defaults to 1
    * @param player - The player object. Optional, defaults to the current player status
    */
-  getHeartbleedTime(
-    darknetServerData: DarknetServerData,
-    threads?: number,
-    player?: Person,
-  ): number;
+  getHeartbleedTime(darknetServerData: DarknetServerData, threads?: number, player?: Person): number;
 
   /**
    * Gets the expected amount off ram that will be freed by a call to dnet.memoryReallocation
@@ -6623,11 +6547,7 @@ interface DarknetFormulas {
    * @param threads - The number of threads used in the memoryReallocation call. Optional, defaults to 1
    * @param player - The player object. Optional, defaults to the current player status
    */
-  getExpectedRamBlockRemoved(
-    darknetServerData: DarknetServerData,
-    threads?: number,
-    player?: Person,
-  ): number;
+  getExpectedRamBlockRemoved(darknetServerData: DarknetServerData, threads?: number, player?: Person): number;
 }
 
 /**
@@ -8025,12 +7945,7 @@ export interface NS {
    * @param args - Additional arguments to pass into the new script that is being run. Note that if any arguments are being passed into the new script, then the third argument threadOrOptions must be filled in with a value.
    * @returns Returns the PID of a successfully started script, and 0 otherwise.
    */
-  exec(
-    script: string,
-    host: string,
-    threadOrOptions?: number | RunOptions,
-    ...args: ScriptArg[]
-  ): number;
+  exec(script: string, host: string, threadOrOptions?: number | RunOptions, ...args: ScriptArg[]): number;
 
   /**
    * Terminate current script and start another in a defined number of milliseconds.
@@ -8513,11 +8428,7 @@ export interface NS {
    * @param args  - Arguments to specify/identify the script. Optional, when looking for scripts run without arguments.
    * @returns The info about the running script if found, and null otherwise.
    */
-  getRunningScript(
-    filename?: FilenameOrPID,
-    host?: string,
-    ...args: ScriptArg[]
-  ): RunningScript | null;
+  getRunningScript(filename?: FilenameOrPID, host?: string, ...args: ScriptArg[]): RunningScript | null;
 
   /**
    * Change the current static RAM allocation of the script.
@@ -9188,9 +9099,7 @@ export interface NS {
    * ```
    * `bar` in the last example is `"false"` (a string), not `false` (a boolean). `data.bar` is truthy, not falsy.
    */
-  flags(schema: [string, string | number | boolean | string[]][]): {
-    [key: string]: ScriptArg | string[];
-  };
+  flags(schema: [string, string | number | boolean | string[]][]): { [key: string]: ScriptArg | string[] };
 
   /**
    * Share the server's ram with your factions to increase the reputation gain rate of faction work. This boost is
@@ -9763,11 +9672,7 @@ export interface OfficeAPI {
    * @param employeePosition - Position to place into. Defaults to "Unassigned".
    * @returns True if an employee was hired, false otherwise
    */
-  hireEmployee(
-    divisionName: string,
-    city: CityName,
-    employeePosition?: CorpEmployeePosition,
-  ): boolean;
+  hireEmployee(divisionName: string, city: CityName, employeePosition?: CorpEmployeePosition): boolean;
 
   /**
    * Upgrade office size.
@@ -9942,13 +9847,7 @@ export interface WarehouseAPI {
    * @param amt - Amount to sell, can be "MAX"
    * @param price - Price to sell, can be "MP"
    */
-  sellMaterial(
-    divisionName: string,
-    city: CityName,
-    materialName: CorpMaterialName,
-    amt: string,
-    price: string,
-  ): void;
+  sellMaterial(divisionName: string, city: CityName, materialName: CorpMaterialName, amt: string, price: string): void;
 
   /**
    * Set product sell data.
@@ -10024,12 +9923,7 @@ export interface WarehouseAPI {
    * @param materialName - Name of the material
    * @param amt - Amount of material to buy
    */
-  buyMaterial(
-    divisionName: string,
-    city: CityName,
-    materialName: CorpMaterialName,
-    amt: number,
-  ): void;
+  buyMaterial(divisionName: string, city: CityName, materialName: CorpMaterialName, amt: number): void;
 
   /**
    * Set material to bulk-buy.
@@ -10042,12 +9936,7 @@ export interface WarehouseAPI {
    * @param materialName - Name of the material
    * @param amt - Amount of material to buy
    */
-  bulkPurchase(
-    divisionName: string,
-    city: CityName,
-    materialName: CorpMaterialName,
-    amt: number,
-  ): void;
+  bulkPurchase(divisionName: string, city: CityName, materialName: CorpMaterialName, amt: number): void;
 
   /**
    * Get warehouse data.
@@ -10098,12 +9987,7 @@ export interface WarehouseAPI {
    * @param materialName - Name of the material
    * @param on - Use true to enable, false otherwise.
    */
-  setMaterialMarketTA1(
-    divisionName: string,
-    city: CityName,
-    materialName: CorpMaterialName,
-    on: boolean,
-  ): void;
+  setMaterialMarketTA1(divisionName: string, city: CityName, materialName: CorpMaterialName, on: boolean): void;
 
   /**
    * Set Market-TA2 for a material.
@@ -10116,12 +10000,7 @@ export interface WarehouseAPI {
    * @param materialName - Name of the material
    * @param on - Use true to enable, false otherwise.
    */
-  setMaterialMarketTA2(
-    divisionName: string,
-    city: CityName,
-    materialName: CorpMaterialName,
-    on: boolean,
-  ): void;
+  setMaterialMarketTA2(divisionName: string, city: CityName, materialName: CorpMaterialName, on: boolean): void;
 
   /**
    * Set Market-TA1 for a product.
@@ -10256,12 +10135,7 @@ export interface WarehouseAPI {
    * @param materialName - Name of the material.
    * @param qty - Amount to limit to. Pass a negative value to remove the limit instead.
    */
-  limitMaterialProduction(
-    divisionName: string,
-    city: CityName,
-    materialName: CorpMaterialName,
-    qty: number,
-  ): void;
+  limitMaterialProduction(divisionName: string, city: CityName, materialName: CorpMaterialName, qty: number): void;
 
   /**
    * Limit product production.
@@ -10274,12 +10148,7 @@ export interface WarehouseAPI {
    * @param productName - Name of the product.
    * @param qty - Amount to limit to. Pass a negative value to remove the limit instead.
    */
-  limitProductProduction(
-    divisionName: string,
-    city: CityName,
-    productName: string,
-    qty: number,
-  ): void;
+  limitProductProduction(divisionName: string, city: CityName, productName: string, qty: number): void;
 
   /**
    * Get the cost to upgrade a warehouse to the next level.
@@ -11186,9 +11055,7 @@ interface AutocompleteData {
   /** Netscript Enums */
   enums: NSEnums;
   /** Parses the flags schema on the already inputted flags */
-  flags(schema: [string, string | number | boolean | string[]][]): {
-    [key: string]: ScriptArg | string[];
-  };
+  flags(schema: [string, string | number | boolean | string[]][]): { [key: string]: ScriptArg | string[] };
   /** The hostname of the server the script would be running on */
   hostname: string;
   /** The filename of the script about to be run */

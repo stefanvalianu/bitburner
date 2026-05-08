@@ -171,7 +171,11 @@ export function TaskManagerProvider({
           if (!slot.childPids.includes(ev.pid)) slot.childPids.push(ev.pid);
           continue;
         }
-        if (ev.type === "state-patch") {
+        else if (ev.type === "task-finished") {
+          slot.status = "finished";
+          continue;
+        }
+        else if (ev.type === "state-patch") {
           for (const [k, v] of Object.entries(ev.patch)) {
             if (BASE_STATE_KEYS.has(k)) continue; // reject manager-owned fields
             slot[k] = v;
@@ -186,7 +190,7 @@ export function TaskManagerProvider({
       for (const [id, slot] of Object.entries(snap)) {
         if (slot.pid !== null && !ns.isRunning(slot.pid)) {
           if (slot.status === "stopping" || slot.status === "finished") {
-            log.info(`task ${id} exited cleanly`);
+            log.info(`task ${id} completed`);
           } else if (slot.status === "running") {
             log.warn(`task ${id} died unexpectedly (pid=${slot.pid})`);
           }

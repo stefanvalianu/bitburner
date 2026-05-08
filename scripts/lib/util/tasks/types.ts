@@ -69,7 +69,8 @@ export const BASE_STATE_KEYS: ReadonlySet<string> = new Set([
 
 export type TaskEvent =
   | { type: "state-patch"; taskId: TaskId; patch: Record<string, unknown> }
-  | { type: "child-spawned"; taskId: TaskId; pid: number; hostname: string };
+  | { type: "child-spawned"; taskId: TaskId; pid: number; hostname: string }
+  | { type: "task-finished"; taskId: TaskId };
 
 // ---------------------------------------------------------------------------
 // Task definition

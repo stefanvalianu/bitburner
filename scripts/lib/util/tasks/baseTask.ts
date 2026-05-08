@@ -1,7 +1,7 @@
 import type { NS } from "@ns";
 import { createLogger, type Logger } from "../log";
 import { TASK_EVENTS_PORT, TASK_STATE_PORT } from "../ports";
-import type { Allocation, BaseTaskState, TaskEvent, TaskId, TaskState, TaskStateSnapshot } from "./types";
+import type { Allocation, TaskEvent, TaskId, TaskState, TaskStateSnapshot } from "./types";
 
 // ---------------------------------------------------------------------------
 // BaseTask
@@ -34,11 +34,11 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
     this.log = createLogger(ns, taskId);
   }
 
-  // Entrypoint. Bootstrap, run the subclass body, and surface any error.
+  // Entrypoint. Run the subclass body and surface any error.
   async start(): Promise<void> {
     try {
       await this.run();
-      this.patchState({ status: "finished" } as Partial<BaseTaskState>);
+      this.emitEvent({ type: "task-finished", taskId: this.taskId });
     } catch (e) {
       this.log.error(`task crashed: ${e instanceof Error ? e.message : String(e)}`);
       throw e;

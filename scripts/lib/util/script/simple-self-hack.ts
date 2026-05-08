@@ -15,6 +15,8 @@ const WEAKEN_SCRIPT = "lib/util/script/weaken.js";
 // ones reserved by this script) to do weaken -> grow -> weaken -> hack
 // phases with maximal threads. No intelligent batching or scheduling
 export async function main(ns: NS): Promise<void> {
+  ns.disableLog("ALL");
+
   const minSecurity = ns.getServerMinSecurityLevel() * (2 - PRECISION_BUFFER_MULTIPLIER);
   const maxMoney = ns.getServerMaxMoney() * PRECISION_BUFFER_MULTIPLIER;
 
@@ -27,27 +29,29 @@ export async function main(ns: NS): Promise<void> {
   if (usableRam - Math.max(growRam, hackRam, weakenRam) <= 0) {
     ns.print(
       "ERROR",
-      `Machine doesn't have enough RAM to run necessary scripts. Usable RAM: ${usableRam}`,
+      ` Machine doesn't have enough RAM to run necessary scripts. Usable RAM: ${usableRam}`,
     );
     return;
   }
 
   while (true) {
     let delay = 1000;
+    const serverSecurity = ns.getServerSecurityLevel();
+    const serverMoney = ns.getServerMoneyAvailable();
 
-    if (ns.getServerSecurityLevel() > minSecurity) {
+    if (serverSecurity > minSecurity) {
       // we are weakening
       const availableThreads = Math.floor(usableRam / weakenRam);
       if (availableThreads > 0) {
-        ns.print("INFO", "Weakening...");
+        ns.print("INFO", " Weakening...");
         delay = Math.max(ns.getWeakenTime());
         ns.run(WEAKEN_SCRIPT, availableThreads);
       }
-    } else if (ns.getServerMoneyAvailable() < maxMoney) {
+    } else if (serverMoney < maxMoney) {
       // we are growing
       const availableThreads = Math.floor(usableRam / growRam);
       if (availableThreads > 0) {
-        ns.print("INFO", "Growing...");
+        ns.print("INFO", " Growing...");
         delay = Math.max(ns.getGrowTime());
         ns.run(GROW_SCRIPT, availableThreads);
       }
@@ -55,12 +59,17 @@ export async function main(ns: NS): Promise<void> {
       // we are hacking
       const availableThreads = Math.floor(usableRam / hackRam);
       if (availableThreads > 0) {
-        ns.print("INFO", "Hacking...");
+        ns.print("INFO", " Hacking...");
         delay = Math.max(ns.getHackTime());
         ns.run(HACK_SCRIPT, availableThreads);
       }
     }
 
-    await ns.asleep(delay);
+    // add a small buffer to ensure the scripts finish
+    ns.print(
+      "INFO",
+      ` Server security: ${serverSecurity}/${minSecurity}, Money: ${serverMoney}/${maxMoney}`,
+    );
+    await ns.asleep(delay + 50);
   }
 }

@@ -50,7 +50,10 @@ export interface BaseTaskState {
 export type TaskState<T extends Record<string, unknown> = Record<string, unknown>> = BaseTaskState &
   T;
 
-export type TaskStateSnapshot = Record<TaskId, TaskState>;
+export type TaskStateSnapshot = {
+  gameState: GameState | null;
+  tasks: Record<TaskId, TaskState>;
+};
 
 // Keys of BaseTaskState — used by the manager when shallow-merging
 // state-patch events to reject attempts to overwrite manager-owned fields.

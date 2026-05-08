@@ -47,7 +47,9 @@ class HackTask extends BaseTask<HackTaskState> {
   }
 
   private resolveTarget(): string | null {
-    const scoutSlot = this.snapshot[SCOUT_SERVER_TASK_ID] as TaskState<ScoutTaskState> | undefined;
+    const scoutSlot = this.snapshot.tasks[SCOUT_SERVER_TASK_ID] as
+      | TaskState<ScoutTaskState>
+      | undefined;
     return scoutSlot?.target ?? null;
   }
 

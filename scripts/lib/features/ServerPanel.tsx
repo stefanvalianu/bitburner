@@ -30,7 +30,7 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const { taskState, requestShutdown } = useTaskManager();
   const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
 
-  const scoutSlot = taskState[SCOUT_SERVER_TASK_ID] as TaskState<ScoutTaskState> | undefined;
+  const scoutSlot = taskState.tasks[SCOUT_SERVER_TASK_ID] as TaskState<ScoutTaskState> | undefined;
   const targetServer = scoutSlot?.target
     ? servers.find((s) => s.hostname === scoutSlot.target)
     : undefined;
@@ -84,7 +84,7 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   ) : undefined;
 
   // Show only running/stopping slots — idle ones don't need a row.
-  const liveTasks = Object.entries(taskState).filter(
+  const liveTasks = Object.entries(taskState.tasks).filter(
     ([, slot]) => slot.status === "running" || slot.status === "stopping",
   );
 

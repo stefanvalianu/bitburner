@@ -76,11 +76,11 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
   // scout's published target).
   protected get snapshot(): TaskStateSnapshot {
     const raw = this.ns.peek(TASK_STATE_PORT);
-    if (raw === "NULL PORT DATA") return {};
+    if (raw === "NULL PORT DATA") return { gameState: null, tasks: {} };
     try {
       return JSON.parse(raw as string) as TaskStateSnapshot;
     } catch {
-      return {};
+      return { gameState: null, tasks: {} };
     }
   }
 
@@ -127,8 +127,7 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
 
   private peekSlot(): TaskState<TState> | null {
     const snap = this.snapshot;
-    if (!snap) return null;
-    const slot = snap[this.taskId];
+    const slot = snap.tasks[this.taskId];
     return (slot as TaskState<TState>) ?? null;
   }
 

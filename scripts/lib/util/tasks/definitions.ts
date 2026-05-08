@@ -76,7 +76,7 @@ export const TASKS: TaskDefinition[] = [
       // todo temp
       return "no-change";
 
-      const hackv1Slot = snapshot["hack-v1"] as TaskState<HackTaskState> | undefined;
+      const hackv1Slot = snapshot.tasks["hack-v1"] as TaskState<HackTaskState> | undefined;
 
       // hack-v1 is a weaker version of hack-v2 — once formulas are
       // available, retire any running v1 and don't respawn.
@@ -88,7 +88,9 @@ export const TASKS: TaskDefinition[] = [
         return "no-change";
       }
 
-      const scoutSlot = snapshot[SCOUT_SERVER_TASK_ID] as TaskState<ScoutTaskState> | undefined;
+      const scoutSlot = snapshot.tasks[SCOUT_SERVER_TASK_ID] as
+        | TaskState<ScoutTaskState>
+        | undefined;
       const desired = scoutSlot?.target ?? null;
       const myTarget = (state as TaskState<HackTaskState>).target;
       // Only run when scout has produced a target, and only restart when
@@ -102,7 +104,7 @@ export const TASKS: TaskDefinition[] = [
     requirements: { growUnbounded: true },
     initialState: {},
     evaluate: (game, state, snapshot) => {
-      const shareSlot = snapshot[SERVER_SHARE_TASK_ID] as TaskState | undefined;
+      const shareSlot = snapshot.tasks[SERVER_SHARE_TASK_ID] as TaskState | undefined;
       if (shareSlot?.status === "running") return "no-change";
       return "restart";
     },

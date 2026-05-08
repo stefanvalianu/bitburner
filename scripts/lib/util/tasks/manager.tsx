@@ -65,9 +65,9 @@ function drainEvents(ns: NS): TaskEvent[] {
 const EXCLUDE_WORKERS_FROM = new Set(["home"]);
 
 function makeInitialSnapshot(): TaskStateSnapshot {
-  const snap: TaskStateSnapshot = {};
+  const snap: TaskStateSnapshot = { gameState: null, tasks: {} };
   for (const def of TASKS) {
-    snap[def.id] = {
+    snap.tasks[def.id] = {
       ...({
         pid: null,
         host: null,
@@ -150,9 +150,9 @@ export function TaskManagerProvider({ children }: { children: ReactNode }) {
     const runTick = () => {
       // Mutable working copy. Slot objects are also cloned where mutated to
       // avoid sharing references with the previous snapshot.
-      const snap: TaskStateSnapshot = {};
-      for (const [id, slot] of Object.entries(stateRef.current)) {
-        snap[id] = { ...slot, childPids: [...slot.childPids] };
+      const snap: TaskStateSnapshot = { gameState: game, tasks: {} };
+      for (const [id, slot] of Object.entries(stateRef.current.tasks)) {
+        snap.tasks[id] = { ...slot, childPids: [...slot.childPids] };
       }
 
       // -------------------------------------------------------------------
@@ -160,7 +160,7 @@ export function TaskManagerProvider({ children }: { children: ReactNode }) {
       // -------------------------------------------------------------------
       const events = drainEvents(ns);
       for (const ev of events) {
-        const slot = snap[ev.taskId];
+        const slot = snap.tasks[ev.taskId];
         if (!slot) continue;
         if (ev.type === "child-spawned") {
           if (!slot.childPids.includes(ev.pid)) slot.childPids.push(ev.pid);
@@ -180,14 +180,14 @@ export function TaskManagerProvider({ children }: { children: ReactNode }) {
       // 2. Reap any slot whose PID is gone — manual kill, exec failure,
       //    voluntary exit, or graceful shutdown after seeing the flag.
       // -------------------------------------------------------------------
-      for (const [id, slot] of Object.entries(snap)) {
+      for (const [id, slot] of Object.entries(snap.tasks)) {
         if (slot.pid !== null && !ns.isRunning(slot.pid)) {
           if (slot.status === "stopping" || slot.status === "finished") {
             log.info(`task ${id} completed`);
           } else if (slot.status === "running") {
             log.warn(`task ${id} died unexpectedly (pid=${slot.pid})`);
           }
-          snap[id] = resetSlotToIdle(slot);
+          snap.tasks[id] = resetSlotToIdle(slot);
         }
       }
 
@@ -201,7 +201,7 @@ export function TaskManagerProvider({ children }: { children: ReactNode }) {
       // -------------------------------------------------------------------
       const spawnCandidates: TaskDefinition[] = [];
       for (const def of TASKS) {
-        const slot = snap[def.id];
+        const slot = snap.tasks[def.id];
         const decision = def.evaluate(game, slot, snap);
         if (slot.status === "stopping") continue; // already winding down
         if (slot.status === "running") {
@@ -225,7 +225,7 @@ export function TaskManagerProvider({ children }: { children: ReactNode }) {
       const unboundedActive = TASKS.some(
         (def) =>
           def.requirements.growUnbounded === true &&
-          (snap[def.id].status === "running" || snap[def.id].status === "stopping"),
+          (snap.tasks[def.id].status === "running" || snap.tasks[def.id].status === "stopping"),
       );
       const finalSpawns: TaskDefinition[] = [];
       let chosenUnbounded: TaskDefinition | null = null;
@@ -248,7 +248,7 @@ export function TaskManagerProvider({ children }: { children: ReactNode }) {
       const reserved = new Set<string>();
       // Account for our own controllers already on home (so the free-RAM
       // probe doesn't fight with sibling controllers we're respawning).
-      const ourHomeFootprint = Object.values(snap)
+      const ourHomeFootprint = Object.values(snap.tasks)
         .filter((s) => s.host === "home" && s.pid !== null)
         .reduce((sum) => sum + 0, 0); // controllers being spawned here are net-new
 
@@ -300,8 +300,8 @@ export function TaskManagerProvider({ children }: { children: ReactNode }) {
         );
         // Update slot in-place. Task-specific fields are preserved; base
         // fields are reset for the new run.
-        snap[def.id] = {
-          ...snap[def.id],
+        snap.tasks[def.id] = {
+          ...snap.tasks[def.id],
           pid,
           host: place.host,
           childPids: [],
@@ -327,12 +327,15 @@ export function TaskManagerProvider({ children }: { children: ReactNode }) {
   const requestShutdown = useCallback(
     (taskId: TaskId) => {
       const current = stateRef.current;
-      const slot = current[taskId];
+      const slot = current.tasks[taskId];
       if (!slot) return;
       if (slot.status !== "running") return;
       const next: TaskStateSnapshot = {
         ...current,
-        [taskId]: { ...slot, shutdownRequested: true, status: "stopping" },
+        tasks: {
+          ...current.tasks,
+          [taskId]: { ...slot, shutdownRequested: true, status: "stopping" },
+        },
       };
       stateRef.current = next;
       publishSnapshot(ns, next);

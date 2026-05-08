@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -124,6 +125,10 @@ function pickControllerHost(
 export interface TaskManagerApi {
   taskState: TaskStateSnapshot;
   lastTickAt: number | null;
+  // Mark a running slot for shutdown. No-op if the slot is idle, finished,
+  // or already stopping. Republishes the snapshot synchronously so the task
+  // sees the flag without waiting for the next manager tick.
+  requestShutdown: (taskId: TaskId) => void;
 }
 
 const TaskManagerContext = createContext<TaskManagerApi | null>(null);
@@ -319,12 +324,31 @@ export function TaskManagerProvider({ children }: { children: ReactNode }) {
     runTick();
   }, [game.tick, ns, log]);
 
+  const requestShutdown = useCallback(
+    (taskId: TaskId) => {
+      const current = stateRef.current;
+      const slot = current[taskId];
+      if (!slot) return;
+      if (slot.status !== "running") return;
+      const next: TaskStateSnapshot = {
+        ...current,
+        [taskId]: { ...slot, shutdownRequested: true, status: "stopping" },
+      };
+      stateRef.current = next;
+      publishSnapshot(ns, next);
+      setTaskState(next);
+      log.info(`task ${taskId} shutdown requested via UI`);
+    },
+    [ns, log],
+  );
+
   const api = useMemo<TaskManagerApi>(
     () => ({
       taskState,
       lastTickAt,
+      requestShutdown,
     }),
-    [taskState, lastTickAt],
+    [taskState, lastTickAt, requestShutdown],
   );
 
   return <TaskManagerContext.Provider value={api}>{children}</TaskManagerContext.Provider>;

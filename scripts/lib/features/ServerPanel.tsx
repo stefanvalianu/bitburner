@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useGameState } from "../util/gameState";
 import { useTaskManager } from "../util/tasks/manager";
 import { useLogger } from "../util/logging/log";
@@ -14,7 +14,8 @@ import {
 import type { ScoutTaskState } from "../util/tasks/definitions";
 import type { TaskState } from "../util/tasks/types";
 import { Button } from "../ui/Button";
-import { HomeIcon, MoneyIcon, ShieldIcon, TargetIcon, WorldIcon } from "../ui/Icons";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { HomeIcon, MoneyIcon, PowerIcon, ShieldIcon, TargetIcon, WorldIcon } from "../ui/Icons";
 import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { Spinner } from "../ui/Spinner";
@@ -26,7 +27,8 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const log = useLogger("servers");
   const { colors, space } = useTheme();
   const { servers, stats, inventory } = useGameState();
-  const { taskState } = useTaskManager();
+  const { taskState, requestShutdown } = useTaskManager();
+  const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
 
   const scoutSlot = taskState[SCOUT_SERVER_TASK_ID] as TaskState<ScoutTaskState> | undefined;
   const targetServer = scoutSlot?.target
@@ -116,6 +118,7 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
         const slices = slot.lastAllocation?.servers ?? [];
         const ram = slices.reduce((sum, s) => sum + s.ram, 0);
         const suffix = slot.status === "stopping" ? " (stopping)" : "";
+        const canStop = slot.status === "running";
         return (
           <Row key={id} gap={space.sm}>
             <HomeIcon color={colors.accent} title={`Controller host: ${slot.host}`} />
@@ -131,9 +134,33 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
             <span style={{ color: colors.muted }}>
               {id}: {slices.length} hosts / {ram}GB{suffix}
             </span>
+            {canStop && (
+              <span style={{ marginLeft: "auto" }}>
+                <Button onClick={() => setConfirmStopId(id)} variant="warn">
+                  <PowerIcon color={colors.warn} title={`Stop ${id}`} />
+                  Stop
+                </Button>
+              </span>
+            )}
           </Row>
         );
       })}
+      <ConfirmDialog
+        open={confirmStopId !== null}
+        title="Stop task?"
+        message={
+          confirmStopId
+            ? `Request shutdown of "${confirmStopId}"? Its workers will wind down on their next yield.`
+            : ""
+        }
+        confirmLabel="Stop"
+        confirmVariant="warn"
+        onCancel={() => setConfirmStopId(null)}
+        onConfirm={() => {
+          if (confirmStopId) requestShutdown(confirmStopId);
+          setConfirmStopId(null);
+        }}
+      />
     </Panel>
   );
 }

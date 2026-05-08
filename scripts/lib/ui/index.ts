@@ -2,6 +2,7 @@ export * from "./Badge";
 export * from "./Button";
 export * from "./Check";
 export * from "./Col";
+export * from "./ConfirmDialog";
 export * from "./DashboardPanel";
 export * from "./Icons";
 export * from "./JsonView";

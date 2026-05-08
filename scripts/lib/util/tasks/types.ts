@@ -75,22 +75,30 @@ export type TaskEvent =
 // ---------------------------------------------------------------------------
 // Task definition
 //
-// `needsRerun` receives:
+// `evaluate` receives:
 //   - gameState: the latest NS-derived game snapshot
 //   - taskState: this task's own slot in the manager's authoritative
 //                snapshot
 //   - snapshot:  the full authoritative snapshot, for cross-task reads
 //                (e.g. hack reading scout's published target)
+//
+// and returns a TaskDecision telling the manager what to do:
+//   - "no-change": leave the slot alone
+//   - "restart":   spawn if idle, or stop a running task so it can respawn
+//                  on a later tick
+//   - "shutdown":  stop a running task without respawning; no-op if idle
 // ---------------------------------------------------------------------------
+
+export type TaskDecision = "no-change" | "restart" | "shutdown";
 
 export interface TaskDefinition<TState extends Record<string, unknown> = Record<string, unknown>> {
   id: TaskId;
   scriptPath: string;
   requirements: TaskRequirements;
   initialState: TState;
-  needsRerun: (
+  evaluate: (
     gameState: GameState,
     taskState: TaskState<TState>,
     snapshot: TaskStateSnapshot,
-  ) => boolean;
+  ) => TaskDecision;
 }

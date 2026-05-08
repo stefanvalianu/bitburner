@@ -26,7 +26,7 @@ class HackTask extends BaseTask<HackTaskState> {
     }
 
     // Record the target this run was started against. Lets the manager's
-    // needsRerun detect when scout publishes a different target later.
+    // evaluate detect when scout publishes a different target later.
     this.patchState({ target });
 
     const { hackRam, weakenRam, growRam } = this.scriptRamCosts();

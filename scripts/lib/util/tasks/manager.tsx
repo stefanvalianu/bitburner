@@ -83,7 +83,7 @@ function makeInitialSnapshot(): TaskStateSnapshot {
 
 // Reset base lifecycle fields to "idle" while keeping task-specific fields
 // intact. We deliberately preserve task fields across stops/crashes so the
-// next needsRerun comparison has the most recent observed state to work with
+// next evaluate comparison has the most recent observed state to work with
 // (e.g. scout's `available` list).
 function resetSlotToIdle(slot: TaskState): TaskState {
   return {
@@ -189,28 +189,28 @@ export function TaskManagerProvider({ children }: { children: ReactNode }) {
       }
 
       // -------------------------------------------------------------------
-      // 3. Evaluate needsRerun for each definition. Build the spawn list
-      //    AND apply shutdown flags as needed.
+      // 3. Evaluate each definition. Build the spawn list AND apply
+      //    shutdown flags as needed.
       //
-      //    needsRerun receives the live in-memory snapshot directly — the
+      //    evaluate receives the live in-memory snapshot directly — the
       //    manager owns the authoritative state, so we don't roundtrip
       //    through the port to read it back.
       // -------------------------------------------------------------------
       const spawnCandidates: TaskDefinition[] = [];
       for (const def of TASKS) {
         const slot = snap[def.id];
-        const rerun = def.needsRerun(game, slot, snap);
+        const decision = def.evaluate(game, slot, snap);
         if (slot.status === "stopping") continue; // already winding down
         if (slot.status === "running") {
-          if (rerun) {
+          if (decision === "restart" || decision === "shutdown") {
             slot.shutdownRequested = true;
             slot.status = "stopping";
-            log.info(`task ${def.id} requested shutdown — needsRerun=true`);
+            log.info(`task ${def.id} requested shutdown — decision=${decision}`);
           }
           continue;
         }
-        // status === "idle" || status === "finished"
-        if (rerun) spawnCandidates.push(def);
+        
+        if (decision === "restart") spawnCandidates.push(def);
       }
 
       // -------------------------------------------------------------------

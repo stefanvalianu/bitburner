@@ -15,8 +15,8 @@ export interface HackTaskState extends Record<string, unknown> {
 
 // ---------------------------------------------------------------------------
 // Helpers shared between the scout-server script and its definition's
-// needsRerun. Defined once here so the snapshot scout writes matches what
-// needsRerun later compares against.
+// evaluate. Defined once here so the snapshot scout writes matches what
+// evaluate later compares against.
 // ---------------------------------------------------------------------------
 
 interface AvailableCandidate {
@@ -57,10 +57,10 @@ export const TASKS: TaskDefinition[] = [
     scriptPath: "lib/features/scout-server.js",
     requirements: {}, // controller-only
     initialState: { available: [], target: null } satisfies ScoutTaskState,
-    needsRerun: (game, state) => {
+    evaluate: (game, state) => {
       const current = availableHostnames(game.servers);
       const stored = (state as TaskState<ScoutTaskState>).available;
-      return !snapshotsEqual(current, stored);
+      return snapshotsEqual(current, stored) ? "no-change" : "restart";
     },
   },
   {
@@ -68,14 +68,25 @@ export const TASKS: TaskDefinition[] = [
     scriptPath: "lib/features/hack-controller-v1.js",
     requirements: { growUnbounded: true },
     initialState: { target: null } satisfies HackTaskState,
-    needsRerun: (_game, state, snapshot) => {
-      if (_game.inventory.hasFormulas) return false; // hack-v1 is a weaker version of hack-v2 without access to formulas / their RAM consumption
+    evaluate: (game, state, snapshot) => {
+      const hackv1Slot = snapshot["hack-v1"] as TaskState<HackTaskState> | undefined;
+
+      // hack-v1 is a weaker version of hack-v2 — once formulas are
+      // available, retire any running v1 and don't respawn.
+      if (game.inventory.hasFormulas) {
+        if (hackv1Slot && hackv1Slot.status === "running") {
+          return "shutdown";
+        }
+
+        return "no-change";
+      }
+      
       const scoutSlot = snapshot["scout-server"] as TaskState<ScoutTaskState> | undefined;
       const desired = scoutSlot?.target ?? null;
       const myTarget = (state as TaskState<HackTaskState>).target;
       // Only run when scout has produced a target, and only restart when
       // that target differs from the one the current run was started with.
-      return desired !== null && desired !== myTarget;
+      return desired !== null && desired !== myTarget ? "restart" : "no-change";
     },
   },
 ];

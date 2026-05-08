@@ -9,10 +9,9 @@ const WEAKEN_SCRIPT = "lib/util/hacks/weaken.js";
 const HACK_SCRIPT = "lib/util/hacks/hack.js";
 const GROW_SCRIPT = "lib/util/hacks/grow.js";
 
-// Hack controller (v1). Runs a fleet-wide weaken loop until either the
-// target is at minimum security or the manager flags a shutdown. HWGW
-// orchestration is intentionally deferred — this v1 just validates the
-// task lifecycle (allocation, child reporting, cooperative shutdown).
+// Controls the time delta to attempt to fit between batches
+const BATCH_OFFSET = 10;
+
 class HackTask extends BaseTask<HackTaskState> {
   constructor(ns: NS) {
     super(ns, TASK_ID);
@@ -20,6 +19,7 @@ class HackTask extends BaseTask<HackTaskState> {
 
   protected async run(): Promise<void> {
     const target = this.resolveTarget();
+
     if (!target) {
       this.log.error("no scout target");
       return;
@@ -35,15 +35,16 @@ class HackTask extends BaseTask<HackTaskState> {
       return;
     }
 
-    if (await this.prepareSecurity(target, weakenRam)) return; // shutdown
+    // 1 - lower the security of the target to minimum
+    if (await this.prepareSecurity(target, weakenRam)) return;
 
-    // Idle until the manager flags shutdown. Real HWGW work goes here.
-    while (true) {
-      if (await this.sleep(60_000)) {
-        this.teardown();
-        return;
-      }
-    }
+    // 2 - raise the available money of the target to maximum, preserving 
+    // the minimum security level.
+    if (await this.prepareMoney(target, growRam, weakenRam)) return;
+
+    // 3 - begin the endless HWGW loop
+    this.log.warn('todo finish HWGW v1 implementation');
+    return;
   }
 
   private resolveTarget(): string | null {
@@ -65,6 +66,7 @@ class HackTask extends BaseTask<HackTaskState> {
     if (this.ns.getServerSecurityLevel(target) <= this.ns.getServerMinSecurityLevel(target)) {
       return false;
     }
+
     this.log.info(`preparing ${target} by lowering security level...`);
 
     while (this.ns.getServerSecurityLevel(target) > this.ns.getServerMinSecurityLevel(target)) {
@@ -72,11 +74,9 @@ class HackTask extends BaseTask<HackTaskState> {
         this.teardown();
         return true;
       }
+      
       const batchTime = this.runWeakenBatch(target, weakenRam);
-      if (await this.sleep(batchTime)) {
-        this.teardown();
-        return true;
-      }
+      await this.ns.asleep(batchTime);
     }
     this.log.info(`${target} prepared for growth.`);
     return false;
@@ -86,6 +86,7 @@ class HackTask extends BaseTask<HackTaskState> {
   // ms the longest spawned weaken will take (with a 100ms buffer).
   private runWeakenBatch(target: string, weakenRam: number): number {
     const weakenTime = this.ns.getWeakenTime(target);
+    
     for (const slice of this.allocation.servers) {
       const threads = Math.floor(slice.ram / weakenRam);
       if (threads <= 0) continue;
@@ -99,9 +100,36 @@ class HackTask extends BaseTask<HackTaskState> {
     return weakenTime + 100;
   }
 
-  // Cooperative teardown — kill every worker we spawned. Manager tracks the
-  // same PIDs via child-spawned events but our own slot's `childPids` is
-  // the freshest view.
+  private async prepareMoney(target: string, growRam: number, weakenRam: number): Promise<boolean> {
+    if (this.ns.getServerMoneyAvailable(target) <= this.ns.getServerMaxMoney(target)) {
+      return false;
+    }
+
+    this.log.info(`preparing ${target} by raising available money...`);
+
+    while (this.ns.getServerMoneyAvailable(target) < this.ns.getServerMaxMoney(target)) {
+      if (this.shouldShutdown) {
+        this.teardown();
+        return true;
+      }
+      
+      const batchTime = this.runGrowBatch(target, growRam, weakenRam);
+      await this.ns.asleep(batchTime);
+    }
+    this.log.info(`${target} prepared for growth.`);
+    return false;
+  }
+
+  // Spawn one pass of grow/weaken cycles, returning the time (with an buffer) 
+  // of how long it would take to finish this batch.
+  private runGrowBatch(target: string, growRam: number, weakenRam: number): number {
+    const growTime = this.ns.getGrowTime(target);
+    const weakenTime = this.ns.getWeakenTime(target);
+
+    return 100;
+  }
+
+  // Cooperative teardown — kill every worker we spawned.
   private teardown(): void {
     const pids = this.state.childPids;
     for (const pid of pids) {

@@ -121,18 +121,6 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
     return pid;
   }
 
-  // Sleep up to `ms`, polling for shutdown every POLL_MS-ish interval.
-  // Returns true if shutdown was requested at any point during the sleep.
-  protected async sleep(ms: number): Promise<boolean> {
-    const end = Date.now() + ms;
-    while (Date.now() < end) {
-      if (this.shouldShutdown) return true;
-      const remaining = end - Date.now();
-      await this.ns.asleep(Math.min(2_000, remaining));
-    }
-    return this.shouldShutdown;
-  }
-
   // -------------------------------------------------------------------------
   // Internals
   // -------------------------------------------------------------------------

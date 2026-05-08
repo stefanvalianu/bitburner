@@ -54,7 +54,7 @@ export function snapshotsEqual(
 export const TASKS: TaskDefinition[] = [
   {
     id: "scout-server",
-    scriptPath: "lib/features/scout-server.js",
+    scriptPath: "lib/tasks/scout-server.js",
     requirements: {}, // controller-only
     initialState: { available: [], target: null } satisfies ScoutTaskState,
     evaluate: (game, state) => {
@@ -65,7 +65,7 @@ export const TASKS: TaskDefinition[] = [
   },
   {
     id: "hack-v1",
-    scriptPath: "lib/features/hack-controller-v1.js",
+    scriptPath: "lib/tasks/hack-controller-v1.js",
     requirements: { growUnbounded: true },
     initialState: { target: null } satisfies HackTaskState,
     evaluate: (game, state, snapshot) => {
@@ -80,7 +80,7 @@ export const TASKS: TaskDefinition[] = [
 
         return "no-change";
       }
-      
+
       const scoutSlot = snapshot["scout-server"] as TaskState<ScoutTaskState> | undefined;
       const desired = scoutSlot?.target ?? null;
       const myTarget = (state as TaskState<HackTaskState>).target;

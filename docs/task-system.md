@@ -15,16 +15,6 @@ project overview, see the root [`README.md`](../README.md).
 A **task** is a top-level intent — `"hack"`, `"scout-server"`, etc. Each task is
 described once in [`scripts/lib/util/tasks/definitions.ts`](../scripts/lib/util/tasks/definitions.ts):
 
-```ts
-{
-  id: "hack",
-  scriptPath: "lib/features/hack-controller-v1.js",
-  requirements: { growUnbounded: true },
-  initialState: { target: null },
-  needsRerun: (game, state, snapshot) => /* should this task be running fresh? */,
-}
-```
-
 The manager owns the **authoritative task state** — a `Record<TaskId, TaskState>`
 held in its React context. Each slot has shared base fields (`pid`, `host`,
 `childPids`, `shutdownRequested`, `status`, `lastAllocation`) plus whatever

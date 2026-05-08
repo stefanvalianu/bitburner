@@ -64,11 +64,12 @@ export const TASKS: TaskDefinition[] = [
     },
   },
   {
-    id: "hack",
+    id: "hack-v1",
     scriptPath: "lib/features/hack-controller-v1.js",
     requirements: { growUnbounded: true },
     initialState: { target: null } satisfies HackTaskState,
     needsRerun: (_game, state, snapshot) => {
+      if (_game.inventory.hasFormulas) return false; // hack-v1 is a weaker version of hack-v2 without access to formulas / their RAM consumption
       const scoutSlot = snapshot["scout-server"] as TaskState<ScoutTaskState> | undefined;
       const desired = scoutSlot?.target ?? null;
       const myTarget = (state as TaskState<HackTaskState>).target;

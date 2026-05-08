@@ -4,7 +4,7 @@ export * from "./Check";
 export * from "./Col";
 export * from "./DashboardPanel";
 export * from "./Icons";
-export * from "./LogStream";
+export * from "../util/logging/LogStream";
 export * from "./Modal";
 export * from "./NotificationDot";
 export * from "./Panel";

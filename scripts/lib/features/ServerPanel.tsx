@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useGameState } from "../util/gameState";
 import { useTaskManager } from "../util/tasks/manager";
-import { useLogger } from "../util/log";
+import { useLogger } from "../util/logging/log";
 import { useNs } from "../util/ns";
 import {
   hackDifficulty,

@@ -5,21 +5,15 @@ import { TaskManagerProvider } from "./lib/util/tasks/manager";
 import { NsProvider } from "./lib/util/ns";
 import { usePropagate } from "./lib/util/propagate";
 import {
-  Button,
   DashboardPanel,
-  LogStream,
-  LogsIcon,
   Modal,
-  NotificationDot,
   Row,
   ThemeProvider,
-  useLevelColor,
-  useLogStream,
-  useNotification,
   useTheme,
 } from "./lib/ui";
 import { GameState, ServerMap, ServerPanel, ToolsPanel } from "./lib/features";
 import { LOG_PORT, TASK_EVENTS_PORT, TASK_STATE_PORT } from "./lib/util/ports";
+import { LogButton } from "./lib/util/logging/LogButton";
 
 function PropagationStamp() {
   const { colors } = useTheme();
@@ -42,33 +36,14 @@ function PropagationStamp() {
 }
 
 function Dashboard() {
-  const { colors, space } = useTheme();
-  const levelColor = useLevelColor();
-  const [logsOpen, setLogsOpen] = useState(false);
+  const { space } = useTheme();
   const [mapOpen, setMapOpen] = useState(false);
   const [stateOpen, setStateOpen] = useState(false);
-  const { notification, notify, clear } = useNotification();
   usePropagate();
-
-  // Poll logs continuously so the notification dot reflects activity even
-  // while the modal is closed. Skip notifying on entries that arrive while
-  // the user already has the modal open — they're seeing them in real time.
-  const entries = useLogStream((top) => {
-    if (!logsOpen) notify(levelColor[top.level]);
-  });
-
-  const openLogs = () => {
-    clear();
-    setLogsOpen(true);
-  };
 
   const headerActions = (
     <Row gap={space.sm}>
-      <Button onClick={openLogs}>
-        {notification && <NotificationDot color={notification.color} />}
-        <LogsIcon color={colors.muted} />
-        View logs ({entries.length})
-      </Button>
+      <LogButton />
     </Row>
   );
 
@@ -78,9 +53,6 @@ function Dashboard() {
         <ToolsPanel onOpen={() => setStateOpen(true)} />
         <ServerPanel onOpenMap={() => setMapOpen(true)} />
       </DashboardPanel>
-      <Modal open={logsOpen} onClose={() => setLogsOpen(false)} title={`logs · ${entries.length}`}>
-        <LogStream entries={entries} />
-      </Modal>
       <Modal open={mapOpen} onClose={() => setMapOpen(false)} title="Server map">
         <ServerMap />
       </Modal>

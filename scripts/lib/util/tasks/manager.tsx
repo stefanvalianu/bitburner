@@ -9,7 +9,7 @@ import {
 } from "react";
 import type { NS } from "@ns";
 import { useGameState } from "../gameState";
-import { useLogger } from "../log";
+import { useLogger } from "../logging/log";
 import { useNs } from "../ns";
 import { TASK_EVENTS_PORT, TASK_STATE_PORT } from "../ports";
 import type { ServerInfo } from "../serverMap";

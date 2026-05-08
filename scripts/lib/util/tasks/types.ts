@@ -18,7 +18,7 @@ export interface Allocation {
 }
 
 // ---------------------------------------------------------------------------
-// Requirements (extensible — only growUnbounded today)
+// Requirements
 // ---------------------------------------------------------------------------
 
 export interface TaskRequirements {

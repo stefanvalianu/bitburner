@@ -3,7 +3,7 @@ import type { NS } from "@ns";
 import { useNs } from "./ns";
 import { scanAll, type ServerInfo } from "./serverMap";
 
-const DEFAULT_INTERVAL_MS = 10_000;
+const DEFAULT_INTERVAL_MS = 5_000;
 
 const PORT_OPENER_KEYS = ["bruteSsh", "ftpCrack", "relaySmtp", "httpWorm", "sqlInject"] as const;
 
@@ -35,8 +35,6 @@ function snapshot(ns: NS, tick: number): GameState {
     owned: ns.fileExists(name, "home"),
   }));
   const portOpeners = allPrograms.filter((p) => portOpenerNames.has(p.name));
-  // Formulas is elevated to its own field — keep it out of the generic
-  // programs list so the UI can call it out separately.
   const programs = allPrograms.filter(
     (p) => !portOpenerNames.has(p.name) && p.name !== PN.formulas,
   );

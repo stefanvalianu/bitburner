@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type LogEntry, type LogLevel } from "../util/log";
-import { Badge } from "./Badge";
-import { Col } from "./Col";
-import { useNs } from "../util/ns";
-import { Row } from "./Row";
-import { useTheme } from "./theme";
-import { LOG_PORT } from "../util/ports";
+import { type LogEntry, type LogLevel } from "./log";
+import { Badge } from "../../ui/Badge";
+import { Col } from "../../ui/Col";
+import { useNs } from "../ns";
+import { Row } from "../../ui/Row";
+import { useTheme } from "../../ui/theme";
+import { LOG_PORT } from "../ports";
 
 const MAX_BUFFER = 250;
-const POLL_MS = 200;
+const POLL_MS = 1000;
 
 const levelSeverity: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 

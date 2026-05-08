@@ -3,7 +3,7 @@ import { BaseTask } from "../util/tasks/baseTask";
 import type { HackTaskState, ScoutTaskState } from "../util/tasks/definitions";
 import type { TaskState } from "../util/tasks/types";
 
-const TASK_ID = "hack";
+const TASK_ID = "hack-v1";
 
 const WEAKEN_SCRIPT = "lib/util/hacks/weaken.js";
 const HACK_SCRIPT = "lib/util/hacks/hack.js";

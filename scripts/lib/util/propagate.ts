@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useGameState } from "./gameState";
-import { useLogger } from "./log";
+import { useLogger } from "./logging/log";
 import { useNs } from "./ns";
 import { scanAll } from "./serverMap";
 

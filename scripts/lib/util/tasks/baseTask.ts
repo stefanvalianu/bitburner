@@ -1,5 +1,5 @@
 import type { NS } from "@ns";
-import { createLogger, type Logger } from "../log";
+import { createLogger, type Logger } from "../logging/log";
 import { TASK_EVENTS_PORT, TASK_STATE_PORT } from "../ports";
 import type { Allocation, TaskEvent, TaskId, TaskState, TaskStateSnapshot } from "./types";
 

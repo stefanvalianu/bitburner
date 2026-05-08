@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { NS } from "@ns";
 import { GameStateProvider, useGameState } from "./lib/util/gameState";
-import { TaskManagerProvider, useTaskManager } from "./lib/util/tasks/manager";
-import { NsProvider, useNs } from "./lib/util/ns";
+import { TaskManagerProvider } from "./lib/util/tasks/manager";
+import { NsProvider } from "./lib/util/ns";
 import { usePropagate } from "./lib/util/propagate";
 import {
   Button,
@@ -11,7 +11,6 @@ import {
   LogsIcon,
   Modal,
   NotificationDot,
-  PowerIcon,
   Row,
   ThemeProvider,
   useLevelColor,
@@ -20,6 +19,7 @@ import {
   useTheme,
 } from "./lib/ui";
 import { GameState, ServerMap, ServerPanel, ToolsPanel } from "./lib/features";
+import { LOG_PORT, TASK_EVENTS_PORT, TASK_STATE_PORT } from "./lib/util/ports";
 
 function PropagationStamp() {
   const { colors } = useTheme();
@@ -44,8 +44,6 @@ function PropagationStamp() {
 function Dashboard() {
   const { colors, space } = useTheme();
   const levelColor = useLevelColor();
-  const ns = useNs();
-  const { killAll } = useTaskManager();
   const [logsOpen, setLogsOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [stateOpen, setStateOpen] = useState(false);
@@ -64,24 +62,12 @@ function Dashboard() {
     setLogsOpen(true);
   };
 
-  // Kill every tracked controller + worker, then exit the dashboard itself.
-  // ns.exit() terminates this script synchronously, so anything after it is
-  // unreachable.
-  const onKillAll = () => {
-    killAll();
-    ns.exit();
-  };
-
   const headerActions = (
     <Row gap={space.sm}>
       <Button onClick={openLogs}>
         {notification && <NotificationDot color={notification.color} />}
         <LogsIcon color={colors.muted} />
         View logs ({entries.length})
-      </Button>
-      <Button onClick={onKillAll} variant="error">
-        <PowerIcon color={colors.error} />
-        Kill all
       </Button>
     </Row>
   );
@@ -119,6 +105,11 @@ export async function main(ns: NS): Promise<void> {
   const height = vpH - margin * 2;
   ns.ui.resizeTail(width, height);
   ns.ui.moveTail(vpW - width - margin, margin);
+  // clear all ports in case there is crap on the wire persisting through re-starts
+  ns.clearPort(LOG_PORT);
+  ns.clearPort(TASK_STATE_PORT);
+  ns.clearPort(TASK_EVENTS_PORT);
+
   ns.printRaw(
     <NsProvider ns={ns}>
       <ThemeProvider>

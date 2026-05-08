@@ -1,3 +1,5 @@
+// NOTE: remember to clear the ports on dashboard starts, to be safe across script re-starts
+
 // used for the logger hook
 export const LOG_PORT = 1;
 

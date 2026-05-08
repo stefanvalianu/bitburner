@@ -18,9 +18,6 @@ export interface Stats {
   hackingLevel: number;
 }
 
-// NS-derived game data only — no task state. The task manager owns task
-// state in its own React context; consumers that need both should use
-// `useGameState()` and `useTaskManager()` together.
 export interface GameState {
   inventory: Inventory;
   stats: Stats;

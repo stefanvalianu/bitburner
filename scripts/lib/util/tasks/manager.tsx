@@ -65,23 +65,21 @@ function drainEvents(ns: NS): TaskEvent[] {
 // of the worker pool so worker RAM and controller RAM don't compete.
 const EXCLUDE_WORKERS_FROM = new Set(["home"]);
 
-// Build the initial slot for a definition: base lifecycle defaults plus the
-// task-specific initialState.
-function makeInitialSlot(def: TaskDefinition): TaskState {
-  const base: BaseTaskState = {
-    pid: null,
-    host: null,
-    childPids: [],
-    shutdownRequested: false,
-    status: "idle",
-    lastAllocation: null,
-  };
-  return { ...base, ...(def.initialState as Record<string, unknown>) } as TaskState;
-}
-
 function makeInitialSnapshot(): TaskStateSnapshot {
   const snap: TaskStateSnapshot = {};
-  for (const def of TASKS) snap[def.id] = makeInitialSlot(def);
+  for (const def of TASKS) {
+    snap[def.id] = {
+      ...({
+        pid: null,
+        host: null,
+        childPids: [],
+        shutdownRequested: false,
+        status: "idle",
+        lastAllocation: null,
+      } as BaseTaskState),
+      ...(def.initialState as Record<string, unknown>),
+    } as TaskState;
+  }
   return snap;
 }
 
@@ -128,10 +126,6 @@ function pickControllerHost(
 export interface TaskManagerApi {
   taskState: TaskStateSnapshot;
   lastTickAt: number | null;
-  // Hard-kill every tracked controller + reported worker. The dashboard's
-  // kill-all button uses this; cooperative shutdown is reserved for the
-  // tick loop's normal restart flow.
-  killAll: () => void;
 }
 
 const TaskManagerContext = createContext<TaskManagerApi | null>(null);
@@ -166,12 +160,6 @@ export function TaskManagerProvider({
         snap[id] = { ...slot, childPids: [...slot.childPids] };
       }
 
-      // Re-seed slots for any newly-registered tasks (definitions changed
-      // since last tick — rare in practice, but cheap to handle).
-      for (const def of TASKS) {
-        if (!snap[def.id]) snap[def.id] = makeInitialSlot(def);
-      }
-
       // -------------------------------------------------------------------
       // 1. Drain events from tasks and apply them to the snapshot.
       // -------------------------------------------------------------------
@@ -197,7 +185,7 @@ export function TaskManagerProvider({
       // -------------------------------------------------------------------
       for (const [id, slot] of Object.entries(snap)) {
         if (slot.pid !== null && !ns.isRunning(slot.pid)) {
-          if (slot.status === "stopping") {
+          if (slot.status === "stopping" || slot.status === "finished") {
             log.info(`task ${id} exited cleanly`);
           } else if (slot.status === "running") {
             log.warn(`task ${id} died unexpectedly (pid=${slot.pid})`);
@@ -227,7 +215,7 @@ export function TaskManagerProvider({
           }
           continue;
         }
-        // status === "idle"
+        // status === "idle" || status === "finished"
         if (rerun) spawnCandidates.push(def);
       }
 
@@ -346,26 +334,8 @@ export function TaskManagerProvider({
     () => ({
       taskState,
       lastTickAt,
-      killAll: () => {
-        const snap = stateRef.current;
-        let count = 0;
-        for (const slot of Object.values(snap)) {
-          for (const pid of slot.childPids) {
-            if (ns.isRunning(pid)) ns.kill(pid);
-          }
-          if (slot.pid !== null && ns.isRunning(slot.pid)) {
-            ns.kill(slot.pid);
-            count++;
-          }
-        }
-        const fresh = makeInitialSnapshot();
-        publishSnapshot(ns, fresh);
-        stateRef.current = fresh;
-        setTaskState(fresh);
-        log.info(`killed ${count} task(s) and their workers`);
-      },
     }),
-    [ns, log, taskState, lastTickAt],
+    [taskState, lastTickAt],
   );
 
   return <TaskManagerContext.Provider value={api}>{children}</TaskManagerContext.Provider>;

@@ -32,7 +32,8 @@ export interface TaskRequirements {
 // Task state — base fields are manager-owned; per-task fields extend them.
 // ---------------------------------------------------------------------------
 
-export type TaskStatus = "idle" | "running" | "stopping";
+// idle = task has not yet began. running = task is currently running. stopping = task is waiting for its workers and will eventually terminate. finished = done
+export type TaskStatus = "idle" | "running" | "stopping" | "finished";
 
 export interface BaseTaskState {
   pid: number | null;

@@ -19,6 +19,7 @@ export interface Stats {
 }
 
 export interface GameState {
+  tick: number;
   inventory: Inventory;
   stats: Stats;
   servers: ServerInfo[];
@@ -26,7 +27,7 @@ export interface GameState {
   propagatedVersion: string;
 }
 
-function snapshot(ns: NS): GameState {
+function snapshot(ns: NS, tick: number): GameState {
   const PN = ns.enums.ProgramName;
   const portOpenerNames = new Set<string>(PORT_OPENER_KEYS.map((k) => PN[k]));
   const allPrograms = Object.values(PN).map((name) => ({
@@ -41,6 +42,7 @@ function snapshot(ns: NS): GameState {
   );
   const hasFormulas = ns.fileExists(PN.formulas, "home");
   return {
+    tick,
     inventory: {
       hasTorRouter: ns.hasTorRouter(),
       hasFormulas,
@@ -70,9 +72,12 @@ export function GameStateProvider({
   children: ReactNode;
 }) {
   const ns = useNs();
-  const [state, setState] = useState<GameState>(() => snapshot(ns));
+  const [state, setState] = useState<GameState>(() => snapshot(ns, 0));
   useEffect(() => {
-    const id = setInterval(() => setState(snapshot(ns)), intervalMs);
+    const id = setInterval(
+      () => setState((prev) => snapshot(ns, prev.tick + 1)),
+      intervalMs,
+    );
     return () => clearInterval(id);
   }, [ns, intervalMs]);
   return <GameStateContext.Provider value={state}>{children}</GameStateContext.Provider>;

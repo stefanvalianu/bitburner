@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import type { NS } from "@ns";
-import { useGameState, type GameState } from "../gameState";
+import { useGameState } from "../gameState";
 import { useLogger } from "../log";
 import { useNs } from "../ns";
 import { TASK_EVENTS_PORT, TASK_STATE_PORT } from "../ports";
@@ -25,8 +25,6 @@ import {
   type TaskState,
   type TaskStateSnapshot,
 } from "./types";
-
-const TICK_MS = 10_000;
 
 // ---------------------------------------------------------------------------
 // Port I/O — the manager owns *both* directions of the wire.
@@ -130,29 +128,21 @@ export interface TaskManagerApi {
 
 const TaskManagerContext = createContext<TaskManagerApi | null>(null);
 
-export function TaskManagerProvider({
-  tickMs = TICK_MS,
-  children,
-}: {
-  tickMs?: number;
-  children: ReactNode;
-}) {
+export function TaskManagerProvider({ children }: { children: ReactNode }) {
   const ns = useNs();
   const log = useLogger("manager");
-  const gameState = useGameState();
+  const game = useGameState();
   const [taskState, setTaskState] = useState<TaskStateSnapshot>(() => makeInitialSnapshot());
   const [lastTickAt, setLastTickAt] = useState<number | null>(null);
 
-  // Refs prevent the interval from being torn down on every gameState tick
-  // (every 10s), which would risk dropping inbound events between ticks.
+  // taskState is read at the top of each tick to build the next snapshot.
+  // Held in a ref so the tick effect doesn't have to depend on (and re-run
+  // for) its own setState — the tick is driven exclusively by gameState.tick.
   const stateRef = useRef<TaskStateSnapshot>(taskState);
   stateRef.current = taskState;
-  const gameRef = useRef<GameState>(gameState);
-  gameRef.current = gameState;
 
   useEffect(() => {
     const runTick = () => {
-      const game = gameRef.current;
       // Mutable working copy. Slot objects are also cloned where mutated to
       // avoid sharing references with the previous snapshot.
       const snap: TaskStateSnapshot = {};
@@ -328,11 +318,8 @@ export function TaskManagerProvider({
       setLastTickAt(Date.now());
     };
 
-    // Run once immediately so first allocation isn't delayed by tickMs.
     runTick();
-    const id = setInterval(runTick, tickMs);
-    return () => clearInterval(id);
-  }, [ns, log, tickMs]);
+  }, [game.tick, ns, log]);
 
   const api = useMemo<TaskManagerApi>(
     () => ({

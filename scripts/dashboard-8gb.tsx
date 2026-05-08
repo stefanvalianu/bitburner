@@ -8,6 +8,7 @@ import { DashboardPanel, Modal, Row, ThemeProvider, useTheme } from "./lib/ui";
 import { GameState, ServerMap, ServerPanel, ToolsPanel } from "./lib/features";
 import { LOG_PORT, TASK_EVENTS_PORT, TASK_STATE_PORT } from "./lib/util/ports";
 import { LogButton } from "./lib/util/logging/LogButton";
+import { PortViewerButton } from "./lib/util/PortViewerButton";
 
 function PropagationStamp() {
   const { colors } = useTheme();
@@ -37,6 +38,7 @@ function Dashboard() {
 
   const headerActions = (
     <Row gap={space.sm}>
+      <PortViewerButton />
       <LogButton />
     </Row>
   );

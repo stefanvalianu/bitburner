@@ -141,6 +141,15 @@ export function HomeIcon({ color, title = "Controller host", size }: NamedIconPr
   );
 }
 
+export function BracesIcon({ color, title = "Ports", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <path d="M6 2 Q3.5 2 3.5 4.5 V6.5 Q3.5 8 2 8 Q3.5 8 3.5 9.5 V11.5 Q3.5 14 6 14" />
+      <path d="M10 2 Q12.5 2 12.5 4.5 V6.5 Q12.5 8 14 8 Q12.5 8 12.5 9.5 V11.5 Q12.5 14 10 14" />
+    </Icon>
+  );
+}
+
 export function ProgramsIcon({ color, title = "Programs", size }: NamedIconProps) {
   return (
     <Icon color={color} title={title} size={size}>

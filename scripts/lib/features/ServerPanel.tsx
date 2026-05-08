@@ -19,6 +19,7 @@ import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { Spinner } from "../ui/Spinner";
 import { useTheme } from "../ui/theme";
+import { SCOUT_SERVER_TASK_ID } from "../tasks/scout-server";
 
 export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const ns = useNs();
@@ -27,7 +28,7 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const { servers, stats, inventory } = useGameState();
   const { taskState } = useTaskManager();
 
-  const scoutSlot = taskState["scout-server"] as TaskState<ScoutTaskState> | undefined;
+  const scoutSlot = taskState[SCOUT_SERVER_TASK_ID] as TaskState<ScoutTaskState> | undefined;
   const targetServer = scoutSlot?.target
     ? servers.find((s) => s.hostname === scoutSlot.target)
     : undefined;

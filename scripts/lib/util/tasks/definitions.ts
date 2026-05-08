@@ -1,3 +1,6 @@
+import { HACK_V1_TASK_ID } from "../../tasks/hack-controller-v1";
+import { SCOUT_SERVER_TASK_ID } from "../../tasks/scout-server";
+import { SERVER_SHARE_TASK_ID } from "../../tasks/server-share";
 import type { TaskDefinition, TaskState } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -53,22 +56,28 @@ export function snapshotsEqual(
 
 export const TASKS: TaskDefinition[] = [
   {
-    id: "scout-server",
+    id: SCOUT_SERVER_TASK_ID,
     scriptPath: "lib/tasks/scout-server.js",
     requirements: {}, // controller-only
     initialState: { available: [], target: null } satisfies ScoutTaskState,
     evaluate: (game, state) => {
+      // todo temp
+      return "no-change";
+
       const current = availableHostnames(game.servers);
       const stored = (state as TaskState<ScoutTaskState>).available;
       return snapshotsEqual(current, stored) ? "no-change" : "restart";
     },
   },
   {
-    id: "hack-v1",
+    id: HACK_V1_TASK_ID,
     scriptPath: "lib/tasks/hack-controller-v1.js",
     requirements: { growUnbounded: true },
     initialState: { target: null } satisfies HackTaskState,
     evaluate: (game, state, snapshot) => {
+      // todo temp
+      return "no-change";
+
       const hackv1Slot = snapshot["hack-v1"] as TaskState<HackTaskState> | undefined;
 
       // hack-v1 is a weaker version of hack-v2 — once formulas are
@@ -81,12 +90,23 @@ export const TASKS: TaskDefinition[] = [
         return "no-change";
       }
 
-      const scoutSlot = snapshot["scout-server"] as TaskState<ScoutTaskState> | undefined;
+      const scoutSlot = snapshot[SCOUT_SERVER_TASK_ID] as TaskState<ScoutTaskState> | undefined;
       const desired = scoutSlot?.target ?? null;
       const myTarget = (state as TaskState<HackTaskState>).target;
       // Only run when scout has produced a target, and only restart when
       // that target differs from the one the current run was started with.
       return desired !== null && desired !== myTarget ? "restart" : "no-change";
+    },
+  },
+  {
+    id: SERVER_SHARE_TASK_ID,
+    scriptPath: "lib/tasks/server-share.js",
+    requirements: { growUnbounded: true },
+    initialState: {},
+    evaluate: (game, state, snapshot) => {
+      const shareSlot = snapshot[SERVER_SHARE_TASK_ID] as TaskState | undefined;
+      if (shareSlot?.status === "running") return "no-change";
+      return "restart";
     },
   },
 ];

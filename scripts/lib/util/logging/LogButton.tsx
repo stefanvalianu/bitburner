@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { Button, LogsIcon, LogStream, Modal, NotificationDot, useLevelColor, useLogStream, useNotification, useTheme } from "../../ui";
+import {
+  Button,
+  LogsIcon,
+  LogStream,
+  Modal,
+  NotificationDot,
+  useLevelColor,
+  useLogStream,
+  useNotification,
+  useTheme,
+} from "../../ui";
 
 export function LogButton() {
   const { colors } = useTheme();
@@ -18,7 +28,7 @@ export function LogButton() {
     clear();
     setLogsOpen(true);
   };
-  
+
   return (
     <>
       <Button onClick={openLogs}>

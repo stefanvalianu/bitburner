@@ -72,10 +72,7 @@ export function GameStateProvider({
   const ns = useNs();
   const [state, setState] = useState<GameState>(() => snapshot(ns, 0));
   useEffect(() => {
-    const id = setInterval(
-      () => setState((prev) => snapshot(ns, prev.tick + 1)),
-      intervalMs,
-    );
+    const id = setInterval(() => setState((prev) => snapshot(ns, prev.tick + 1)), intervalMs);
     return () => clearInterval(id);
   }, [ns, intervalMs]);
   return <GameStateContext.Provider value={state}>{children}</GameStateContext.Provider>;

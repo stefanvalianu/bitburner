@@ -2,19 +2,20 @@ import { NS } from "@ns";
 import { BaseTask } from "../util/tasks/baseTask";
 import type { HackTaskState, ScoutTaskState } from "../util/tasks/definitions";
 import type { TaskState } from "../util/tasks/types";
+import { SCOUT_SERVER_TASK_ID } from "./scout-server";
 
-const TASK_ID = "hack-v1";
+export const HACK_V1_TASK_ID = "hack-v1";
 
-const WEAKEN_SCRIPT = "lib/util/hacks/weaken.js";
-const HACK_SCRIPT = "lib/util/hacks/hack.js";
-const GROW_SCRIPT = "lib/util/hacks/grow.js";
+const WEAKEN_SCRIPT = "lib/util/script/weaken.js";
+const HACK_SCRIPT = "lib/util/script/hack.js";
+const GROW_SCRIPT = "lib/util/script/grow.js";
 
 // Controls the time delta to attempt to fit between batches
 const BATCH_OFFSET = 10;
 
 class HackTask extends BaseTask<HackTaskState> {
   constructor(ns: NS) {
-    super(ns, TASK_ID);
+    super(ns, HACK_V1_TASK_ID);
   }
 
   protected async run(): Promise<void> {
@@ -38,17 +39,17 @@ class HackTask extends BaseTask<HackTaskState> {
     // 1 - lower the security of the target to minimum
     if (await this.prepareSecurity(target, weakenRam)) return;
 
-    // 2 - raise the available money of the target to maximum, preserving 
+    // 2 - raise the available money of the target to maximum, preserving
     // the minimum security level.
     if (await this.prepareMoney(target, growRam, weakenRam)) return;
 
     // 3 - begin the endless HWGW loop
-    this.log.warn('todo finish HWGW v1 implementation');
+    this.log.warn("todo finish HWGW v1 implementation");
     return;
   }
 
   private resolveTarget(): string | null {
-    const scoutSlot = this.snapshot["scout-server"] as TaskState<ScoutTaskState> | undefined;
+    const scoutSlot = this.snapshot[SCOUT_SERVER_TASK_ID] as TaskState<ScoutTaskState> | undefined;
     return scoutSlot?.target ?? null;
   }
 
@@ -74,7 +75,7 @@ class HackTask extends BaseTask<HackTaskState> {
         this.teardown();
         return true;
       }
-      
+
       const batchTime = this.runWeakenBatch(target, weakenRam);
       await this.ns.asleep(batchTime);
     }
@@ -86,7 +87,7 @@ class HackTask extends BaseTask<HackTaskState> {
   // ms the longest spawned weaken will take (with a 100ms buffer).
   private runWeakenBatch(target: string, weakenRam: number): number {
     const weakenTime = this.ns.getWeakenTime(target);
-    
+
     for (const slice of this.allocation.servers) {
       const threads = Math.floor(slice.ram / weakenRam);
       if (threads <= 0) continue;
@@ -112,7 +113,7 @@ class HackTask extends BaseTask<HackTaskState> {
         this.teardown();
         return true;
       }
-      
+
       const batchTime = this.runGrowBatch(target, growRam, weakenRam);
       await this.ns.asleep(batchTime);
     }
@@ -120,7 +121,7 @@ class HackTask extends BaseTask<HackTaskState> {
     return false;
   }
 
-  // Spawn one pass of grow/weaken cycles, returning the time (with an buffer) 
+  // Spawn one pass of grow/weaken cycles, returning the time (with an buffer)
   // of how long it would take to finish this batch.
   private runGrowBatch(target: string, growRam: number, weakenRam: number): number {
     const growTime = this.ns.getGrowTime(target);

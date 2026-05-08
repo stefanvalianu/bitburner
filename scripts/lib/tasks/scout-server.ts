@@ -6,11 +6,11 @@ import { moneyMax, scanAll } from "../util/serverMap";
 // Must match the id in tasks/definitions.ts. The manager exec's this script
 // without args; the BaseTask bootstrap pairs this constant with our PID
 // against the published snapshot to find our slot.
-const TASK_ID = "scout-server";
+export const SCOUT_SERVER_TASK_ID = "scout-server";
 
 class ScoutTask extends BaseTask<ScoutTaskState> {
   constructor(ns: NS) {
-    super(ns, TASK_ID);
+    super(ns, SCOUT_SERVER_TASK_ID);
   }
 
   protected async run(): Promise<void> {

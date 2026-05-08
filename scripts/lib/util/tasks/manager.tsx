@@ -160,12 +160,10 @@ export function TaskManagerProvider({ children }: { children: ReactNode }) {
         if (ev.type === "child-spawned") {
           if (!slot.childPids.includes(ev.pid)) slot.childPids.push(ev.pid);
           continue;
-        }
-        else if (ev.type === "task-finished") {
+        } else if (ev.type === "task-finished") {
           slot.status = "finished";
           continue;
-        }
-        else if (ev.type === "state-patch") {
+        } else if (ev.type === "state-patch") {
           for (const [k, v] of Object.entries(ev.patch)) {
             if (BASE_STATE_KEYS.has(k)) continue; // reject manager-owned fields
             slot[k] = v;
@@ -209,7 +207,7 @@ export function TaskManagerProvider({ children }: { children: ReactNode }) {
           }
           continue;
         }
-        
+
         if (decision === "restart") spawnCandidates.push(def);
       }
 

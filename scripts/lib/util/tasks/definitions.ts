@@ -1,7 +1,7 @@
-import { hackV1Task } from "./definitions/hack-v1-task";
-import { scoutServerTask } from "./definitions/scout-server-task";
-import { serverShareTask } from "./definitions/server-share-task";
-import { simpleHackerTask } from "./definitions/simple-hacker-task";
+import { hackV1Task } from "./definitions/hack-v1/hack-v1-task";
+import { scoutServerTask } from "./definitions/scout-server/scout-server-task";
+import { serverShareTask } from "./definitions/server-share/server-share-task";
+import { simpleHackerTask } from "./definitions/simple-hacker/simple-hacker-task";
 
 // ---------------------------------------------------------------------------
 // TASKS
@@ -11,9 +11,4 @@ import { simpleHackerTask } from "./definitions/simple-hacker-task";
 // important growUnbounded task at the top.
 // ---------------------------------------------------------------------------
 
-export const TASKS = [
-  scoutServerTask,
-  hackV1Task,
-  serverShareTask,
-  simpleHackerTask
-];
+export const TASKS = [scoutServerTask, hackV1Task, serverShareTask, simpleHackerTask];

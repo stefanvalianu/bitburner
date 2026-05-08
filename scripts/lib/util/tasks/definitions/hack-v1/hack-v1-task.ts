@@ -1,14 +1,11 @@
-import { HACK_V1_TASK_ID, SCOUT_SERVER_TASK_ID } from "../ids";
-import { TaskDefinition, TaskState } from "../types";
-import { ScoutTaskState } from "./scout-server-task";
-
-export interface HackTaskState extends Record<string, unknown> {
-  target: string | null; // the target this hack run was started against
-}
+import { TaskDefinition, TaskState } from "../../types";
+import { SCOUT_SERVER_TASK_ID } from "../scout-server/info";
+import { ScoutTaskState } from "../scout-server/scout-server-task";
+import { HACK_V1_SCRIPT_PATH, HACK_V1_TASK_ID, HackTaskState } from "./info";
 
 export const hackV1Task: TaskDefinition = {
   id: HACK_V1_TASK_ID,
-  scriptPath: "lib/tasks/hack-controller-v1.js",
+  scriptPath: HACK_V1_SCRIPT_PATH,
   requirements: { growUnbounded: true },
   initialState: { target: null } satisfies HackTaskState,
   evaluate: (game, state, snapshot) => {
@@ -27,9 +24,7 @@ export const hackV1Task: TaskDefinition = {
       return "no-change";
     }
 
-    const scoutSlot = snapshot.tasks[SCOUT_SERVER_TASK_ID] as
-      | TaskState<ScoutTaskState>
-      | undefined;
+    const scoutSlot = snapshot.tasks[SCOUT_SERVER_TASK_ID] as TaskState<ScoutTaskState> | undefined;
     const desired = scoutSlot?.target ?? null;
     const myTarget = (state as TaskState<HackTaskState>).target;
     // Only run when scout has produced a target, and only restart when

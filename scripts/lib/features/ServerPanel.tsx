@@ -11,7 +11,6 @@ import {
   numOpenPortsRequired,
   requiredHackingSkill,
 } from "../util/serverMap";
-import type { ScoutTaskState } from "../util/tasks/definitions";
 import type { TaskState } from "../util/tasks/types";
 import { Button } from "../ui/Button";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
@@ -20,7 +19,7 @@ import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { Spinner } from "../ui/Spinner";
 import { useTheme } from "../ui/theme";
-import { SCOUT_SERVER_TASK_ID } from "../util/tasks/ids";
+import { SCOUT_SERVER_TASK_ID, ScoutTaskState } from "../util/tasks/definitions/scout-server/info";
 
 export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const ns = useNs();

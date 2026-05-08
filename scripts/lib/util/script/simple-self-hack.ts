@@ -14,6 +14,7 @@ const WEAKEN_SCRIPT = "lib/util/script/weaken.js";
 // the maximum resources of the server it's running on (other than the
 // ones reserved by this script) to do weaken -> grow -> weaken -> hack
 // phases with maximal threads. No intelligent batching or scheduling
+// NOTE: this sucks a LOT, it takes forever to make a machine ready
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
 

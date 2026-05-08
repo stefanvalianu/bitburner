@@ -1,6 +1,6 @@
 import { NS } from "@ns";
 import { BaseTask } from "../util/tasks/baseTask";
-import { SERVER_SHARE_TASK_ID } from "../util/tasks/ids";
+import { SERVER_SHARE_TASK_ID } from "../util/tasks/definitions/server-share/info";
 
 const SHARE_SCRIPT = "lib/util/script/share.js";
 

@@ -1,6 +1,6 @@
 import { NS } from "@ns";
 import { BaseTask } from "../util/tasks/baseTask";
-import { SIMPLE_HACKER_TASK_ID } from "../util/tasks/ids";
+import { SIMPLE_HACKER_TASK_ID } from "../util/tasks/definitions/simple-hacker/info";
 
 const SIMPLE_SELF_HACK_SCRIPT = "lib/util/script/simple-self-hack.js";
 

@@ -1,9 +1,9 @@
-import { SIMPLE_HACKER_TASK_ID } from "../ids";
-import { TaskDefinition, TaskState } from "../types";
+import { TaskDefinition, TaskState } from "../../types";
+import { SIMPLE_HACKER_SCRIPT_PATH, SIMPLE_HACKER_TASK_ID } from "./info";
 
 export const simpleHackerTask: TaskDefinition = {
   id: SIMPLE_HACKER_TASK_ID,
-  scriptPath: "lib/tasks/simple-hacker.js",
+  scriptPath: SIMPLE_HACKER_SCRIPT_PATH,
   requirements: { growUnbounded: true },
   initialState: {},
   evaluate: (game, state, snapshot) => {

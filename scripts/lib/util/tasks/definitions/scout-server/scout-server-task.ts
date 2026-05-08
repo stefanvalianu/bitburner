@@ -1,16 +1,10 @@
-
-import { availableHostnames, snapshotsEqual } from "../helpers";
-import { SCOUT_SERVER_TASK_ID } from "../ids";
-import type { TaskDefinition, TaskState } from "./../types";
-
-export interface ScoutTaskState extends Record<string, unknown> {
-  available: string[]; // sorted, normalized list of currently-hackable hostnames
-  target: string | null; // best target by moneyMax among `available`
-}
+import { availableHostnames, snapshotsEqual } from "../../helpers";
+import type { TaskDefinition, TaskState } from "../../types";
+import { SCOUT_SERVER_SCRIPT_PATH, SCOUT_SERVER_TASK_ID, ScoutTaskState } from "./info";
 
 export const scoutServerTask: TaskDefinition = {
   id: SCOUT_SERVER_TASK_ID,
-  scriptPath: "lib/tasks/scout-server.js",
+  scriptPath: SCOUT_SERVER_SCRIPT_PATH,
   requirements: {}, // controller-only
   initialState: { available: [], target: null } satisfies ScoutTaskState,
   evaluate: (game, state) => {

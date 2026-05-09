@@ -1,5 +1,4 @@
 import type { CSSProperties, ReactNode } from "react";
-import { useGameState } from "../util/gameState";
 import {
   numOpenPortsRequired,
   openPortCount,
@@ -8,6 +7,8 @@ import {
 } from "../util/serverMap";
 import { Icon, PortsIcon } from "../ui/Icons";
 import { useTheme } from "../ui/theme";
+import { useDashboardController } from "../util/useDashboardController";
+import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
 
 const INDENT_PX = 18;
 const ROW_HEIGHT = "1.6em";
@@ -211,8 +212,11 @@ const RAM_WIDTH_PX = 110;
 
 export function ServerMap() {
   const { colors, fonts, space } = useTheme();
-  const { servers, stats } = useGameState();
-  const { hackingLevel } = stats;
+  const { state } = useDashboardController();
+
+  const playerState = getPlayerMonitorState(state);
+
+  const hackingLevel = playerState?.stats?.hackingLevel || 0;
 
   const headerStyle: CSSProperties = {
     color: colors.fgDim,
@@ -248,7 +252,7 @@ export function ServerMap() {
           </tr>
         </thead>
         <tbody>
-          {servers.map((s, idx) => {
+          {state.allServers.map((s, idx) => {
             const background = rowBackgrounds[idx % 2];
             const hostnameColor = s.purchasedByPlayer ? colors.accent : colors.fg;
             return (

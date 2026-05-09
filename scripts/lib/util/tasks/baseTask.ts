@@ -1,27 +1,7 @@
 import type { NS } from "@ns";
 import { createLogger, type Logger } from "../logging/log";
 import { TASK_EVENTS_PORT, TASK_STATE_PORT } from "../ports";
-import type { Allocation, TaskEvent, TaskId, TaskState, TaskStateSnapshot } from "./types";
-
-// ---------------------------------------------------------------------------
-// BaseTask
-//
-// Every task script subclasses this and implements `run()`. The base class
-// owns:
-//   • Bootstrap handshake — block until the manager publishes a snapshot
-//     where this script's PID is the owner of the slot. This guarantees we
-//     read OUR allocation, not a stale one from a previous run.
-//   • Peek-based accessors (`state`, `allocation`, `snapshot`) — every read
-//     re-peeks `TASK_STATE_PORT` so subclasses always see the latest values.
-//   • Mutation helpers (`patchState`, `exec`) — writes go through the
-//     manager's event channel; `exec` also auto-reports the spawned PID.
-//   • Cooperative shutdown (`shouldShutdown`, `sleep`) — `sleep` returns
-//     early and reports `true` if the manager flips `shutdownRequested`.
-//
-// Subclasses MUST define a TASK_ID constant in their own module and pass it
-// to `super()` — the constant is the script's contract with the manager and
-// must match the `id` in `definitions.ts`.
-// ---------------------------------------------------------------------------
+import type { Allocation, TaskEvent, TaskId, TaskState } from "./types";
 
 export abstract class BaseTask<TState extends Record<string, unknown> = Record<string, unknown>> {
   protected readonly ns: NS;
@@ -42,6 +22,15 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
     } catch (e) {
       this.log.error(`task crashed: ${e instanceof Error ? e.message : String(e)}`);
       throw e;
+    } finally {
+      // when a task exits, we should kill all children (lol comments)
+      const pids = this.state.childPids;
+      if (pids.length > 0) {
+        for (const pid of pids) {
+          if (this.ns.isRunning(pid)) this.ns.kill(pid);
+        }
+        this.log.info(`shutdown: killed ${pids.length} worker(s)`);
+      }
     }
   }
 
@@ -54,16 +43,11 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
   // these as fresh on every call.
   // -------------------------------------------------------------------------
 
-  // Our slot in the latest published snapshot. Throws if the snapshot or
-  // slot is missing, which can only happen if the manager stopped publishing
-  // — at that point the task is operating on stale assumptions and should
-  // bail.
+  // Helper for reading our specific task state from the overall snapshot
   protected get state(): TaskState<TState> {
-    const slot = this.peekSlot();
-    if (!slot) {
-      throw new Error(`task-state slot for "${this.taskId}" missing from published snapshot`);
-    }
-    return slot;
+    const snapshot = this.snapshot;
+    const slot = snapshot.tasks[this.taskId];
+    return (slot as TaskState<TState>) ?? null;
   }
 
   // Worker allocation the manager assigned to this run. Always present
@@ -74,13 +58,13 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
 
   // Full task-state snapshot. Useful for cross-task reads (e.g. hack reading
   // scout's published target).
-  protected get snapshot(): TaskStateSnapshot {
+  protected get snapshot(): Record<TaskId, TaskState> {
     const raw = this.ns.peek(TASK_STATE_PORT);
-    if (raw === "NULL PORT DATA") return { gameState: null, tasks: {} };
+    if (raw === "NULL PORT DATA") return {};
     try {
-      return JSON.parse(raw as string) as TaskStateSnapshot;
+      return JSON.parse(raw as string) as Record<TaskId, TaskState>;
     } catch {
-      return { gameState: null, tasks: {} };
+      return {};
     }
   }
 
@@ -124,12 +108,6 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
   // -------------------------------------------------------------------------
   // Internals
   // -------------------------------------------------------------------------
-
-  private peekSlot(): TaskState<TState> | null {
-    const snap = this.snapshot;
-    const slot = snap.tasks[this.taskId];
-    return (slot as TaskState<TState>) ?? null;
-  }
 
   private emitEvent(event: TaskEvent): void {
     this.ns.getPortHandle(TASK_EVENTS_PORT).write(JSON.stringify(event));

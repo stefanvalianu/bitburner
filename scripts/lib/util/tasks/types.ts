@@ -1,5 +1,3 @@
-import type { GameState } from "../gameState";
-
 // ---------------------------------------------------------------------------
 // Identity & allocation
 // ---------------------------------------------------------------------------
@@ -35,6 +33,8 @@ export interface TaskRequirements {
 // idle = task has not yet began. running = task is currently running. stopping = task is waiting for its workers and will eventually terminate. finished = done
 export type TaskStatus = "idle" | "running" | "stopping" | "finished";
 
+export type TaskPriority = "critical" | "normal" | "disabled";
+
 export interface BaseTaskState {
   pid: number | null;
   host: string | null;
@@ -49,11 +49,6 @@ export interface BaseTaskState {
 
 export type TaskState<T extends Record<string, unknown> = Record<string, unknown>> = BaseTaskState &
   T;
-
-export type TaskStateSnapshot = {
-  gameState: GameState | null;
-  tasks: Record<TaskId, TaskState>;
-};
 
 // Keys of BaseTaskState — used by the manager when shallow-merging
 // state-patch events to reject attempts to overwrite manager-owned fields.
@@ -94,14 +89,11 @@ export type TaskEvent =
 
 export type TaskDecision = "no-change" | "restart" | "shutdown";
 
+// Note the script path of a task is assumed to be "lib/util/tasks/definitions/{id}/task.js"
 export interface TaskDefinition<TState extends Record<string, unknown> = Record<string, unknown>> {
   id: TaskId;
-  scriptPath: string;
   requirements: TaskRequirements;
   initialState: TState;
-  evaluate: (
-    gameState: GameState,
-    taskState: TaskState<TState>,
-    snapshot: TaskStateSnapshot,
-  ) => TaskDecision;
+  description: string;
+  priority: TaskPriority;
 }

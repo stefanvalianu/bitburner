@@ -1,8 +1,8 @@
 import { NS } from "@ns";
-import { BaseTask } from "../util/tasks/baseTask";
-import { moneyMax, scanAll } from "../util/serverMap";
-import { ScoutTaskState, SCOUT_SERVER_TASK_ID } from "../util/tasks/definitions/scout-server/info";
-import { availableHostnames } from "../util/tasks/helpers";
+import { scanAll, moneyMax } from "../../../serverMap";
+import { BaseTask } from "../../baseTask";
+import { availableHostnames } from "../../helpers";
+import { ScoutTaskState, SCOUT_SERVER_TASK_ID } from "./info";
 
 class ScoutTask extends BaseTask<ScoutTaskState> {
   constructor(ns: NS) {

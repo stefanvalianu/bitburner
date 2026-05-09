@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import { useGameState } from "../util/gameState";
-import { useTaskManager } from "../util/tasks/manager";
 import { useLogger } from "../util/logging/log";
 import { useNs } from "../util/ns";
 import {
@@ -20,20 +18,23 @@ import { Row } from "../ui/Row";
 import { Spinner } from "../ui/Spinner";
 import { useTheme } from "../ui/theme";
 import { SCOUT_SERVER_TASK_ID, ScoutTaskState } from "../util/tasks/definitions/scout-server/info";
+import { useDashboardController } from "../util/useDashboardController";
 
 export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const ns = useNs();
   const log = useLogger("servers");
   const { colors, space } = useTheme();
-  const { servers, stats, inventory } = useGameState();
-  const { taskState, requestShutdown } = useTaskManager();
+  const { state, shutdownTask } = useDashboardController();
   const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
 
+  /*
   const scoutSlot = taskState.tasks[SCOUT_SERVER_TASK_ID] as TaskState<ScoutTaskState> | undefined;
   const targetServer = scoutSlot?.target
     ? servers.find((s) => s.hostname === scoutSlot.target)
     : undefined;
+*/
 
+  /*
   // Categorize once. Backdoored implies admin rights, so the nuked bucket
   // excludes backdoored to avoid double-counting. Player-owned is its own
   // bucket — purchased servers always have admin rights but shouldn't inflate
@@ -161,5 +162,7 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
         }}
       />
     </Panel>
-  );
+  );*/
+
+  return <Panel title="Servers">Let's bring it back</Panel>;
 }

@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
-import { useGameState } from "../util/gameState";
 import { Panel } from "../ui/Panel";
 import { useTheme } from "../ui/theme";
+import { useDashboardController } from "../util/useDashboardController";
 
 const INDENT_PX = 16;
 const ROW_HEIGHT = "1.6em";
@@ -47,7 +47,7 @@ function RailColumn({ kind }: { kind: RailKind }) {
 
 export function ServerMapPanel() {
   const { colors, fonts, space } = useTheme();
-  const { servers } = useGameState();
+  const { state } = useDashboardController();
 
   const cellPadding = `${space.xs}px ${space.sm}px`;
   const headerStyle: CSSProperties = {
@@ -66,7 +66,7 @@ export function ServerMapPanel() {
   const rowBackgrounds: [string, string] = [colors.bg, colors.surface];
 
   return (
-    <Panel title={`Server map · ${servers.length}`} collapsible defaultOpen={false}>
+    <Panel title={`Server map · ${state.allServers.length}`} collapsible defaultOpen={false}>
       <table
         style={{
           fontFamily: fonts.mono,
@@ -82,7 +82,7 @@ export function ServerMapPanel() {
           </tr>
         </thead>
         <tbody>
-          {servers.map((s, idx) => {
+          {state.allServers.map((s, idx) => {
             const background = rowBackgrounds[idx % 2];
             return (
               <tr key={s.hostname}>

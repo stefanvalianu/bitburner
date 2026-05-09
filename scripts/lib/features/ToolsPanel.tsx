@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
-import { useGameState } from "../util/gameState";
 import { Button } from "../ui/Button";
 import { FormulasIcon, PortsIcon, ProgramsIcon, TorIcon, WrenchIcon } from "../ui/Icons";
 import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { useTheme } from "../ui/theme";
+import { useDashboardController } from "../util/useDashboardController";
+import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
 
 interface ToolItemProps {
   icon: ReactNode;
@@ -25,8 +26,12 @@ function ToolItem({ icon, label, detail }: ToolItemProps) {
 
 export function ToolsPanel({ onOpen }: { onOpen?: () => void }) {
   const { colors, space } = useTheme();
-  const { inventory } = useGameState();
-  const { hasTorRouter, hasFormulas, portOpeners, programs } = inventory;
+  const { state } = useDashboardController();
+  const playerMonitorState = getPlayerMonitorState(state);
+
+  if (!playerMonitorState || !playerMonitorState.inventory) return null;
+
+  const { hasTorRouter, hasFormulas, portOpeners, programs } = playerMonitorState.inventory;
 
   const portsOwned = portOpeners.filter((p) => p.owned).length;
   const programsOwned = programs.filter((p) => p.owned).length;

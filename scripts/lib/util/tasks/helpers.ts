@@ -4,6 +4,10 @@
 // evaluate later compares against.
 // ---------------------------------------------------------------------------
 
+import { DashboardState } from "../dashboardTypes";
+import { ServerInfo } from "../serverMap";
+import { SERVER_MONITOR_TASK_ID, ServerMonitorTaskState } from "./definitions/server-monitor/info";
+
 interface AvailableCandidate {
   hostname: string;
   hasAdminRights: boolean;

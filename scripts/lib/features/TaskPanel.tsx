@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "../ui/Button";
 import { Col } from "../ui/Col";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { BracesIcon, HomeIcon, PowerIcon } from "../ui/Icons";
+import { BracesIcon, PowerIcon } from "../ui/Icons";
 import { Modal } from "../ui/Modal";
 import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";

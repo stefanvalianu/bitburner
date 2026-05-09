@@ -103,7 +103,10 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
   }
 
   // Spawn a worker. Wraps ns.exec and auto-emits a child-spawned event so
-  // the manager can track the worker for cleanup.
+  // the manager can track the worker for cleanup. Intended to be used for
+  // long-running tasks that will be auto-cleaned up during teardown. The
+  // list of pids is not watched for completion, so be wary of using this
+  // for scripts that infinitely spawn many sub-tasks.
   protected exec(
     script: string,
     hostname: string,

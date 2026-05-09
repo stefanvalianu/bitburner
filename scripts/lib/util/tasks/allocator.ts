@@ -1,5 +1,11 @@
 import type { ServerSlice, TaskDemand, TaskId } from "./types";
 
+export interface Lease {
+  leaseId: number;
+  hostname: string;
+  ram: number;
+}
+
 interface PoolEntry {
   hostname: string;
   ram: number;
@@ -13,9 +19,16 @@ interface PoolEntry {
 // two pools.
 export class Allocator {
   private readonly pool: Map<string, PoolEntry>;
+  private readonly leases: Map<number, Lease>;
+
+  // simple auto-incrementing id
+  private leaseIncrement: number;
 
   constructor(slices: ServerSlice[]) {
+    this.leases = new Map();
     this.pool = new Map();
+    this.leaseIncrement = 0;
+
     for (const s of slices) {
       const existing = this.pool.get(s.hostname);
       if (existing) {
@@ -65,6 +78,57 @@ export class Allocator {
       reserved += take;
     }
     return result;
+  }
+
+  // Similar to `lease` but finds the biggest possible contiguous block
+  // up to the requested ram. Useful if you're OK to grow script threads
+  // irresponsibly large. If `ram` is not provided, will return the biggest
+  // slot.
+  lease_up_to(ram?: number): Lease | null {
+    // let's always prefer highCPU nodes, we already own them, might as well use em
+    const sorted = this.sortedHosts(false);
+    if (sorted.length === 0) return null;
+    if (Math.floor(sorted[0].ram) === 0) return null;
+
+    const leaseRam = ram ? Math.min(sorted[0].ram, ram) : sorted[0].ram;
+
+    return this.lease(leaseRam);
+  }
+
+  // This aims to have a much simpler contract meant for scripts to grab
+  // a slice of their available allocation for usage/consumption. It is
+  // important for callers to understand that whatever they are running
+  // on their lease is finished, so they can properly `return` the space.
+  lease(ram: number): Lease | null {
+    ram = Math.floor(ram);
+    const sorted = this.sortedHosts(false);
+
+    // failed to obtain a lease
+    if (sorted.length === 0 || sorted[0].ram < ram || Math.floor(sorted[0].ram) === 0) return null;
+
+    // reserve it on the host
+    sorted[0].ram -= ram;
+
+    return {
+      leaseId: this.leaseIncrement++,
+      hostname: sorted[0].hostname,
+      ram: ram,
+    };
+  }
+
+  // Callers should free their leases when they're done, otherwise the
+  // allocation will be lost (within this class). Returns false on error
+  return(leaseId: number): boolean {
+    const lease = this.leases.get(leaseId);
+    if (!lease) return false;
+
+    const host = this.pool.get(lease.hostname);
+    if (!host) return false;
+
+    host.ram += lease.ram;
+    this.leases.delete(leaseId);
+
+    return true;
   }
 
   // Lock RAM out of the pool (used to mark already-running tasks' slices

@@ -39,9 +39,7 @@ export interface TaskDemand {
 // which TaskManager fills in at allocation time.
 export type DemandSpec = Omit<TaskDemand, "entrypointRam">;
 
-// idle = task is only reserving allocations, but not running yet. running = task is currently running.
-// stopping = task is waiting for its workers and will eventually terminate.
-export type TaskStatus = "idle" | "running" | "stopping";
+export type TaskStatus = "requested" | "running" | "stopping";
 
 export interface BaseTaskState {
   pid: number | null;

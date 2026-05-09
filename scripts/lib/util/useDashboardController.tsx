@@ -121,6 +121,20 @@ export function DashboardControllerProvider({
     return () => clearInterval(id);
   }, [ns, intervalMs]);
 
+  const startTask = useCallback(
+    (taskId: TaskId) => {
+      const newTaskState = taskManager.begin(taskId);
+
+      if (newTaskState) {
+        const newState = snapshot(ns);
+        newState.tasks = newTaskState;
+        newState.tick = state.tick;
+        publishSnapshot(ns, newState);
+      }
+    },
+    [taskManager, state],
+  );
+
   const shutdownTask = useCallback(
     (taskId: TaskId) => {
       const newTaskState = taskManager.shutdown(taskId);
@@ -141,6 +155,7 @@ export function DashboardControllerProvider({
     () =>
       ({
         state: state,
+        startTask: startTask,
         shutdownTask: shutdownTask,
       }) satisfies DashboardController,
     [state, taskManager],

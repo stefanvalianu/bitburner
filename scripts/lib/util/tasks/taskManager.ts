@@ -27,6 +27,31 @@ export class TaskManager {
     this.logger = logger;
   }
 
+  // Triggers the manual creation of a task to be placed/ran
+  begin(taskId: TaskId): Record<TaskId, TaskState> | undefined {
+    const slot = this.state?.tasks[taskId];
+
+    if (slot) {
+      this.logger.info(`Attempting to start task ${taskId} but it's already running. Ignoring`);
+      return undefined;
+    }
+
+    const next: Record<TaskId, TaskState> = {
+      ...this.state!.tasks,
+      [taskId]: {
+        allocation: null,
+        childPids: [],
+        pid: null,
+        host: null,
+        shutdownRequested: false,
+        status: "requested",
+      },
+    };
+
+    this.logger.info(`task ${taskId} start requested`);
+    return next;
+  }
+
   // Attempts to gracefully shutdown a given taskId
   shutdown(taskId: TaskId): Record<TaskId, TaskState> | undefined {
     const slot = this.state?.tasks[taskId];
@@ -84,10 +109,9 @@ export class TaskManager {
     // 3. Identify pending demands — autostart tasks not currently running.
     //    Resolve entrypointRam for each via ns.getScriptRam.
     const pending = new Map<TaskId, TaskDemand>();
+    // first, run our autostarting tasks (They are important!)
     for (const def of ALL_TASKS) {
       if (!def.autostart) continue;
-      const slot = snap[def.id];
-      if (slot && slot.status !== "idle") continue;
 
       const path = this.getTaskScriptPath(def);
       const entrypointRam = this.ns.getScriptRam(path);
@@ -96,6 +120,23 @@ export class TaskManager {
         continue;
       }
       pending.set(def.id, { ...def.demand, entrypointRam });
+    }
+
+    // then add our user-requested tasks
+    for (const [id, slot] of Object.entries(snap)) {
+      if (slot.status !== "requested") continue;
+      const def = ALL_TASKS.find((t) => t.id === id);
+      if (!def) {
+        this.logger.error(`cannot find task definition for ${id}`);
+        continue;
+      }
+      const path = this.getTaskScriptPath(def);
+      const entrypointRam = this.ns.getScriptRam(path);
+      if (entrypointRam === 0) {
+        this.logger.error(`script not found: ${path}`);
+        continue;
+      }
+      pending.set(id, { ...def.demand, entrypointRam });
     }
 
     // 4. Build the pool from owned, accessible, non-excluded servers.

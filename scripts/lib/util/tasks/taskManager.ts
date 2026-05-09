@@ -16,6 +16,12 @@ import { allocateAllTasks } from "./allocator";
 
 const TASK_BY_ID: ReadonlyMap<TaskId, TaskDefinition> = new Map(ALL_TASKS.map((t) => [t.id, t]));
 
+// RAM held back from the allocator on `home` for the dashboard process and
+// any ad-hoc scripts the player launches outside the task manager. The pool
+// is built from `maxRam`, not actual free RAM, so without this buffer tasks
+// would oversubscribe `home` and fail to exec.
+const HOME_RESERVED_RAM_GB = 16;
+
 export class TaskManager {
   private readonly ns: NS;
   private readonly logger: Logger;
@@ -122,6 +128,12 @@ export class TaskManager {
     for (const def of ALL_TASKS) {
       if (!def.autostart) continue;
 
+      // Skip if already running/stopping — would otherwise double-consume
+      // RAM when allocateAllTasks reserves the slot from `running` and then
+      // allocates it again from `pending`.
+      const slot = snap[def.id];
+      if (slot && (slot.status === "running" || slot.status === "stopping")) continue;
+
       const path = this.getTaskScriptPath(def);
       // ns.getScriptRam returns 0.05GB-aligned floats (e.g. 2.4) — round up so
       // every value entering the allocator is an integer GB and reservations
@@ -154,7 +166,14 @@ export class TaskManager {
     // 4. Build the pool from owned, accessible, non-excluded servers.
     const pool: ServerSlice[] = state.allServers
       .filter((s) => s.hasAdminRights && s.maxRam > 0)
-      .map((s) => ({ hostname: s.hostname, ram: s.maxRam, cores: s.cpuCores }));
+      .map((s) => {
+        const reserved = s.hostname === "home" ? HOME_RESERVED_RAM_GB : 0;
+        return {
+          hostname: s.hostname,
+          ram: Math.max(0, s.maxRam - reserved),
+          cores: s.cpuCores,
+        };
+      });
 
     // 5. Lock RAM held by tasks already running (or winding down).
     const running = new Map<TaskId, ServerSlice[]>();

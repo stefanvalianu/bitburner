@@ -4,7 +4,7 @@ import { ServerAnalysis, ServerAnalysisReport } from "./info";
 
 // todo - this
 function analyzeTarget(ns: NS, server: ServerInfo): ServerAnalysis | undefined {
-  if (server.hostname === "nectar-net") {
+  if (server.hostname === "foodnstuff") {
     return {
       hostname: server.hostname,
       profitScore: 1,

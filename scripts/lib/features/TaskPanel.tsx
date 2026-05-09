@@ -49,7 +49,7 @@ export function TaskPanel() {
   };
 
   return (
-    <Panel title="Tasks" actions={actions} style={{ margin: space.md }}>
+    <Panel title="Tasks" actions={actions} style={{ padding: space.md }}>
       {taskEntries.length === 0 ? (
         <span style={{ color: colors.muted }}>
           No active tasks — click <em>New task</em> to start one.
@@ -173,15 +173,15 @@ function TaskTile({ id, slot, onInfo, onStop }: TaskTileProps) {
   return (
     <div
       style={{
-        border: `1px solid ${colors.border}`,
-        background: colors.well,
+        border: `3px solid ${colors.fg}`,
+        background: colors.surface,
         padding: space.md,
         display: "flex",
         flexDirection: "column",
         gap: space.sm,
         flex: "1 1 240px",
-        maxWidth: 360,
-        minWidth: 220,
+        maxWidth: 220,
+        minWidth: 180,
       }}
     >
       <span
@@ -194,11 +194,13 @@ function TaskTile({ id, slot, onInfo, onStop }: TaskTileProps) {
       >
         {id}
       </span>
-      <span style={{ color: statusColor, fontSize: "0.85em" }}>{slot.status}</span>
       <Row gap={space.sm}>
-        <HomeIcon color={colors.muted} title={`Controller host: ${slot.host ?? "—"}`} />
-        <span style={{ color: colors.muted }}>{slot.host ?? "—"}</span>
-        <span style={{ color: colors.muted, marginLeft: "auto" }}>{ram}GB</span>
+        <span style={{ color: statusColor, fontSize: "0.85em" }}>{slot.status}</span>
+        <Row gap={space.sm}>
+          <HomeIcon color={colors.muted} title={`Controller host: ${slot.host ?? "—"}`} />
+          <span style={{ color: colors.muted }}>{slot.host ?? "—"}</span>
+          <span style={{ color: colors.muted, marginLeft: "auto" }}>{ram}GB</span>
+        </Row>
       </Row>
       <Row gap={space.sm} style={{ marginTop: "auto", justifyContent: "flex-end" }}>
         <Button onClick={onInfo} disabled={!canInspect}>

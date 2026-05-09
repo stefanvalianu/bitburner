@@ -9,7 +9,7 @@ class ServerShareTask extends BaseTask {
     super(ns, SERVER_SHARE_TASK_ID);
   }
 
-  protected async run(): Promise<void> {
+  protected async run_task(): Promise<void> {
     const shareRam = this.ns.getScriptRam(SHARE_SCRIPT, "home");
 
     if (shareRam === 0) {

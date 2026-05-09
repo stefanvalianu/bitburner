@@ -11,6 +11,9 @@ const DIST_DIR = resolve("dist");
 const SERVER = "home";
 // Built output is JS only; .ts/.tsx have already been compiled away.
 const VALID_EXT = /\.(js|jsx|txt|script)$/i;
+// Runtime-managed state lives under .state/ on the server. Never push or
+// delete these — they belong to the running game, not the build.
+const isStateFile = (filename: string) => filename.startsWith(".state/");
 
 type RpcResponse = { jsonrpc: "2.0"; id: number; result?: unknown; error?: unknown };
 
@@ -44,6 +47,7 @@ async function pushAll(ws: WebSocket): Promise<{ pushed: number; deleted: number
   for await (const abs of walk(DIST_DIR)) {
     const filename = toGameFilename(abs);
     if (!VALID_EXT.test(filename)) continue;
+    if (isStateFile(filename)) continue;
     localFiles.add(filename);
     const content = await readFile(abs, "utf8");
     await call(ws, "pushFile", { filename, content, server: SERVER });
@@ -58,6 +62,7 @@ async function pushAll(ws: WebSocket): Promise<{ pushed: number; deleted: number
   let deleted = 0;
   for (const filename of remote) {
     if (!VALID_EXT.test(filename)) continue;
+    if (isStateFile(filename)) continue;
     if (localFiles.has(filename)) continue;
     await call(ws, "deleteFile", { filename, server: SERVER });
     console.log(`✗ ${filename}`);

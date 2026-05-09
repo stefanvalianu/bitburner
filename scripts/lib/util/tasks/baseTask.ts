@@ -18,7 +18,7 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
   // Entrypoint. Run the subclass body and surface any error.
   async start(): Promise<void> {
     try {
-      await this.run();
+      await this.run_task();
     } catch (e) {
       this.log.error(`task crashed: ${e instanceof Error ? e.message : String(e)}`);
       throw e;
@@ -35,8 +35,8 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
   }
 
   // Subclasses implement their behavior here. They have access to all the
-  // protected accessors below.
-  protected abstract run(): Promise<void>;
+  // protected accessors below. Avoiding name `run` since that adds RAM cost lol
+  protected abstract run_task(): Promise<void>;
 
   // -------------------------------------------------------------------------
   // Accessors — every read re-peeks the port. Cheap; tasks should treat

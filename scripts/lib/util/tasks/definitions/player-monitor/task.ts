@@ -9,7 +9,7 @@ class PlayerMonitorTask extends BaseTask<PlayerMonitorTaskState> {
     super(ns, PLAYER_MONITOR_TASK_ID);
   }
 
-  protected async run(): Promise<void> {
+  protected async run_task(): Promise<void> {
     while (!this.shouldShutdown) {
       const PN = this.ns.enums.ProgramName;
       const portOpenerNames = new Set<string>(PORT_OPENER_KEYS.map((k) => PN[k]));

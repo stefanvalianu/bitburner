@@ -9,7 +9,7 @@ class SimpleHackerTask extends BaseTask {
     super(ns, SIMPLE_HACKER_TASK_ID);
   }
 
-  protected async run(): Promise<void> {
+  protected async run_task(): Promise<void> {
     const simpleSelfHackRam = this.ns.getScriptRam(SIMPLE_SELF_HACK_SCRIPT, "home");
 
     if (simpleSelfHackRam === 0) {

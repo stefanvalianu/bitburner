@@ -1,7 +1,6 @@
 import { NS } from "@ns";
 import { BaseTask } from "../../baseTask";
 import { TaskState } from "../../types";
-import { SCOUT_SERVER_TASK_ID, ScoutTaskState } from "../scout-server/info";
 import { HackTaskState, HACK_V1_TASK_ID } from "./info";
 
 const WEAKEN_SCRIPT = "lib/util/script/weaken.js";
@@ -47,10 +46,11 @@ class HackTask extends BaseTask<HackTaskState> {
   }
 
   private resolveTarget(): string | null {
-    const scoutSlot = this.snapshot.tasks[SCOUT_SERVER_TASK_ID] as
+    /*const scoutSlot = this.snapshot.tasks[SCOUT_SERVER_TASK_ID] as
       | TaskState<ScoutTaskState>
       | undefined;
-    return scoutSlot?.target ?? null;
+    return scoutSlot?.target ?? null;*/
+    return null;
   }
 
   private scriptRamCosts(): { hackRam: number; weakenRam: number; growRam: number } {

@@ -1,7 +1,8 @@
 import type { NS } from "@ns";
 import { createLogger, type Logger } from "../logging/log";
-import { TASK_EVENTS_PORT, TASK_STATE_PORT } from "../ports";
+import { TASK_EVENTS_PORT, DASHBOARD_STATE_PORT } from "../ports";
 import type { Allocation, TaskEvent, TaskId, TaskState } from "./types";
+import { DashboardState } from "../dashboardTypes";
 
 export abstract class BaseTask<TState extends Record<string, unknown> = Record<string, unknown>> {
   protected readonly ns: NS;
@@ -45,7 +46,7 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
 
   // Helper for reading our specific task state from the overall snapshot
   protected get state(): TaskState<TState> {
-    const snapshot = this.snapshot;
+    const snapshot = this.snapshot.tasks;
     const slot = snapshot.tasks[this.taskId];
     return (slot as TaskState<TState>) ?? null;
   }
@@ -58,13 +59,26 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
 
   // Full task-state snapshot. Useful for cross-task reads (e.g. hack reading
   // scout's published target).
-  protected get snapshot(): Record<TaskId, TaskState> {
-    const raw = this.ns.peek(TASK_STATE_PORT);
-    if (raw === "NULL PORT DATA") return {};
+  protected get snapshot(): DashboardState {
+    const raw = this.ns.peek(DASHBOARD_STATE_PORT);
+    if (raw === "NULL PORT DATA")
+      return {
+        allServers: [],
+        tasks: {},
+        tick: -1,
+        currentVersion: "0",
+        propagatedVersion: "0",
+      };
     try {
-      return JSON.parse(raw as string) as Record<TaskId, TaskState>;
+      return JSON.parse(raw as string) as DashboardState;
     } catch {
-      return {};
+      return {
+        allServers: [],
+        tasks: {},
+        tick: -1,
+        currentVersion: "0",
+        propagatedVersion: "0",
+      };
     }
   }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { BracesIcon, Button, Col, JsonView, Modal, Row, useTheme } from ".";
 import { useNs } from "../util/ns";
-import { TASK_EVENTS_PORT, TASK_STATE_PORT } from "../util/ports";
+import { TASK_EVENTS_PORT, DASHBOARD_STATE_PORT } from "../util/ports";
 
 interface PortDescriptor {
   port: number;
@@ -14,10 +14,10 @@ interface PortDescriptor {
 // own dedicated stream UI (LogButton + LogStream).
 const PORTS: PortDescriptor[] = [
   {
-    port: TASK_STATE_PORT,
-    name: "Task state",
+    port: DASHBOARD_STATE_PORT,
+    name: "Dashboard state",
     semantics: "latest",
-    description: "TaskStateSnapshot republished every manager tick (clear-then-write).",
+    description: "Source of truth for the state used in all processing..",
   },
   {
     port: TASK_EVENTS_PORT,

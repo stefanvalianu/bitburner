@@ -1,14 +1,9 @@
 import type { CSSProperties, ReactNode } from "react";
-import {
-  numOpenPortsRequired,
-  openPortCount,
-  requiredHackingSkill,
-  type ServerInfo,
-} from "../util/serverMap";
 import { Icon, PortsIcon } from "../ui/Icons";
 import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
 import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
+import { ServerInfo } from "../util/dashboardTypes";
 
 const INDENT_PX = 18;
 const ROW_HEIGHT = "1.6em";
@@ -182,9 +177,9 @@ function StateCell({ s, hackingLevel }: { s: ServerInfo; hackingLevel: number })
   if (s.purchasedByPlayer) return <PlayerIcon color={colors.accent} />;
   if (s.backdoorInstalled) return <BackdoorIcon color={colors.success} />;
   if (s.hasAdminRights) return <NukedIcon color={colors.hack} />;
-  const required = requiredHackingSkill(s);
-  const portsRequired = numOpenPortsRequired(s);
-  const portsOpen = openPortCount(s);
+  const required = s.requiredHackingSkill || 0;
+  const portsRequired = s.numOpenPortsRequired || 0;
+  const portsOpen = s.openPortCount || 0;
   const levelTooLow = hackingLevel < required;
   const portsMissing = portsOpen < portsRequired;
   if (!levelTooLow && !portsMissing) return <HackReadyIcon color={colors.hack} />;

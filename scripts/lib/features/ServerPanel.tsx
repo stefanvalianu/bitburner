@@ -1,60 +1,48 @@
 import { useEffect, useState } from "react";
 import { useLogger } from "../util/logging/log";
 import { useNs } from "../util/ns";
-import {
-  hackDifficulty,
-  minDifficulty,
-  moneyAvailable,
-  moneyMax,
-  numOpenPortsRequired,
-  requiredHackingSkill,
-} from "../util/serverMap";
-import type { TaskState } from "../util/tasks/types";
 import { Button } from "../ui/Button";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { HomeIcon, MoneyIcon, PowerIcon, ShieldIcon, TargetIcon, WorldIcon } from "../ui/Icons";
+import { WorldIcon } from "../ui/Icons";
 import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { Spinner } from "../ui/Spinner";
 import { useTheme } from "../ui/theme";
-import { SCOUT_SERVER_TASK_ID, ScoutTaskState } from "../util/tasks/definitions/scout-server/info";
 import { useDashboardController } from "../util/useDashboardController";
+import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
 
 export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const ns = useNs();
-  const log = useLogger("servers");
+  const log = useLogger("server-panel");
   const { colors, space } = useTheme();
   const { state, shutdownTask } = useDashboardController();
   const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
 
-  /*
-  const scoutSlot = taskState.tasks[SCOUT_SERVER_TASK_ID] as TaskState<ScoutTaskState> | undefined;
-  const targetServer = scoutSlot?.target
-    ? servers.find((s) => s.hostname === scoutSlot.target)
-    : undefined;
-*/
+  const playerState = getPlayerMonitorState(state);
 
-  /*
   // Categorize once. Backdoored implies admin rights, so the nuked bucket
   // excludes backdoored to avoid double-counting. Player-owned is its own
   // bucket — purchased servers always have admin rights but shouldn't inflate
   // the nuked/backdoored tallies. "Targets" is the leftover: everything not
   // yet nuked and not player-owned, regardless of whether we can pwn it now.
-  const playerOwned = servers.filter((s) => s.purchasedByPlayer).length;
-  const backdoored = servers.filter((s) => s.backdoorInstalled && !s.purchasedByPlayer).length;
-  const nuked = servers.filter(
+  const playerOwned = state.allServers.filter((s) => s.purchasedByPlayer).length;
+  const backdoored = state.allServers.filter(
+    (s) => s.backdoorInstalled && !s.purchasedByPlayer,
+  ).length;
+  const nuked = state.allServers.filter(
     (s) => s.hasAdminRights && !s.backdoorInstalled && !s.purchasedByPlayer,
   ).length;
-  const targets = servers.length - playerOwned - nuked - backdoored;
+  const targets = state.allServers.length - playerOwned - nuked - backdoored;
 
-  const ownedPortOpeners = inventory.portOpeners.filter((p) => p.owned).length;
+  const ownedPortOpeners = playerState?.inventory?.portOpeners.filter((p) => p.owned).length || 0;
+  const hackingLevel = playerState?.stats?.hackingLevel || 0;
 
-  const pwnable = servers.filter(
+  const pwnable = state.allServers.filter(
     (s) =>
       !s.hasAdminRights &&
       !s.purchasedByPlayer &&
-      stats.hackingLevel >= requiredHackingSkill(s) &&
-      ownedPortOpeners >= numOpenPortsRequired(s),
+      hackingLevel >= (s.requiredHackingSkill || 0) &&
+      ownedPortOpeners >= (s.numOpenPortsRequired || 0),
   );
 
   // NUKE every pwnable server every gameState tick. The port-opener calls
@@ -64,7 +52,9 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   useEffect(() => {
     if (pwnable.length === 0) return;
     const PN = ns.enums.ProgramName;
-    const owned = new Set(inventory.portOpeners.filter((p) => p.owned).map((p) => p.name));
+    const owned = new Set(
+      playerState?.inventory?.portOpeners.filter((p) => p.owned).map((p) => p.name),
+    );
     for (const { hostname } of pwnable) {
       if (owned.has(PN.bruteSsh)) ns.brutessh(hostname);
       if (owned.has(PN.ftpCrack)) ns.ftpcrack(hostname);
@@ -74,7 +64,7 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
       ns.nuke(hostname);
     }
     log.info(`nuked ${pwnable.length} target${pwnable.length === 1 ? "" : "s"}`);
-  }, [ns, log, servers, stats.hackingLevel, ownedPortOpeners, inventory.portOpeners]);
+  }, [ns, log, state.allServers, hackingLevel, playerState]);
 
   const actions = onOpenMap ? (
     <Button onClick={onOpenMap}>
@@ -84,9 +74,9 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   ) : undefined;
 
   // Show only running/stopping slots — idle ones don't need a row.
-  const liveTasks = Object.entries(taskState.tasks).filter(
+  /*const liveTasks = Object.entries(taskState.tasks).filter(
     ([, slot]) => slot.status === "running" || slot.status === "stopping",
-  );
+  );*/
 
   return (
     <Panel title="Servers" actions={actions}>
@@ -99,22 +89,7 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
           {targets} targets ({pwnable.length} valid)
         </span>
       </Row>
-      {targetServer && (
-        <Row gap={space.sm}>
-          <TargetIcon color={colors.accent} title={`Active target: ${targetServer.hostname}`} />
-          <span style={{ color: colors.fg }}>{targetServer.hostname}</span>
-          <MoneyIcon color={colors.money} />
-          <span style={{ color: colors.muted }}>
-            ${ns.format.number(moneyAvailable(targetServer))}/$
-            {ns.format.number(moneyMax(targetServer))}
-          </span>
-          <ShieldIcon color={colors.hack} />
-          <span style={{ color: colors.muted }}>
-            {hackDifficulty(targetServer).toFixed(2)}/{minDifficulty(targetServer).toFixed(2)}
-          </span>
-        </Row>
-      )}
-      {liveTasks.map(([id, slot]) => {
+      {/*liveTasks.map(([id, slot]) => {
         const slices = slot.lastAllocation?.servers ?? [];
         const ram = slices.reduce((sum, s) => sum + s.ram, 0);
         const suffix = slot.status === "stopping" ? " (stopping)" : "";
@@ -144,7 +119,7 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
             )}
           </Row>
         );
-      })}
+      })*/}
       <ConfirmDialog
         open={confirmStopId !== null}
         title="Stop task?"
@@ -157,12 +132,10 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
         confirmVariant="warn"
         onCancel={() => setConfirmStopId(null)}
         onConfirm={() => {
-          if (confirmStopId) requestShutdown(confirmStopId);
+          if (confirmStopId) shutdownTask(confirmStopId);
           setConfirmStopId(null);
         }}
       />
     </Panel>
-  );*/
-
-  return <Panel title="Servers">Let's bring it back</Panel>;
+  );
 }

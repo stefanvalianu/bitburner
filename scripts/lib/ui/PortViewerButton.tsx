@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
-import { BracesIcon, Button, Col, JsonView, Modal, Row, useTheme } from ".";
 import { useNs } from "../util/ns";
 import { TASK_EVENTS_PORT, DASHBOARD_STATE_PORT } from "../util/ports";
+import { Button } from "./Button";
+import { Col } from "./Col";
+import { BracesIcon } from "./Icons";
+import { JsonView } from "./JsonView";
+import { Modal } from "./Modal";
+import { Row } from "./Row";
+import { useTheme } from "./theme";
 
 interface PortDescriptor {
   port: number;

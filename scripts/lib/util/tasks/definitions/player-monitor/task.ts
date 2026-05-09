@@ -25,7 +25,7 @@ class PlayerMonitorTask extends BaseTask<PlayerMonitorTaskState> {
             (p) => !portOpenerNames.has(p.name) && p.name !== PN.formulas,
           ),
           portOpeners: allPrograms.filter((p) => portOpenerNames.has(p.name)),
-          hasTorRouter: this.ns.hasTorRouter(),
+          hasRouter: this.ns.hasTorRouter(),
         },
         stats: {
           hackingLevel: this.ns.getHackingLevel(),

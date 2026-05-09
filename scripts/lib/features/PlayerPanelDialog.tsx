@@ -48,7 +48,7 @@ export function PlayerPanelDialog() {
       ) : (
         <>
           <SectionHeading>General</SectionHeading>
-          <BoolRow label="TOR router" ok={playerState.inventory.hasTorRouter} />
+          <BoolRow label="TOR router" ok={playerState.inventory.hasRouter} />
           <BoolRow label="Formulas.exe" ok={playerState.inventory.hasFormulas} />
           <SectionHeading>Port openers</SectionHeading>
           {playerState.inventory.portOpeners.map((p) => (

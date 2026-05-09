@@ -22,3 +22,7 @@ Going overboard on an optimal hacking controller early game is an exercise in fu
 
 - Put together a "contract solver" component, either using 2 pieces (solver and finder) to minimize early game ram usage, or combining them into one (more luxurious ram requirements, but simpler and avoids needing to use a port to communicate across the 2). The first might be preferable in practice, since we have plenty of available ports.
 - We may want to structure a lot of these components (manager, game state creation, etc) with a modular model so we can plug and play adapters from the dashboard itself; since the dashboard is the only consistent place we can scale the size of the script.
+
+## Gotchas
+
+> WARNING It looks like the script RAM checker is doing basic string checking to determine if a script is used, not necessarily inferring it from ts. Having a property called `hasTorRouter` in some custom class and checking it, when compiled to JS, gives the same RAM cost as calling ns.hasTorRouter. Check your script ram sizes! Very annoying as reading the 'hack' property of the theme is inescapable without more cheese, boo.

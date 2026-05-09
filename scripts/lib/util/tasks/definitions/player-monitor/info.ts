@@ -4,7 +4,7 @@ import { TaskDefinition } from "../../types";
 export const PLAYER_MONITOR_TASK_ID = "player-monitor";
 
 export interface Inventory {
-  hasTorRouter: boolean;
+  hasRouter: boolean;
   hasFormulas: boolean;
   portOpeners: { name: string; owned: boolean }[];
   programs: { name: string; owned: boolean }[];

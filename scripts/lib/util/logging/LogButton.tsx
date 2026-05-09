@@ -1,15 +1,11 @@
 import { useState } from "react";
-import {
-  Button,
-  LogsIcon,
-  LogStream,
-  Modal,
-  NotificationDot,
-  useLevelColor,
-  useLogStream,
-  useNotification,
-  useTheme,
-} from "../../ui";
+import { Button } from "../../ui/Button";
+import { LogsIcon } from "../../ui/Icons";
+import { Modal } from "../../ui/Modal";
+import { NotificationDot } from "../../ui/NotificationDot";
+import { useTheme } from "../../ui/theme";
+import { useNotification } from "../../ui/useNotification";
+import { useLevelColor, useLogStream, LogStream } from "./LogStream";
 
 export function LogButton() {
   const { colors } = useTheme();

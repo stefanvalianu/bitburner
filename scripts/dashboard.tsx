@@ -3,12 +3,18 @@ import type { NS } from "@ns";
 import { DashboardControllerProvider } from "./lib/util/useDashboardController";
 import { NsProvider } from "./lib/util/ns";
 import { usePropagate } from "./lib/util/usePropagate";
-import { DashboardPanel, Modal, Row, ThemeProvider, useTheme } from "./lib/ui";
-import { PlayerPanelDialog, ServerMap, ServerPanel, PlayerPanel } from "./lib/features";
 import { clearPorts } from "./lib/util/ports";
 import { LogButton } from "./lib/util/logging/LogButton";
 import { PortViewerButton } from "./lib/ui/PortViewerButton";
 import { PropagationStamp } from "./lib/ui/PropagationStamp";
+import { PlayerPanel } from "./lib/features/PlayerPanel";
+import { PlayerPanelDialog } from "./lib/features/PlayerPanelDialog";
+import { ServerMap } from "./lib/features/ServerMap";
+import { ServerPanel } from "./lib/features/ServerPanel";
+import { DashboardPanel } from "./lib/ui/DashboardPanel";
+import { Modal } from "./lib/ui/Modal";
+import { Row } from "./lib/ui/Row";
+import { useTheme, ThemeProvider } from "./lib/ui/theme";
 
 function Dashboard() {
   const { space } = useTheme();

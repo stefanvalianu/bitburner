@@ -6,7 +6,7 @@ import { Row } from "../ui/Row";
 import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
 import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
-import { Spinner } from "../ui";
+import { Spinner } from "../ui/Spinner";
 
 interface ToolItemProps {
   icon: ReactNode;
@@ -34,7 +34,7 @@ export function PlayerPanel({ onOpen }: { onOpen?: () => void }) {
   const portsOwned = playerState?.inventory?.portOpeners.filter((p) => p.owned).length || 0;
   const programsOwned = playerState?.inventory?.programs.filter((p) => p.owned).length || 0;
 
-  const missingTor = !hasPlayerState || !playerState.inventory!.hasTorRouter;
+  const missingTor = !hasPlayerState || !playerState.inventory!.hasRouter;
   const missingPorts = !hasPlayerState || portsOwned < playerState.inventory!.portOpeners.length;
   const missingFormulas = !hasPlayerState || !playerState.inventory!.hasFormulas;
   const missingPrograms = !hasPlayerState || programsOwned < playerState.inventory!.programs.length;

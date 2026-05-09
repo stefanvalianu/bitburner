@@ -13,9 +13,10 @@ interface ModalProps {
   title?: ReactNode;
   children: ReactNode;
   style?: CSSProperties;
+  actions?: ReactNode;
 }
 
-export function Modal({ open, onClose, title, children, style }: ModalProps) {
+export function Modal({ open, onClose, title, children, style, actions }: ModalProps) {
   const { space } = useTheme();
   const sentinelRef = useRef<HTMLSpanElement>(null);
   const [body, setBody] = useState<HTMLElement | null>(null);
@@ -65,6 +66,7 @@ export function Modal({ open, onClose, title, children, style }: ModalProps) {
                 <Panel title={title} style={{ minWidth: 480, ...style }}>
                   {children}
                   <Row gap={space.sm} style={{ justifyContent: "flex-end" }}>
+                    {actions}
                     <Button onClick={onClose}>Close</Button>
                   </Row>
                 </Panel>

@@ -85,56 +85,82 @@ export function TaskPanel() {
         }}
       />
 
-      <Modal open={newTaskOpen} onClose={closeNewTask} title="New task">
+      <Modal
+        open={newTaskOpen}
+        onClose={closeNewTask}
+        title="New task"
+        actions={
+          startable.length > 0 ? (
+            <Button onClick={confirmNewTasks} disabled={selectedIds.size === 0}>
+              Confirm
+            </Button>
+          ) : undefined
+        }
+      >
         {startable.length === 0 ? (
           <span style={{ color: colors.muted }}>All tasks are running.</span>
         ) : (
-          <Col gap={space.md}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: space.md,
+              maxWidth: 720,
+            }}
+          >
             {startable.map((def) => {
               const checked = selectedIds.has(def.id);
               return (
                 <label
                   key={def.id}
                   style={{
+                    border: `3px solid ${checked ? colors.accent : colors.fg}`,
+                    background: colors.surface,
+                    padding: space.md,
                     display: "flex",
-                    alignItems: "flex-start",
-                    gap: space.md,
+                    flexDirection: "column",
+                    gap: space.sm,
+                    flex: "1 1 220px",
+                    maxWidth: 240,
+                    minWidth: 200,
                     cursor: "pointer",
                   }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleSelected(def.id)}
-                    style={{
-                      marginTop: 4,
-                      accentColor: colors.accent,
-                      cursor: "pointer",
-                    }}
-                  />
-                  <Col gap={space.xs} style={{ flex: 1 }}>
+                  <Row gap={space.sm} style={{ alignItems: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleSelected(def.id)}
+                      style={{
+                        accentColor: colors.accent,
+                        cursor: "pointer",
+                      }}
+                    />
                     <span
                       style={{
                         color: colors.accent,
                         fontWeight: "bold",
-                        fontSize: "1.05em",
+                        fontSize: "1.15em",
+                        letterSpacing: "0.02em",
                       }}
                     >
                       {def.id}
                     </span>
-                    <span style={{ color: colors.muted, fontSize: "0.9em" }}>
-                      {def.description}
-                    </span>
-                  </Col>
+                  </Row>
+                  <span
+                    style={{
+                      color: colors.muted,
+                      fontSize: "0.9em",
+                      whiteSpace: "normal",
+                      overflowWrap: "break-word",
+                    }}
+                  >
+                    {def.description}
+                  </span>
                 </label>
               );
             })}
-            <Row gap={space.sm} style={{ justifyContent: "flex-end" }}>
-              <Button onClick={confirmNewTasks} disabled={selectedIds.size === 0}>
-                Confirm
-              </Button>
-            </Row>
-          </Col>
+          </div>
         )}
       </Modal>
 

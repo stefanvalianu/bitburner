@@ -1,13 +1,8 @@
-// ---------------------------------------------------------------------------
-// Identity & allocation
-// ---------------------------------------------------------------------------
-
 export type TaskId = string;
 
 export interface ServerSlice {
   hostname: string;
   ram: number;
-  cores: number;
 }
 
 export interface Allocation {
@@ -15,25 +10,28 @@ export interface Allocation {
   servers: ServerSlice[];
 }
 
-// ---------------------------------------------------------------------------
-// Requirements
-// ---------------------------------------------------------------------------
+export interface TaskDemands {
+  // unbounded tasks will try to consume maximum ram, up to some potential limit (optional)
+  unbounded?: boolean;
 
-export interface TaskRequirements {
-  // Task wants the entire worker fleet — spins off as many workers as the
-  // available RAM lets it. The manager grants this to at most one task per
-  // tick (see manager.tsx).
-  growUnbounded?: boolean;
+  // unbounded tasks will only request up to this number, if specified. otherwise they want it all
+  maxRamDemand?: number;
+
+  // whether to always try and start this task, ensuring it's always running (if possible)
+  autostart?: boolean;
+
+  // the priority of the task.
+  priority: TaskPriority;
+
+  // whether the task wants to prioritize servers with high cores
+  prioritizeCores?: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Task state — base fields are manager-owned; per-task fields extend them.
-// ---------------------------------------------------------------------------
+// idle = task is only reserving allocations, but not running yet. running = task is currently running. 
+// stopping = task is waiting for its workers and will eventually terminate.
+export type TaskStatus = "idle" | "running" | "stopping";
 
-// idle = task has not yet began. running = task is currently running. stopping = task is waiting for its workers and will eventually terminate. finished = done
-export type TaskStatus = "idle" | "running" | "stopping" | "finished";
-
-export type TaskPriority = "critical" | "normal" | "disabled";
+export type TaskPriority = "critical" | "normal";
 
 export interface BaseTaskState {
   pid: number | null;
@@ -41,10 +39,7 @@ export interface BaseTaskState {
   childPids: number[];
   shutdownRequested: boolean;
   status: TaskStatus;
-  // Last allocation handed to the controller — kept in the slot so the UI
-  // can render hosts/RAM stats and so tasks can read their own allocation
-  // from the published snapshot without being passed args.
-  lastAllocation: Allocation | null;
+  allocation: Allocation | null;
 }
 
 export type TaskState<T extends Record<string, unknown> = Record<string, unknown>> = BaseTaskState &
@@ -58,42 +53,17 @@ export const BASE_STATE_KEYS: ReadonlySet<string> = new Set([
   "childPids",
   "shutdownRequested",
   "status",
-  "lastAllocation",
+  "allocation",
 ]);
-
-// ---------------------------------------------------------------------------
-// Events: tasks → manager (FIFO on TASK_EVENTS_PORT)
-// ---------------------------------------------------------------------------
 
 export type TaskEvent =
   | { type: "state-patch"; taskId: TaskId; patch: Record<string, unknown> }
-  | { type: "child-spawned"; taskId: TaskId; pid: number; hostname: string }
-  | { type: "task-finished"; taskId: TaskId };
+  | { type: "child-spawned"; taskId: TaskId; pid: number; hostname: string };
 
-// ---------------------------------------------------------------------------
-// Task definition
-//
-// `evaluate` receives:
-//   - gameState: the latest NS-derived game snapshot
-//   - taskState: this task's own slot in the manager's authoritative
-//                snapshot
-//   - snapshot:  the full authoritative snapshot, for cross-task reads
-//                (e.g. hack reading scout's published target)
-//
-// and returns a TaskDecision telling the manager what to do:
-//   - "no-change": leave the slot alone
-//   - "restart":   spawn if idle, or stop a running task so it can respawn
-//                  on a later tick
-//   - "shutdown":  stop a running task without respawning; no-op if idle
-// ---------------------------------------------------------------------------
-
-export type TaskDecision = "no-change" | "restart" | "shutdown";
 
 // Note the script path of a task is assumed to be "lib/util/tasks/definitions/{id}/task.js"
-export interface TaskDefinition<TState extends Record<string, unknown> = Record<string, unknown>> {
+export interface TaskDefinition {
   id: TaskId;
-  requirements: TaskRequirements;
-  initialState: TState;
+  demands: TaskDemands;
   description: string;
-  priority: TaskPriority;
 }

@@ -4,8 +4,11 @@ export const SERVER_SHARE_TASK_ID = "server-share";
 
 export const serverShareTask: TaskDefinition = {
   id: SERVER_SHARE_TASK_ID,
-  requirements: { growUnbounded: true },
-  initialState: {},
-  description: "Dont do this now",
-  priority: "disabled",
+  description: "Simply shares a bunch of servers with your faction for increased reputation gain.",
+  demands: {
+    priority: "normal",
+    autostart: false,
+    unbounded: true,
+    maxRamDemand: 256
+  }
 };

@@ -19,7 +19,6 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
   async start(): Promise<void> {
     try {
       await this.run();
-      this.emitEvent({ type: "task-finished", taskId: this.taskId });
     } catch (e) {
       this.log.error(`task crashed: ${e instanceof Error ? e.message : String(e)}`);
       throw e;
@@ -54,7 +53,7 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
   // Worker allocation the manager assigned to this run. Always present
   // (the manager guarantees it before publishing the spawn).
   protected get allocation(): Allocation {
-    return this.state.lastAllocation ?? { taskId: this.taskId, servers: [] };
+    return this.state.allocation ?? { taskId: this.taskId, servers: [] };
   }
 
   // Full task-state snapshot. Useful for cross-task reads (e.g. hack reading

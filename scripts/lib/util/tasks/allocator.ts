@@ -1,4 +1,4 @@
-import type { ServerInfo } from "../serverMap";
+import { ServerInfo } from "../dashboardTypes";
 import type { Allocation, TaskId } from "./types";
 
 export interface AllocateOpts {

@@ -3,6 +3,7 @@ import { BASE_STATE_KEYS, TaskDefinition, TaskEvent, TaskId, TaskState } from ".
 import { DashboardState } from "../dashboardTypes";
 import { Logger } from "../logging/log";
 import { TASK_EVENTS_PORT } from "../ports";
+import { ALL_TASKS } from "./definitions/tasks";
 
 export class TaskManager {
   private readonly ns: NS;
@@ -50,9 +51,6 @@ export class TaskManager {
       if (ev.type === "child-spawned") {
         if (!slot.childPids.includes(ev.pid)) slot.childPids.push(ev.pid);
         continue;
-      } else if (ev.type === "task-finished") {
-        slot.status = "finished";
-        continue;
       } else if (ev.type === "state-patch") {
         for (const [k, v] of Object.entries(ev.patch)) {
           if (BASE_STATE_KEYS.has(k)) continue; // only the manager can update these fields
@@ -65,32 +63,26 @@ export class TaskManager {
     // 2. Reap any slot whose PID is gone — manual kill, exec failure,
     //    voluntary exit, or graceful shutdown after seeing the flag.
     // -------------------------------------------------------------------
-    // todo - revisit this & spawn candidates
     for (const [id, slot] of Object.entries(snap)) {
       if (slot.pid !== null && !this.ns.isRunning(slot.pid)) {
-        if (slot.status === "stopping" || slot.status === "finished") {
+        if (slot.status === "stopping") {
           this.logger.info(`task ${id} completed`);
         } else if (slot.status === "running") {
           this.logger.warn(`task ${id} died unexpectedly (pid=${slot.pid})`);
         }
-        snap.tasks[id] = this.resetSlotToIdle(slot);
+
+        delete snap.tasks[id];
       }
     }
 
     // -------------------------------------------------------------------
-    // 3. Evaluate each definition. Build the spawn list AND apply
-    //    shutdown flags as needed.
-    //
-    //    evaluate receives the live in-memory snapshot directly — the
-    //    manager owns the authoritative state, so we don't roundtrip
-    //    through the port to read it back.
+    // 3. Identify candidates of tasks that should be running ()
     // -------------------------------------------------------------------
-    /*
     const spawnCandidates: TaskDefinition[] = [];
-    for (const def of TASKS) {
+    for (const def of ALL_TASKS) {
       const slot = snap.tasks[def.id];
 
-      // todo - make this work better
+
       const decision = def.evaluate(game, slot, snap);
       if (slot.status === "stopping") continue; // already winding down
       if (slot.status === "running") {
@@ -103,7 +95,7 @@ export class TaskManager {
       }
 
       if (decision === "restart") spawnCandidates.push(def);
-    }*/
+    }
 
     // -------------------------------------------------------------------
     // 4. Place + spawn each chosen task. Allocation goes through
@@ -194,18 +186,6 @@ export class TaskManager {
       }
     }
     return out;
-  }
-
-  private resetSlotToIdle(slot: TaskState): TaskState {
-    return {
-      ...slot,
-      pid: null,
-      host: null,
-      childPids: [],
-      shutdownRequested: false,
-      status: "idle",
-      lastAllocation: null,
-    };
   }
 
   private getTaskScriptPath(task: TaskDefinition) {

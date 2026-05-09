@@ -38,17 +38,33 @@ async function* walk(dir: string): AsyncGenerator<string> {
   }
 }
 
-async function pushAll(ws: WebSocket): Promise<number> {
-  let count = 0;
+async function pushAll(ws: WebSocket): Promise<{ pushed: number; deleted: number }> {
+  const localFiles = new Set<string>();
+  let pushed = 0;
   for await (const abs of walk(DIST_DIR)) {
     const filename = toGameFilename(abs);
     if (!VALID_EXT.test(filename)) continue;
+    localFiles.add(filename);
     const content = await readFile(abs, "utf8");
     await call(ws, "pushFile", { filename, content, server: SERVER });
     console.log(`→ ${filename}`);
-    count++;
+    pushed++;
   }
-  return count;
+
+  // Mirror dist/: anything on the server matching our managed extensions but
+  // missing locally gets removed. Restricted to VALID_EXT so game-managed
+  // files (.lit/.msg/.cct, etc.) are left alone.
+  const remote = (await call(ws, "getFileNames", { server: SERVER })) as string[];
+  let deleted = 0;
+  for (const filename of remote) {
+    if (!VALID_EXT.test(filename)) continue;
+    if (localFiles.has(filename)) continue;
+    await call(ws, "deleteFile", { filename, server: SERVER });
+    console.log(`✗ ${filename}`);
+    deleted++;
+  }
+
+  return { pushed, deleted };
 }
 
 let connectedWs: WebSocket | null = null;
@@ -107,8 +123,8 @@ const control = createServer(async (req, res) => {
       return;
     }
     try {
-      const count = await pushAll(connectedWs);
-      const msg = `Deployed ${count} file${count === 1 ? "" : "s"}.\n`;
+      const { pushed, deleted } = await pushAll(connectedWs);
+      const msg = `Deployed ${pushed} file${pushed === 1 ? "" : "s"}, deleted ${deleted}.\n`;
       console.log(msg.trim());
       res.writeHead(200, { "content-type": "text/plain" }).end(msg);
     } catch (e) {

@@ -15,7 +15,7 @@ const TASK_BY_ID = new Map<string, TaskDefinition>(ALL_TASKS.map((t) => [t.id, t
 
 export function TaskPanel() {
   const { colors, space } = useTheme();
-  const { state, startTask, shutdownTask } = useDashboardController();
+  const { state, startTasks, shutdownTask } = useDashboardController();
   const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
   const [allocationModalId, setAllocationModalId] = useState<string | null>(null);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
@@ -84,7 +84,7 @@ export function TaskPanel() {
                   </span>
                   <span style={{ color: colors.muted, fontSize: "0.9em" }}>{def.description}</span>
                 </Col>
-                <Button onClick={() => startTask(def.id)}>Start</Button>
+                <Button onClick={() => startTasks([def.id])}>Start</Button>
               </Row>
             ))}
           </Col>

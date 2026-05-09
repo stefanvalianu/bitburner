@@ -27,29 +27,38 @@ export class TaskManager {
     this.logger = logger;
   }
 
-  // Triggers the manual creation of a task to be placed/ran
-  begin(taskId: TaskId): Record<TaskId, TaskState> | undefined {
-    const slot = this.state?.tasks[taskId];
-
-    if (slot) {
-      this.logger.info(`Attempting to start task ${taskId} but it's already running. Ignoring`);
-      return undefined;
-    }
-
+  // Triggers the manual creation of one or more task(s) to be placed/ran
+  begin(taskIds: TaskId[]): Record<TaskId, TaskState> | undefined {
     const next: Record<TaskId, TaskState> = {
       ...this.state!.tasks,
-      [taskId]: {
+    };
+
+    let addedAny = false;
+
+    for (const taskId of taskIds) {
+      const slot = next[taskId];
+
+      if (slot) {
+        this.logger.warn(
+          `Attempting to start task ${taskId} but it's already running or already requested. Ignoring`,
+        );
+        continue;
+      }
+
+      next[taskId] = {
         allocation: null,
         childPids: [],
         pid: null,
         host: null,
         shutdownRequested: false,
         status: "requested",
-      },
-    };
+      };
 
-    this.logger.info(`task ${taskId} start requested`);
-    return next;
+      this.logger.info(`task ${taskId} start requested`);
+      addedAny = true;
+    }
+
+    return addedAny ? next : undefined;
   }
 
   // Attempts to gracefully shutdown a given taskId

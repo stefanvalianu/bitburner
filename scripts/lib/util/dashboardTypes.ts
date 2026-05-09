@@ -42,8 +42,8 @@ export interface DashboardController {
   // Representative state for this tick
   state: DashboardState;
 
-  // Command to start a new task by its taskId
-  startTask: (taskId: TaskId) => void;
+  // Command to start one or more new task(s) by taskId
+  startTasks: (taskIds: TaskId[]) => void;
 
   // Command to gracefully shuts down a given taskId
   shutdownTask: (taskId: TaskId) => void;

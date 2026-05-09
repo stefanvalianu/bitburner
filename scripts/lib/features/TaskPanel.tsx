@@ -19,6 +19,7 @@ export function TaskPanel() {
   const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
   const [allocationModalId, setAllocationModalId] = useState<string | null>(null);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const taskEntries = Object.entries(state.tasks);
   const startable = ALL_TASKS.filter((def) => state.tasks[def.id] === undefined);
@@ -28,8 +29,27 @@ export function TaskPanel() {
   const allocationSlot = allocationModalId ? state.tasks[allocationModalId] : undefined;
   const allocationDef = allocationModalId ? TASK_BY_ID.get(allocationModalId) : undefined;
 
+  const closeNewTask = () => {
+    setNewTaskOpen(false);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const confirmNewTasks = () => {
+    if (selectedIds.size > 0) startTasks(Array.from(selectedIds));
+    closeNewTask();
+  };
+
   return (
-    <Panel title="Tasks" actions={actions}>
+    <Panel title="Tasks" actions={actions} style={{ margin: space.md }}>
       {taskEntries.length === 0 ? (
         <span style={{ color: colors.muted }}>
           No active tasks — click <em>New task</em> to start one.
@@ -65,28 +85,55 @@ export function TaskPanel() {
         }}
       />
 
-      <Modal open={newTaskOpen} onClose={() => setNewTaskOpen(false)} title="New task">
+      <Modal open={newTaskOpen} onClose={closeNewTask} title="New task">
         {startable.length === 0 ? (
           <span style={{ color: colors.muted }}>All tasks are running.</span>
         ) : (
           <Col gap={space.md}>
-            {startable.map((def) => (
-              <Row key={def.id} gap={space.md} align="flex-start">
-                <Col gap={space.xs} style={{ flex: 1 }}>
-                  <span
+            {startable.map((def) => {
+              const checked = selectedIds.has(def.id);
+              return (
+                <label
+                  key={def.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: space.md,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleSelected(def.id)}
                     style={{
-                      color: colors.accent,
-                      fontWeight: "bold",
-                      fontSize: "1.05em",
+                      marginTop: 4,
+                      accentColor: colors.accent,
+                      cursor: "pointer",
                     }}
-                  >
-                    {def.id}
-                  </span>
-                  <span style={{ color: colors.muted, fontSize: "0.9em" }}>{def.description}</span>
-                </Col>
-                <Button onClick={() => startTasks([def.id])}>Start</Button>
-              </Row>
-            ))}
+                  />
+                  <Col gap={space.xs} style={{ flex: 1 }}>
+                    <span
+                      style={{
+                        color: colors.accent,
+                        fontWeight: "bold",
+                        fontSize: "1.05em",
+                      }}
+                    >
+                      {def.id}
+                    </span>
+                    <span style={{ color: colors.muted, fontSize: "0.9em" }}>
+                      {def.description}
+                    </span>
+                  </Col>
+                </label>
+              );
+            })}
+            <Row gap={space.sm} style={{ justifyContent: "flex-end" }}>
+              <Button onClick={confirmNewTasks} disabled={selectedIds.size === 0}>
+                Confirm
+              </Button>
+            </Row>
           </Col>
         )}
       </Modal>
@@ -151,10 +198,8 @@ function TaskTile({ id, slot, onInfo, onStop }: TaskTileProps) {
       <Row gap={space.sm}>
         <HomeIcon color={colors.muted} title={`Controller host: ${slot.host ?? "—"}`} />
         <span style={{ color: colors.muted }}>{slot.host ?? "—"}</span>
+        <span style={{ color: colors.muted, marginLeft: "auto" }}>{ram}GB</span>
       </Row>
-      <span style={{ color: colors.muted }}>
-        {ram}GB across {slices.length} host{slices.length === 1 ? "" : "s"}
-      </span>
       <Row gap={space.sm} style={{ marginTop: "auto", justifyContent: "flex-end" }}>
         <Button onClick={onInfo} disabled={!canInspect}>
           <BracesIcon

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { CopyIcon, DoorIcon, HackIcon, HardwareIcon } from "../ui/Icons";
+import { CopyIcon, DoorIcon, HackIcon, HardwareIcon, LockIcon, MoneyBagIcon } from "../ui/Icons";
 import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
 import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
@@ -9,6 +9,8 @@ const INDENT_PX = 18;
 const ROW_HEIGHT = "1.6em";
 const FONT_SIZE = 14;
 const RAM_WARN_THRESHOLD = 0.8;
+const SECURITY_NEAR_MIN_RATIO = 1.05;
+const MONEY_NEAR_MAX_RATIO = 0.95;
 
 type RailKind = "none" | "full" | "elbow" | "tee";
 
@@ -70,6 +72,14 @@ function formatGb(n: number): string {
   return n.toFixed(2);
 }
 
+function formatMoney(n: number): string {
+  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}t`;
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}b`;
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}m`;
+  if (n >= 1e3) return `$${(n / 1e3).toFixed(2)}k`;
+  return `$${n.toFixed(0)}`;
+}
+
 // Walk the parent chain back to the root and join with " | " — the format the
 // game's terminal accepts as a connect-path mnemonic.
 function pathFromHome(s: ServerInfo, byHost: Map<string, ServerInfo>): string {
@@ -107,22 +117,28 @@ function CopyPathButton({ text, color }: { text: string; color: string }) {
   );
 }
 
-function LegendSwatch({ color, label }: { color: string; label: ReactNode }) {
+function LegendIcon({ icon, label }: { icon: ReactNode; label: string }) {
   const { colors, space } = useTheme();
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: space.xs }}>
-      <span
-        style={{
-          display: "inline-block",
-          width: 10,
-          height: 10,
-          background: color,
-          border: `1px solid ${colors.fgDim}`,
-        }}
-      />
+      {icon}
       <span style={{ color: colors.fgDim }}>{label}</span>
     </span>
   );
+}
+
+// Renders the label in the same font/weight/color we use for the matching
+// hostname state, so the legend reads like a sample of an actual row.
+function LegendHostname({
+  color,
+  bold = false,
+  label,
+}: {
+  color: string;
+  bold?: boolean;
+  label: string;
+}) {
+  return <span style={{ color, fontWeight: bold ? 600 : 400 }}>{label}</span>;
 }
 
 function Legend() {
@@ -138,10 +154,21 @@ function Legend() {
         fontSize: 12,
       }}
     >
-      <LegendSwatch color={colors.fg} label="Nuked" />
-      <LegendSwatch color={colors.muted} label="Not nuked" />
-      <LegendSwatch color={colors.accent} label="Player-owned" />
-      <LegendSwatch color={colors.error} label={`RAM ≥ ${RAM_WARN_THRESHOLD * 100}%`} />
+      <LegendHostname color={colors.fg} label="nuked" />
+      <LegendHostname color={colors.muted} label="not nuked" />
+      <LegendHostname color={colors.accent} bold label="player-owned" />
+      <LegendIcon
+        icon={<HardwareIcon color={colors.error} title="RAM warning" />}
+        label={`ram ≥ ${RAM_WARN_THRESHOLD * 100}%`}
+      />
+      <LegendIcon
+        icon={<LockIcon color={colors.success} title="Min security" />}
+        label="min security"
+      />
+      <LegendIcon
+        icon={<MoneyBagIcon color={colors.warn} title="Max money" />}
+        label="max money"
+      />
     </div>
   );
 }
@@ -215,6 +242,25 @@ function ServerRow({ server: s, background, hackingLevel, path }: ServerRowProps
   const ramPct = (ramFrac * 100).toFixed(0);
   const hardwareTooltip = `Cores: ${s.cpuCores}\nRAM: ${formatGb(s.ramUsed)}/${formatGb(s.maxRam)} GB (${ramPct}%)`;
 
+  // Security and money are only meaningful for hackable targets. Player-owned
+  // boxes have moneyMax=0 and minDifficulty=1 with no scaling, so we hide the
+  // icons there to avoid implying actionable state.
+  const minDiff = s.minDifficulty ?? 0;
+  const curDiff = s.hackDifficulty ?? 0;
+  const showSecurity = minDiff > 0 && !purchased;
+  const securityAtMin = curDiff <= minDiff * SECURITY_NEAR_MIN_RATIO;
+  const securityColor = securityAtMin ? colors.success : colors.fgDim;
+  const securityTooltip = `Security: ${curDiff.toFixed(2)} (min ${minDiff.toFixed(2)})`;
+
+  const moneyMax = s.moneyMax ?? 0;
+  const moneyAvail = s.moneyAvailable ?? 0;
+  const showMoney = moneyMax > 0 && !purchased;
+  const moneyFrac = moneyMax > 0 ? moneyAvail / moneyMax : 0;
+  const moneyNearMax = moneyFrac >= MONEY_NEAR_MAX_RATIO;
+  const moneyColor = moneyNearMax ? colors.warn : colors.fgDim;
+  const moneyPct = (moneyFrac * 100).toFixed(0);
+  const moneyTooltip = `Money: ${formatMoney(moneyAvail)} / ${formatMoney(moneyMax)} (${moneyPct}%)`;
+
   return (
     <div
       style={{
@@ -244,10 +290,12 @@ function ServerRow({ server: s, background, hackingLevel, path }: ServerRowProps
           marginLeft: space.sm,
         }}
       >
+        <CopyPathButton text={path} color={colors.fgDim} />
         {s.backdoorInstalled && <DoorIcon color={colors.success} title="Backdoor installed" />}
         {!nuked && <HackIcon color={colors.warn} title={hackTooltip} />}
-        <CopyPathButton text={path} color={colors.fgDim} />
         <HardwareIcon color={hardwareColor} title={hardwareTooltip} />
+        {showSecurity && <LockIcon color={securityColor} title={securityTooltip} />}
+        {showMoney && <MoneyBagIcon color={moneyColor} title={moneyTooltip} />}
       </span>
     </div>
   );

@@ -198,3 +198,23 @@ export function HardwareIcon({ color, title = "Hardware", size }: NamedIconProps
     </Icon>
   );
 }
+
+export function LockIcon({ color, title = "Security", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <rect x="4" y="7" width="8" height="7" rx="0.5" />
+      <path d="M5.5 7 V5 A2.5 2.5 0 0 1 10.5 5 V7" />
+    </Icon>
+  );
+}
+
+export function MoneyBagIcon({ color, title = "Money", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <path d="M6 3.5 L7 2.5 H9 L10 3.5" />
+      <path d="M5 3.5 H11 Q13.5 6 13 10 Q12 14 8 14 Q4 14 3 10 Q2.5 6 5 3.5 Z" />
+      <path d="M9.5 7 Q8 6.5 6.5 7.2 Q6 8 7.5 8.5 Q9.5 9 9.5 10 Q8.5 10.7 6.5 10.2" />
+      <path d="M8 6 V11" />
+    </Icon>
+  );
+}

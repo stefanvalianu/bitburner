@@ -64,7 +64,9 @@ export function ServerPanel() {
       if (owned.has(PN.sqlInject)) ns.sqlinject(hostname);
       ns.nuke(hostname);
     }
-    log.info(`nuked ${pwnable.length} target${pwnable.length === 1 ? "" : "s"}`);
+    log.info(
+      `nuked ${pwnable.length} target${pwnable.length === 1 ? "" : "s"}: ${pwnable.join(", ")}`,
+    );
   }, [ns, log, state]);
 
   return (
@@ -86,7 +88,12 @@ export function ServerPanel() {
           <span style={{ color: colors.fg }}>{targets} left</span>
         </Row>
       </Panel>
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Map">
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Map"
+        style={{ minWidth: 800, maxWidth: "calc(90vw - 16px)" }}
+      >
         <ServerMapDialog />
       </Modal>
     </>

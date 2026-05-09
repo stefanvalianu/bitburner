@@ -67,19 +67,20 @@ function findAllServers(ns: NS, root: string = "home"): ServerInfo[] {
 
 function snapshot(ns: NS): DashboardState {
   const raw = ns.peek(DASHBOARD_STATE_PORT);
+  let data: DashboardState | undefined = undefined;
 
   if (raw !== "NULL PORT DATA") {
     try {
-      return JSON.parse(raw as string) as DashboardState;
+      data = JSON.parse(raw as string) as DashboardState;
     } catch {}
   }
 
   return {
-    tick: 0,
+    tick: data?.tick || 0,
     currentVersion: ns.read("version.txt").trim(),
     propagatedVersion: ns.read(".state/version.txt").trim(),
     allServers: findAllServers(ns, "home"),
-    tasks: {},
+    tasks: data?.tasks || {},
   };
 }
 

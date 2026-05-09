@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useLogger } from "../util/logging/log";
 import { useNs } from "../util/ns";
 import { Button } from "../ui/Button";
-import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { HomeIcon, PowerIcon, WorldIcon } from "../ui/Icons";
+import { WorldIcon } from "../ui/Icons";
 import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { Spinner } from "../ui/Spinner";
@@ -15,8 +14,7 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const ns = useNs();
   const log = useLogger("server-panel");
   const { colors, space } = useTheme();
-  const { state, shutdownTask } = useDashboardController();
-  const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
+  const { state } = useDashboardController();
 
   // Categorize once. Backdoored implies admin rights, so the nuked bucket
   // excludes backdoored to avoid double-counting. Player-owned is its own
@@ -72,11 +70,6 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
     </Button>
   ) : undefined;
 
-  // Show only running/stopping slots — idle ones don't need a row.
-  const liveTasks = Object.entries(state.tasks).filter(
-    ([, slot]) => slot.status === "running" || slot.status === "stopping",
-  );
-
   return (
     <Panel title="Servers" actions={actions}>
       <Row gap={space.sm}>
@@ -86,53 +79,6 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
         <Spinner active={targets > 0} />
         <span style={{ color: colors.fg }}>{targets} left</span>
       </Row>
-      {liveTasks.map(([id, slot]) => {
-        const slices = slot.allocation?.servers ?? [];
-        const ram = slices.reduce((sum, s) => sum + s.ram, 0);
-        const suffix = slot.status === "stopping" ? " (stopping)" : "";
-        const canStop = slot.status === "running";
-        return (
-          <Row key={id} gap={space.sm}>
-            <HomeIcon color={colors.accent} title={`Controller host: ${slot.host}`} />
-            <span
-              style={{
-                fontFamily: "serif",
-                fontStyle: "italic",
-                color: colors.fg,
-              }}
-            >
-              {slot.host}
-            </span>
-            <span style={{ color: colors.muted }}>
-              {id}: {slices.length} hosts / {ram}GB{suffix}
-            </span>
-            {canStop && (
-              <span style={{ marginLeft: "auto" }}>
-                <Button onClick={() => setConfirmStopId(id)} variant="warn">
-                  <PowerIcon color={colors.warn} title={`Stop ${id}`} />
-                  Stop
-                </Button>
-              </span>
-            )}
-          </Row>
-        );
-      })}
-      <ConfirmDialog
-        open={confirmStopId !== null}
-        title="Stop task?"
-        message={
-          confirmStopId
-            ? `Request shutdown of "${confirmStopId}"? Its workers will wind down on their next yield.`
-            : ""
-        }
-        confirmLabel="Stop"
-        confirmVariant="warn"
-        onCancel={() => setConfirmStopId(null)}
-        onConfirm={() => {
-          if (confirmStopId) shutdownTask(confirmStopId);
-          setConfirmStopId(null);
-        }}
-      />
     </Panel>
   );
 }

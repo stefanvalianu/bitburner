@@ -30,7 +30,7 @@ export function LogButton() {
       <Button onClick={openLogs}>
         {notification && <NotificationDot color={notification.color} />}
         <LogsIcon color={colors.muted} />
-        View logs ({entries.length})
+        Logs ({entries.length})
       </Button>
       <Modal open={logsOpen} onClose={() => setLogsOpen(false)} title={`logs · ${entries.length}`}>
         <LogStream entries={entries} />

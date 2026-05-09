@@ -24,7 +24,7 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
       throw e;
     } finally {
       // when a task exits, we should kill all children (lol comments)
-      const pids = this.state.childPids;
+      const pids = this.state?.childPids;
       if (pids.length > 0) {
         for (const pid of pids) {
           if (this.ns.isRunning(pid)) this.ns.kill(pid);
@@ -83,7 +83,7 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
   // True iff the manager has flagged us for shutdown. Subclasses should
   // poll this (or use `sleep`) at every reasonable yield point.
   protected get shouldShutdown(): boolean {
-    return this.state.shutdownRequested === true;
+    return this.state?.shutdownRequested === true || false;
   }
 
   // -------------------------------------------------------------------------

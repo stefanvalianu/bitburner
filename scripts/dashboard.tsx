@@ -11,6 +11,7 @@ import { PlayerPanel } from "./lib/features/PlayerPanel";
 import { PlayerPanelDialog } from "./lib/features/PlayerPanelDialog";
 import { ServerMap } from "./lib/features/ServerMap";
 import { ServerPanel } from "./lib/features/ServerPanel";
+import { TaskPanel } from "./lib/features/TaskPanel";
 import { DashboardPanel } from "./lib/ui/DashboardPanel";
 import { Modal } from "./lib/ui/Modal";
 import { Row } from "./lib/ui/Row";
@@ -33,6 +34,7 @@ function Dashboard() {
     <>
       <DashboardPanel actions={headerActions}>
         <PlayerPanel onOpen={() => setPlayerPanelOpen(true)} />
+        <TaskPanel />
         <ServerPanel onOpenMap={() => setMapOpen(true)} />
       </DashboardPanel>
       <Modal open={mapOpen} onClose={() => setMapOpen(false)} title="Server map">

@@ -47,8 +47,15 @@ export async function main(ns: NS): Promise<void> {
   const [vpW, vpH] = ns.ui.windowSize();
   const width = Math.floor(vpW / 2) - margin * 2;
   const height = vpH - margin * 2;
+  const theme = ns.ui.getTheme();
   ns.ui.resizeTail(width, height);
   ns.ui.moveTail(vpW - width - margin, margin);
+  ns.ui.setTailMinimized(false);
+  ns.ui.setTailTitle(
+    <div style={{ color: theme.primary, fontSize: 16, fontWeight: "bolder", padding: 4 }}>
+      <span style={{ color: theme.hack }}>⦾</span> Dashboard
+    </div>,
+  );
 
   clearPorts(ns);
 

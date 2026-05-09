@@ -165,10 +165,7 @@ function Legend() {
         icon={<LockIcon color={colors.success} title="Min security" />}
         label="min security"
       />
-      <LegendIcon
-        icon={<MoneyBagIcon color={colors.warn} title="Max money" />}
-        label="max money"
-      />
+      <LegendIcon icon={<MoneyBagIcon color={colors.warn} title="Max money" />} label="max money" />
     </div>
   );
 }

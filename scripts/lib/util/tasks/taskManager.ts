@@ -123,7 +123,10 @@ export class TaskManager {
       if (!def.autostart) continue;
 
       const path = this.getTaskScriptPath(def);
-      const entrypointRam = this.ns.getScriptRam(path);
+      // ns.getScriptRam returns 0.05GB-aligned floats (e.g. 2.4) — round up so
+      // every value entering the allocator is an integer GB and reservations
+      // can never accumulate fractional drift across hosts.
+      const entrypointRam = Math.ceil(this.ns.getScriptRam(path));
       if (entrypointRam === 0) {
         this.logger.error(`script not found: ${path}`);
         continue;
@@ -140,7 +143,7 @@ export class TaskManager {
         continue;
       }
       const path = this.getTaskScriptPath(def);
-      const entrypointRam = this.ns.getScriptRam(path);
+      const entrypointRam = Math.ceil(this.ns.getScriptRam(path));
       if (entrypointRam === 0) {
         this.logger.error(`script not found: ${path}`);
         continue;

@@ -220,12 +220,11 @@ function TaskTile({ id, slot, onInfo, onStop }: TaskTileProps) {
       >
         {id}
       </span>
-      <Row gap={space.sm}>
-        <span style={{ color: statusColor, fontSize: "0.85em" }}>{slot.status}</span>
-        <Row gap={space.sm}>
-          <HomeIcon color={colors.muted} title={`Controller host: ${slot.host ?? "—"}`} />
-          <span style={{ color: colors.muted }}>{slot.host ?? "—"}</span>
-          <span style={{ color: colors.muted, marginLeft: "auto" }}>{ram}GB</span>
+      <Row gap={space.sm} style={{ fontSize: "0.85em" }}>
+        <span style={{ color: statusColor }}>{slot.status}</span>
+        <Row>
+          <span style={{ color: colors.muted }}>on {slot.host ?? "?"}</span>
+          <span style={{ color: colors.muted, marginLeft: "auto" }}>• {ram}GB</span>
         </Row>
       </Row>
       <Row gap={space.sm} style={{ marginTop: "auto", justifyContent: "flex-end" }}>

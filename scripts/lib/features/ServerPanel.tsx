@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLogger } from "../util/logging/log";
 import { useNs } from "../util/ns";
 import { Button } from "../ui/Button";
@@ -9,12 +9,16 @@ import { Spinner } from "../ui/Spinner";
 import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
 import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
+import { Modal } from "../ui/Modal";
+import { ServerMapDialog } from "./ServerMapDialog";
 
-export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
+export function ServerPanel() {
   const ns = useNs();
   const log = useLogger("server-panel");
   const { colors, space } = useTheme();
   const { state } = useDashboardController();
+
+  const [modalOpen, setModalOpen] = useState<boolean>(false);
 
   // Categorize once. Backdoored implies admin rights, so the nuked bucket
   // excludes backdoored to avoid double-counting. Player-owned is its own
@@ -63,22 +67,28 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
     log.info(`nuked ${pwnable.length} target${pwnable.length === 1 ? "" : "s"}`);
   }, [ns, log, state]);
 
-  const actions = onOpenMap ? (
-    <Button onClick={onOpenMap}>
-      <WorldIcon color={colors.accent} />
-      Server map
-    </Button>
-  ) : undefined;
-
   return (
-    <Panel title="Servers" actions={actions}>
-      <Row gap={space.sm}>
-        <span style={{ color: colors.fg }}>
-          {playerOwned} owned · {nuked} nuked · {backdoored} backdoored ·
-        </span>
-        <Spinner active={targets > 0} />
-        <span style={{ color: colors.fg }}>{targets} left</span>
-      </Row>
-    </Panel>
+    <>
+      <Panel
+        title="Servers"
+        actions={
+          <Button onClick={() => setModalOpen(true)}>
+            <WorldIcon color={colors.accent} />
+            Server map
+          </Button>
+        }
+      >
+        <Row gap={space.sm}>
+          <span style={{ color: colors.fg }}>
+            {playerOwned} owned · {nuked} nuked · {backdoored} backdoored ·
+          </span>
+          <Spinner active={targets > 0} />
+          <span style={{ color: colors.fg }}>{targets} left</span>
+        </Row>
+      </Panel>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Map">
+        <ServerMapDialog />
+      </Modal>
+    </>
   );
 }

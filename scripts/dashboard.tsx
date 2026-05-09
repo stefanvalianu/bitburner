@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { NS } from "@ns";
 import { DashboardControllerProvider } from "./lib/util/useDashboardController";
 import { NsProvider } from "./lib/util/ns";
@@ -8,41 +7,30 @@ import { LogButton } from "./lib/util/logging/LogButton";
 import { PortViewerButton } from "./lib/ui/PortViewerButton";
 import { PropagationStamp } from "./lib/ui/PropagationStamp";
 import { PlayerPanel } from "./lib/features/PlayerPanel";
-import { PlayerPanelDialog } from "./lib/features/PlayerPanelDialog";
-import { ServerMap } from "./lib/features/ServerMap";
 import { ServerPanel } from "./lib/features/ServerPanel";
 import { TaskPanel } from "./lib/features/TaskPanel";
 import { DashboardPanel } from "./lib/ui/DashboardPanel";
-import { Modal } from "./lib/ui/Modal";
 import { Row } from "./lib/ui/Row";
 import { useTheme, ThemeProvider } from "./lib/ui/theme";
 
 function Dashboard() {
   const { space } = useTheme();
-  const [mapOpen, setMapOpen] = useState(false);
-  const [playerPanelOpen, setPlayerPanelOpen] = useState(false);
   usePropagate();
-
-  const headerActions = (
-    <Row gap={space.sm}>
-      <PortViewerButton />
-      <LogButton />
-    </Row>
-  );
 
   return (
     <>
-      <DashboardPanel actions={headerActions}>
-        <PlayerPanel onOpen={() => setPlayerPanelOpen(true)} />
+      <DashboardPanel
+        actions={
+          <Row gap={space.sm}>
+            <PortViewerButton />
+            <LogButton />
+          </Row>
+        }
+      >
+        <PlayerPanel />
         <TaskPanel />
-        <ServerPanel onOpenMap={() => setMapOpen(true)} />
+        <ServerPanel />
       </DashboardPanel>
-      <Modal open={mapOpen} onClose={() => setMapOpen(false)} title="Server map">
-        <ServerMap />
-      </Modal>
-      <Modal open={playerPanelOpen} onClose={() => setPlayerPanelOpen(false)} title="Player">
-        <PlayerPanelDialog />
-      </Modal>
       <PropagationStamp />
     </>
   );

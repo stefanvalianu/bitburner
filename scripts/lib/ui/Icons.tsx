@@ -162,3 +162,39 @@ export function ProgramsIcon({ color, title = "Programs", size }: NamedIconProps
     </Icon>
   );
 }
+
+export function DoorIcon({ color, title = "Backdoor installed", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <rect x="4" y="2.5" width="8" height="11" />
+      <circle cx="10" cy="8" r="0.6" fill={color} stroke="none" />
+    </Icon>
+  );
+}
+
+export function HackIcon({ color, title = "Hack readiness", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <path d="M9 2 L3 9 L7 9 L7 14 L13 7 L9 7 Z" />
+    </Icon>
+  );
+}
+
+export function CopyIcon({ color, title = "Copy path", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <rect x="5" y="2.5" width="8" height="9.5" rx="0.5" />
+      <path d="M10 12 V13.5 H3 V5 H4.5" />
+    </Icon>
+  );
+}
+
+export function HardwareIcon({ color, title = "Hardware", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <rect x="3.5" y="3.5" width="9" height="9" rx="0.5" />
+      <rect x="6" y="6" width="4" height="4" />
+      <path d="M6 3.5 V2 M10 3.5 V2 M6 14 V12.5 M10 14 V12.5 M3.5 6 H2 M3.5 10 H2 M14 6 H12.5 M14 10 H12.5" />
+    </Icon>
+  );
+}

@@ -1,9 +1,20 @@
 import { NS } from "@ns";
-import { BASE_STATE_KEYS, TaskDefinition, TaskEvent, TaskId, TaskState } from "./types";
+import {
+  BASE_STATE_KEYS,
+  ServerSlice,
+  TaskDefinition,
+  TaskDemand,
+  TaskEvent,
+  TaskId,
+  TaskState,
+} from "./types";
 import { DashboardState } from "../dashboardTypes";
 import { Logger } from "../logging/log";
 import { TASK_EVENTS_PORT } from "../ports";
 import { ALL_TASKS } from "./definitions/tasks";
+import { allocateAllTasks } from "./allocator";
+
+const TASK_BY_ID: ReadonlyMap<TaskId, TaskDefinition> = new Map(ALL_TASKS.map((t) => [t.id, t]));
 
 export class TaskManager {
   private readonly ns: NS;
@@ -41,28 +52,23 @@ export class TaskManager {
       snap[id] = { ...slot, childPids: [...slot.childPids] };
     }
 
-    // -------------------------------------------------------------------
     // 1. Drain events from tasks and apply them to the snapshot.
-    // -------------------------------------------------------------------
     const events = this.drainEvents();
     for (const ev of events) {
       const slot = snap[ev.taskId];
       if (!slot) continue;
       if (ev.type === "child-spawned") {
         if (!slot.childPids.includes(ev.pid)) slot.childPids.push(ev.pid);
-        continue;
       } else if (ev.type === "state-patch") {
         for (const [k, v] of Object.entries(ev.patch)) {
-          if (BASE_STATE_KEYS.has(k)) continue; // only the manager can update these fields
-          slot[k] = v;
+          if (BASE_STATE_KEYS.has(k)) continue; // manager-owned
+          (slot as Record<string, unknown>)[k] = v;
         }
       }
     }
 
-    // -------------------------------------------------------------------
     // 2. Reap any slot whose PID is gone — manual kill, exec failure,
     //    voluntary exit, or graceful shutdown after seeing the flag.
-    // -------------------------------------------------------------------
     for (const [id, slot] of Object.entries(snap)) {
       if (slot.pid !== null && !this.ns.isRunning(slot.pid)) {
         if (slot.status === "stopping") {
@@ -71,103 +77,88 @@ export class TaskManager {
           this.logger.warn(`task ${id} died unexpectedly (pid=${slot.pid})`);
         }
 
-        delete snap.tasks[id];
+        delete snap[id];
       }
     }
 
-    // -------------------------------------------------------------------
-    // 3. Identify candidates of tasks that should be running ()
-    // -------------------------------------------------------------------
-    const spawnCandidates: TaskDefinition[] = [];
+    // 3. Identify pending demands — autostart tasks not currently running.
+    //    Resolve entrypointRam for each via ns.getScriptRam.
+    const pending = new Map<TaskId, TaskDemand>();
     for (const def of ALL_TASKS) {
-      const slot = snap.tasks[def.id];
+      if (!def.autostart) continue;
+      const slot = snap[def.id];
+      if (slot && slot.status !== "idle") continue;
 
+      const path = this.getTaskScriptPath(def);
+      const entrypointRam = this.ns.getScriptRam(path);
+      if (entrypointRam === 0) {
+        this.logger.error(`script not found: ${path}`);
+        continue;
+      }
+      pending.set(def.id, { ...def.demand, entrypointRam });
+    }
 
-      const decision = def.evaluate(game, slot, snap);
-      if (slot.status === "stopping") continue; // already winding down
-      if (slot.status === "running") {
-        if (decision === "restart" || decision === "shutdown") {
-          slot.shutdownRequested = true;
-          slot.status = "stopping";
-          log.info(`task ${def.id} requested shutdown — decision=${decision}`);
+    // 4. Build the pool from owned, accessible, non-excluded servers.
+    const pool: ServerSlice[] = state.allServers
+      .filter((s) => s.hasAdminRights && s.maxRam > 0)
+      .map((s) => ({ hostname: s.hostname, ram: s.maxRam, cores: s.cpuCores }));
+
+    // 5. Lock RAM held by tasks already running (or winding down).
+    const running = new Map<TaskId, ServerSlice[]>();
+    for (const [id, slot] of Object.entries(snap)) {
+      if ((slot.status === "running" || slot.status === "stopping") && slot.allocation) {
+        running.set(id, slot.allocation.servers);
+      }
+    }
+
+    // 6. Run the priority pipeline.
+    const allocations = allocateAllTasks(pool, running, pending);
+
+    // 7. Spawn each pending task on its allocation.
+    for (const [id, slices] of allocations) {
+      if (running.has(id)) continue; // already running, allocation preserved
+      const def = TASK_BY_ID.get(id);
+      const demand = pending.get(id);
+      if (!def || !demand) continue;
+
+      if (slices.length === 0) {
+        if (demand.priority === "critical") {
+          this.logger.warn(`critical task ${id} could not be placed`);
         }
         continue;
       }
 
-      if (decision === "restart") spawnCandidates.push(def);
-    }
-
-    // -------------------------------------------------------------------
-    // 4. Place + spawn each chosen task. Allocation goes through
-    //    allocator.allocate; controller-only tasks get empty allocations.
-    // -------------------------------------------------------------------
-    /*
-    const placements = new Map<TaskId, { host: string; ram: number }>();
-    const reserved = new Set<string>();
-    // Account for our own controllers already on home (so the free-RAM
-    // probe doesn't fight with sibling controllers we're respawning).
-    const ourHomeFootprint = Object.values(snap.tasks)
-      .filter((s) => s.host === "home" && s.pid !== null)
-      .reduce((sum) => sum + 0, 0); // controllers being spawned here are net-new
-
-    for (const def of finalSpawns) {
-      const ram = ns.getScriptRam(getTaskScriptPath(def));
-      if (ram === 0) {
-        log.error(`script not found: ${getTaskScriptPath(def)}`);
+      // Pick the slice with the most RAM that fits the controller.
+      const controller = slices
+        .filter((s) => s.ram >= demand.entrypointRam)
+        .sort((a, b) => b.ram - a.ram)[0];
+      if (!controller) {
+        this.logger.warn(`task ${id} allocated but no slice fits entrypoint`);
         continue;
       }
-      const host = pickControllerHost(ns, game.servers, ram, ourHomeFootprint, reserved);
-      if (!host) {
-        log.warn(`no host fits ${def.id} controller (${ram}GB)`);
-        continue;
-      }
-      placements.set(def.id, { host, ram });
-      if (host !== "home") reserved.add(host);
-    }
 
-    const exclude = new Set([...EXCLUDE_WORKERS_FROM, ...reserved]);
-    const controllerOnlyIds = finalSpawns
-      .filter((d) => d.requirements.growUnbounded !== true)
-      .map((d) => d.id);
-    const allocations = allocate(game.servers, chosenUnbounded?.id ?? null, controllerOnlyIds, {
-      exclude,
-    });
-
-    for (const def of finalSpawns) {
-      const place = placements.get(def.id);
-      if (!place) continue;
-      const allocation: Allocation = allocations.get(def.id) ?? {
-        taskId: def.id,
-        servers: [],
-      };
-      if (def.requirements.growUnbounded === true && allocation.servers.length === 0) {
-        log.info(`skip ${def.id}: requested all RAM but no worker servers available`);
-        continue;
-      }
-      // No script args — the task reads its own slot (incl. allocation)
-      // from the published TASK_STATE_PORT snapshot via BaseTask. Each
-      // task script declares its own taskId as a constant.
-      const pid = ns.exec(getTaskScriptPath(def), place.host, 1);
+      const path = this.getTaskScriptPath(def);
+      const pid = this.ns.exec(path, controller.hostname, 1);
       if (pid === 0) {
-        log.warn(`failed to exec ${getTaskScriptPath(def)} on ${place.host}`);
+        this.logger.warn(`failed to exec ${path} on ${controller.hostname}`);
         continue;
       }
-      const totalRam = allocation.servers.reduce((sum, s) => sum + s.ram, 0);
-      log.info(
-        `${def.id} on ${place.host} → ${allocation.servers.length} hosts (${totalRam}GB) pid=${pid}`,
+
+      const totalRam = slices.reduce((sum, s) => sum + s.ram, 0);
+      this.logger.info(
+        `${id} on ${controller.hostname} → ${slices.length} hosts (${totalRam}GB) pid=${pid}`,
       );
-      // Update slot in-place. Task-specific fields are preserved; base
-      // fields are reset for the new run.
-      snap.tasks[def.id] = {
-        ...snap.tasks[def.id],
+
+      snap[id] = {
+        ...snap[id],
         pid,
-        host: place.host,
+        host: controller.hostname,
         childPids: [],
         shutdownRequested: false,
         status: "running",
-        lastAllocation: allocation,
-      };
-    }*/
+        allocation: { taskId: id, servers: slices },
+      } as TaskState;
+    }
 
     return snap;
   }
@@ -188,56 +179,7 @@ export class TaskManager {
     return out;
   }
 
-  private getTaskScriptPath(task: TaskDefinition) {
+  private getTaskScriptPath(task: TaskDefinition): string {
     return `lib/util/tasks/definitions/${task.id}/task.js`;
   }
 }
-
-/*
-
-// Home runs the dashboard and is preferred for controllers, but stays out
-// of the worker pool so worker RAM and controller RAM don't compete.
-const EXCLUDE_WORKERS_FROM = new Set(["home"]);
-
-function makeInitialSnapshot(): TaskStateSnapshot {
-  const snap: TaskStateSnapshot = { gameState: null, tasks: {} };
-  for (const def of TASKS) {
-    snap.tasks[def.id] = {
-      ...({
-        pid: null,
-        host: null,
-        childPids: [],
-        shutdownRequested: false,
-        status: "idle",
-        lastAllocation: null,
-      } as BaseTaskState),
-      ...(def.initialState as Record<string, unknown>),
-    } as TaskState;
-  }
-  return snap;
-}
-
-// Pick a host for a controller. Prefers home; falls back to the smallest
-// non-home admin server that fits.
-function pickControllerHost(
-  ns: NS,
-  servers: ServerInfo[],
-  ramNeeded: number,
-  ourHomeFootprint: number,
-  reserved: Set<string>,
-): string | null {
-  const homeFree = ns.getServerMaxRam("home") - ns.getServerUsedRam("home") + ourHomeFootprint;
-  if (homeFree >= ramNeeded) return "home";
-
-  const candidates = servers
-    .filter(
-      (s) =>
-        s.hostname !== "home" &&
-        s.hasAdminRights &&
-        !reserved.has(s.hostname) &&
-        s.maxRam >= ramNeeded,
-    )
-    .sort((a, b) => a.maxRam - b.maxRam);
-  return candidates[0]?.hostname ?? null;
-}
-  */

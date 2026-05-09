@@ -3,7 +3,7 @@ import { useLogger } from "../util/logging/log";
 import { useNs } from "../util/ns";
 import { Button } from "../ui/Button";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { WorldIcon } from "../ui/Icons";
+import { HomeIcon, PowerIcon, WorldIcon } from "../ui/Icons";
 import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { Spinner } from "../ui/Spinner";
@@ -17,8 +17,6 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   const { colors, space } = useTheme();
   const { state, shutdownTask } = useDashboardController();
   const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
-
-  const playerState = getPlayerMonitorState(state);
 
   // Categorize once. Backdoored implies admin rights, so the nuked bucket
   // excludes backdoored to avoid double-counting. Player-owned is its own
@@ -34,22 +32,23 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   ).length;
   const targets = state.allServers.length - playerOwned - nuked - backdoored;
 
-  const ownedPortOpeners = playerState?.inventory?.portOpeners.filter((p) => p.owned).length || 0;
-  const hackingLevel = playerState?.stats?.hackingLevel || 0;
-
-  const pwnable = state.allServers.filter(
-    (s) =>
-      !s.hasAdminRights &&
-      !s.purchasedByPlayer &&
-      hackingLevel >= (s.requiredHackingSkill || 0) &&
-      ownedPortOpeners >= (s.numOpenPortsRequired || 0),
-  );
-
   // NUKE every pwnable server every gameState tick. The port-opener calls
   // throw if the corresponding .exe isn't owned, so we gate each one on
   // inventory. NUKE itself is unconditional — the pwnable filter already
   // confirmed admin rights are missing and the requirements are met.
   useEffect(() => {
+    const playerState = getPlayerMonitorState(state);
+    const ownedPortOpeners = playerState?.inventory?.portOpeners.filter((p) => p.owned).length || 0;
+    const hackingLevel = playerState?.stats?.hackingLevel || 0;
+
+    const pwnable = state.allServers.filter(
+      (s) =>
+        !s.hasAdminRights &&
+        !s.purchasedByPlayer &&
+        hackingLevel >= (s.requiredHackingSkill || 0) &&
+        ownedPortOpeners >= (s.numOpenPortsRequired || 0),
+    );
+
     if (pwnable.length === 0) return;
     const PN = ns.enums.ProgramName;
     const owned = new Set(
@@ -64,7 +63,7 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
       ns.nuke(hostname);
     }
     log.info(`nuked ${pwnable.length} target${pwnable.length === 1 ? "" : "s"}`);
-  }, [ns, log, state.allServers, hackingLevel, playerState]);
+  }, [ns, log, state]);
 
   const actions = onOpenMap ? (
     <Button onClick={onOpenMap}>
@@ -74,9 +73,9 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
   ) : undefined;
 
   // Show only running/stopping slots — idle ones don't need a row.
-  /*const liveTasks = Object.entries(taskState.tasks).filter(
+  const liveTasks = Object.entries(state.tasks).filter(
     ([, slot]) => slot.status === "running" || slot.status === "stopping",
-  );*/
+  );
 
   return (
     <Panel title="Servers" actions={actions}>
@@ -85,12 +84,10 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
           {playerOwned} owned · {nuked} nuked · {backdoored} backdoored ·
         </span>
         <Spinner active={targets > 0} />
-        <span style={{ color: colors.fg }}>
-          {targets} targets ({pwnable.length} valid)
-        </span>
+        <span style={{ color: colors.fg }}>{targets} left</span>
       </Row>
-      {/*liveTasks.map(([id, slot]) => {
-        const slices = slot.lastAllocation?.servers ?? [];
+      {liveTasks.map(([id, slot]) => {
+        const slices = slot.allocation?.servers ?? [];
         const ram = slices.reduce((sum, s) => sum + s.ram, 0);
         const suffix = slot.status === "stopping" ? " (stopping)" : "";
         const canStop = slot.status === "running";
@@ -119,7 +116,7 @@ export function ServerPanel({ onOpenMap }: { onOpenMap?: () => void }) {
             )}
           </Row>
         );
-      })*/}
+      })}
       <ConfirmDialog
         open={confirmStopId !== null}
         title="Stop task?"

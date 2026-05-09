@@ -45,8 +45,7 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
 
   // Helper for reading our specific task state from the overall snapshot
   protected get state(): TaskState<TState> {
-    const snapshot = this.snapshot.tasks;
-    const slot = snapshot.tasks[this.taskId];
+    const slot = this.snapshot.tasks[this.taskId];
     return (slot as TaskState<TState>) ?? null;
   }
 

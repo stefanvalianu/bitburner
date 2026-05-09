@@ -21,11 +21,12 @@ export interface PlayerMonitorTaskState extends Record<string, unknown> {
 
 export const playerMonitorTask: TaskDefinition = {
   id: PLAYER_MONITOR_TASK_ID,
-  description: "Responsible for monitoring the player state and reporting it. Includes things like attributes, money, purchased hacks, etc.",
-  demands: {
+  description:
+    "Responsible for monitoring the player state and reporting it. Includes things like attributes, money, purchased hacks, etc.",
+  autostart: true,
+  demand: {
     priority: "critical",
-    autostart: true,
-  }
+  },
 };
 
 export function getPlayerMonitorState(state: DashboardState): PlayerMonitorTaskState | undefined {

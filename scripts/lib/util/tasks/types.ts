@@ -3,6 +3,9 @@ export type TaskId = string;
 export interface ServerSlice {
   hostname: string;
   ram: number;
+
+  // this is merely shorthand for the number of cores on the target server, it's not an "allotment"
+  cores?: number;
 }
 
 export interface Allocation {
@@ -10,28 +13,35 @@ export interface Allocation {
   servers: ServerSlice[];
 }
 
-export interface TaskDemands {
-  // unbounded tasks will try to consume maximum ram, up to some potential limit (optional)
-  unbounded?: boolean;
+export type TaskPriority = "critical" | "normal";
 
-  // unbounded tasks will only request up to this number, if specified. otherwise they want it all
-  maxRamDemand?: number;
+export interface TaskDemand {
+  // RAM the controller (entrypoint) script needs. Resolved by TaskManager at
+  // allocation time via ns.getScriptRam - task definitions don't set this.
+  entrypointRam: number;
 
-  // whether to always try and start this task, ensuring it's always running (if possible)
-  autostart?: boolean;
-
-  // the priority of the task.
+  // Priority class for placement ordering.
   priority: TaskPriority;
 
-  // whether the task wants to prioritize servers with high cores
+  // Unbounded tasks ask for additional RAM beyond the entrypoint to spawn
+  // child workers.
+  unbounded?: boolean;
+
+  // Cap on TOTAL allocation (including entrypoint). Only meaningful when
+  // `unbounded` is true.
+  maxRamDemand?: number;
+
+  // Prefer hosts with more CPU cores when placing this task.
   prioritizeCores?: boolean;
 }
 
-// idle = task is only reserving allocations, but not running yet. running = task is currently running. 
+// What a TaskDefinition declares - the resource ask without entrypointRam,
+// which TaskManager fills in at allocation time.
+export type DemandSpec = Omit<TaskDemand, "entrypointRam">;
+
+// idle = task is only reserving allocations, but not running yet. running = task is currently running.
 // stopping = task is waiting for its workers and will eventually terminate.
 export type TaskStatus = "idle" | "running" | "stopping";
-
-export type TaskPriority = "critical" | "normal";
 
 export interface BaseTaskState {
   pid: number | null;
@@ -45,7 +55,7 @@ export interface BaseTaskState {
 export type TaskState<T extends Record<string, unknown> = Record<string, unknown>> = BaseTaskState &
   T;
 
-// Keys of BaseTaskState — used by the manager when shallow-merging
+// Keys of BaseTaskState - used by the manager when shallow-merging
 // state-patch events to reject attempts to overwrite manager-owned fields.
 export const BASE_STATE_KEYS: ReadonlySet<string> = new Set([
   "pid",
@@ -60,10 +70,13 @@ export type TaskEvent =
   | { type: "state-patch"; taskId: TaskId; patch: Record<string, unknown> }
   | { type: "child-spawned"; taskId: TaskId; pid: number; hostname: string };
 
-
 // Note the script path of a task is assumed to be "lib/util/tasks/definitions/{id}/task.js"
 export interface TaskDefinition {
   id: TaskId;
-  demands: TaskDemands;
+  demand: DemandSpec;
   description: string;
+
+  // Whether the manager should always try to keep this task running.
+  // Lifecycle concern, not a resource ask - distinct from `demand`.
+  autostart?: boolean;
 }

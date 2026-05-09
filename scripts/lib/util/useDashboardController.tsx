@@ -11,13 +11,12 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
 import type { NS } from "@ns";
 import { useNs } from "./ns";
-import { TaskId, TaskState } from "./tasks/types";
+import { TaskId } from "./tasks/types";
 import { DASHBOARD_STATE_PORT } from "./ports";
 import { DashboardController, DashboardState, ServerInfo } from "./dashboardTypes";
 import { TaskManager } from "./tasks/taskManager";
@@ -68,14 +67,11 @@ function findAllServers(ns: NS, root: string = "home"): ServerInfo[] {
 
 function snapshot(ns: NS): DashboardState {
   const raw = ns.peek(DASHBOARD_STATE_PORT);
-  let taskData = {};
 
   if (raw !== "NULL PORT DATA") {
     try {
-      taskData = JSON.parse(raw as string) as Record<TaskId, TaskState>;
-    } catch {
-      taskData = {};
-    }
+      return JSON.parse(raw as string) as DashboardState;
+    } catch {}
   }
 
   return {
@@ -83,7 +79,7 @@ function snapshot(ns: NS): DashboardState {
     currentVersion: ns.read("version.txt").trim(),
     propagatedVersion: ns.read(".state/version.txt").trim(),
     allServers: findAllServers(ns, "home"),
-    tasks: taskData,
+    tasks: {},
   };
 }
 
@@ -114,7 +110,7 @@ export function DashboardControllerProvider({
   useEffect(() => {
     const id = setInterval(() => {
       const newState = snapshot(ns);
-      taskManager.runTick(newState); // note the tick wil be wrong, but we don't use it for task management
+      newState.tasks = taskManager.runTick(newState); // note the tick wil be wrong, but we don't use it for task management
 
       setState((prev) => {
         newState.tick = prev.tick + 1;
@@ -131,6 +127,7 @@ export function DashboardControllerProvider({
 
       if (newTaskState) {
         const newState = snapshot(ns);
+        newState.tasks = newTaskState;
         newState.tick = state.tick; // no need to have a quick tick
         publishSnapshot(ns, newState);
       }

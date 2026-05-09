@@ -5,8 +5,4 @@ import { playerMonitorTask } from "./player-monitor/info";
 import { serverShareTask } from "./server-share/info";
 import { simpleHackerTask } from "./simple-hacker/info";
 
-export const ALL_TASKS: TaskDefinition[] = [
-  serverShareTask,
-  simpleHackerTask,
-  playerMonitorTask,
-];
+export const ALL_TASKS: TaskDefinition[] = [serverShareTask, simpleHackerTask, playerMonitorTask];

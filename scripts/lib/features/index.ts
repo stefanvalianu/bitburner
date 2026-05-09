@@ -1,5 +1,5 @@
-export * from "./PlayerMonitor";
+export * from "./PlayerPanelDialog";
 export * from "./ServerMap";
 export * from "./ServerMapPanel";
 export * from "./ServerPanel";
-export * from "./ToolsPanel";
+export * from "./PlayerPanel";

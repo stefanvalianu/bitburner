@@ -37,7 +37,7 @@ function SectionHeading({ children }: { children: string }) {
   );
 }
 
-export function PlayerMonitor() {
+export function PlayerPanelDialog() {
   const { state } = useDashboardController();
   const playerState = getPlayerMonitorState(state);
 

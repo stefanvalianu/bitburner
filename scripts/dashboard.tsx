@@ -4,7 +4,7 @@ import { DashboardControllerProvider } from "./lib/util/useDashboardController";
 import { NsProvider } from "./lib/util/ns";
 import { usePropagate } from "./lib/util/usePropagate";
 import { DashboardPanel, Modal, Row, ThemeProvider, useTheme } from "./lib/ui";
-import { PlayerMonitor, ServerMap, ServerPanel, ToolsPanel } from "./lib/features";
+import { PlayerPanelDialog, ServerMap, ServerPanel, PlayerPanel } from "./lib/features";
 import { clearPorts } from "./lib/util/ports";
 import { LogButton } from "./lib/util/logging/LogButton";
 import { PortViewerButton } from "./lib/ui/PortViewerButton";
@@ -13,7 +13,7 @@ import { PropagationStamp } from "./lib/ui/PropagationStamp";
 function Dashboard() {
   const { space } = useTheme();
   const [mapOpen, setMapOpen] = useState(false);
-  const [stateOpen, setStateOpen] = useState(false);
+  const [playerPanelOpen, setPlayerPanelOpen] = useState(false);
   usePropagate();
 
   const headerActions = (
@@ -26,14 +26,14 @@ function Dashboard() {
   return (
     <>
       <DashboardPanel actions={headerActions}>
-        <ToolsPanel onOpen={() => setStateOpen(true)} />
+        <PlayerPanel onOpen={() => setPlayerPanelOpen(true)} />
         <ServerPanel onOpenMap={() => setMapOpen(true)} />
       </DashboardPanel>
       <Modal open={mapOpen} onClose={() => setMapOpen(false)} title="Server map">
         <ServerMap />
       </Modal>
-      <Modal open={stateOpen} onClose={() => setStateOpen(false)} title="Player">
-        <PlayerMonitor />
+      <Modal open={playerPanelOpen} onClose={() => setPlayerPanelOpen(false)} title="Player">
+        <PlayerPanelDialog />
       </Modal>
       <PropagationStamp />
     </>

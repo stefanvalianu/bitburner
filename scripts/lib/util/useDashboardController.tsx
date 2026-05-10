@@ -145,12 +145,21 @@ export function DashboardControllerProvider({
     [taskManager, state],
   );
 
+  const shouldShowReallocate = useCallback(
+    (s: DashboardState) => taskManager.shouldShowReallocate(s),
+    [taskManager],
+  );
+
+  const reallocate = useCallback(() => taskManager.reallocate(), [taskManager]);
+
   const controller = useMemo(
     () =>
       ({
         state: state,
         startTasks: startTasks,
         shutdownTask: shutdownTask,
+        shouldShowReallocate: shouldShowReallocate,
+        reallocate: reallocate,
       }) satisfies DashboardController,
     [state, taskManager],
   );

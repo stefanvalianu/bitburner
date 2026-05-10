@@ -20,7 +20,12 @@ const TASK_BY_ID: ReadonlyMap<TaskId, TaskDefinition> = new Map(ALL_TASKS.map((t
 // any ad-hoc scripts the player launches outside the task manager. The pool
 // is built from `maxRam`, not actual free RAM, so without this buffer tasks
 // would oversubscribe `home` and fail to exec.
-const HOME_RESERVED_RAM_GB = 16;
+export const HOME_RESERVED_RAM_GB = 8;
+
+// Minimum fraction of total RAM that must be unallotted before the dashboard
+// offers a "Reallocate" action. Below this slack, redistribution can't move
+// a meaningful amount of RAM to a starved task.
+const REALLOCATE_SLACK_FRACTION = 0.1;
 
 export class TaskManager {
   private readonly ns: NS;
@@ -218,7 +223,7 @@ export class TaskManager {
 
       const totalRam = slices.reduce((sum, s) => sum + s.ram, 0);
       this.logger.info(
-        `${id} on ${controller.hostname} → ${slices.length} hosts (${this.ns.format.ram(totalRam, 0)}) pid=${pid}`,
+        `${id} on ${controller.hostname} → ${slices.length} hosts (${this.ns.format.ram(totalRam)}) pid=${pid}`,
       );
 
       snap[id] = {
@@ -233,6 +238,36 @@ export class TaskManager {
     }
 
     return snap;
+  }
+
+  shouldShowReallocate(state: DashboardState): boolean {
+    let total = 0;
+    for (const s of state.allServers) {
+      if (!s.hasAdminRights || s.maxRam <= 0) continue;
+      const reserved = s.hostname === "home" ? HOME_RESERVED_RAM_GB : 0;
+      total += Math.max(0, s.maxRam - reserved);
+    }
+    if (total <= 0) return false;
+
+    let allotted = 0;
+    for (const slot of Object.values(state.tasks)) {
+      if (!slot.allocation) continue;
+      for (const slice of slot.allocation.servers) allotted += slice.ram;
+    }
+    if ((total - allotted) / total < REALLOCATE_SLACK_FRACTION) return false;
+
+    for (const [id, slot] of Object.entries(state.tasks)) {
+      const def = TASK_BY_ID.get(id);
+      if (!def?.demand.unbounded) continue;
+      const allocRam = slot.allocation?.servers.reduce((sum, x) => sum + x.ram, 0) ?? 0;
+      if (def.demand.maxRamDemand == null) return true;
+      if (allocRam < def.demand.maxRamDemand) return true;
+    }
+    return false;
+  }
+
+  reallocate(): void {
+    this.logger.info("reallocate() invoked (stub)");
   }
 
   private drainEvents(): TaskEvent[] {

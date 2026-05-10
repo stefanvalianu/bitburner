@@ -47,4 +47,11 @@ export interface DashboardController {
 
   // Command to gracefully shuts down a given taskId
   shutdownTask: (taskId: TaskId) => void;
+
+  // True when the dashboard should offer a "Reallocate" action — i.e. there's
+  // a starved unbounded task and enough RAM slack for redistribution to help.
+  shouldShowReallocate: (state: DashboardState) => boolean;
+
+  // Command to redistribute RAM across running tasks. Currently a stub.
+  reallocate: () => void;
 }

@@ -1,14 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "../ui/Button";
 import { Col } from "../ui/Col";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { BracesIcon, PinIcon, PowerIcon } from "../ui/Icons";
+import { BracesIcon, PinIcon, PowerIcon, ShuffleIcon } from "../ui/Icons";
 import { Modal } from "../ui/Modal";
 import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
 import { ALL_TASKS } from "../util/tasks/definitions/tasks";
+import { HOME_RESERVED_RAM_GB } from "../util/tasks/taskManager";
 import type { TaskDefinition, TaskState } from "../util/tasks/types";
 import { Spinner } from "../ui/Spinner";
 import { useNs } from "../util/ns";
@@ -18,7 +19,9 @@ const TASK_BY_ID = new Map<string, TaskDefinition>(ALL_TASKS.map((t) => [t.id, t
 
 export function TaskPanel() {
   const { colors, space } = useTheme();
-  const { state, startTasks, shutdownTask } = useDashboardController();
+  const { state, startTasks, shutdownTask, shouldShowReallocate, reallocate } =
+    useDashboardController();
+  const ns = useNs();
   const [confirmStopId, setConfirmStopId] = useState<string | null>(null);
   const [allocationModalId, setAllocationModalId] = useState<string | null>(null);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
@@ -58,7 +61,37 @@ export function TaskPanel() {
       return next;
     });
 
-  const actions = <Button onClick={() => setNewTaskOpen(true)}>+ New task</Button>;
+  const { totalRam, allottedRam } = useMemo(() => {
+    let total = 0;
+    for (const s of state.allServers) {
+      if (!s.hasAdminRights || s.maxRam <= 0) continue;
+      const reserved = s.hostname === "home" ? HOME_RESERVED_RAM_GB : 0;
+      total += Math.max(0, s.maxRam - reserved);
+    }
+    let allotted = 0;
+    for (const slot of Object.values(state.tasks)) {
+      if (!slot.allocation) continue;
+      for (const slice of slot.allocation.servers) allotted += slice.ram;
+    }
+    return { totalRam: total, allottedRam: allotted };
+  }, [state.allServers, state.tasks]);
+
+  const showReallocate = shouldShowReallocate(state);
+
+  const actions = (
+    <Row gap={space.sm}>
+      <span style={{ color: colors.muted, fontSize: "0.85em" }}>
+        {`${ns.format.ram(allottedRam)} / ${ns.format.ram(totalRam)}`}
+      </span>
+      {showReallocate && (
+        <Button onClick={() => reallocate()}>
+          <ShuffleIcon color={colors.accent} title="Reallocate" />
+          {" Reallocate"}
+        </Button>
+      )}
+      <Button onClick={() => setNewTaskOpen(true)}>+ New task</Button>
+    </Row>
+  );
 
   const allocationSlot = allocationModalId ? state.tasks[allocationModalId] : undefined;
   const allocationDef = allocationModalId ? TASK_BY_ID.get(allocationModalId) : undefined;
@@ -335,7 +368,7 @@ function TaskTile({ id, slot, canPin, onInfo, onStop, onPin }: TaskTileProps) {
         <span style={{ color: statusColor }}>{slot.status}</span>
         <Row>
           <span style={{ color: colors.muted }}>on {slot.host ?? "?"}</span>
-          <span style={{ color: colors.muted, marginLeft: "auto" }}>• {ns.format.ram(ram, 0)}</span>
+          <span style={{ color: colors.muted, marginLeft: "auto" }}>• {ns.format.ram(ram)}</span>
         </Row>
       </Row>
       <Row gap={space.sm} style={{ marginTop: "auto", justifyContent: "flex-end" }}>
@@ -413,7 +446,7 @@ function PinnedTaskCard({ id, slot, onInfo, onStop, onUnpin }: PinnedTaskCardPro
         <Row gap={space.sm} style={{ fontSize: "0.85em", marginLeft: space.lg }}>
           <span style={{ color: statusColor }}>{slot.status}</span>
           <span style={{ color: colors.muted }}>on {slot.host ?? "?"}</span>
-          <span style={{ color: colors.muted }}>• {ns.format.ram(ram, 0)}</span>
+          <span style={{ color: colors.muted }}>• {ns.format.ram(ram)}</span>
         </Row>
         <Row gap={space.sm} style={{ marginLeft: "auto" }}>
           <Button onClick={onUnpin}>
@@ -497,7 +530,7 @@ function AllocationDetails({ slot, def }: { slot: TaskState; def: TaskDefinition
       </div>
       <Row gap={space.lg}>
         <span style={{ color: colors.muted }}>
-          Total: <span style={{ color: colors.fg }}>{ns.format.ram(totalRam, 0)}</span> across{" "}
+          Total: <span style={{ color: colors.fg }}>{ns.format.ram(totalRam)}</span> across{" "}
           <span style={{ color: colors.fg }}>{slices.length}</span> host
           {slices.length === 1 ? "" : "s"}
         </span>

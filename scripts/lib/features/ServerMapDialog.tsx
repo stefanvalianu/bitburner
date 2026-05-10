@@ -4,6 +4,7 @@ import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
 import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
 import { ServerInfo } from "../util/dashboardTypes";
+import { useNs } from "../util/ns";
 
 const INDENT_PX = 18;
 const ROW_HEIGHT = "1.6em";
@@ -64,12 +65,6 @@ function RailColumn({ kind }: { kind: RailKind }) {
       )}
     </span>
   );
-}
-
-function formatGb(n: number): string {
-  if (n >= 100) return n.toFixed(0);
-  if (n >= 10) return n.toFixed(1);
-  return n.toFixed(2);
 }
 
 function formatMoney(n: number): string {
@@ -237,6 +232,7 @@ function TopBar({ query, onQueryChange, matchCount, hasQuery }: TopBarProps) {
 export function ServerMapDialog() {
   const { colors, fonts } = useTheme();
   const { state } = useDashboardController();
+  const ns = useNs();
 
   const playerState = getPlayerMonitorState(state);
   const hackingLevel = playerState?.player.skills.hacking || 0;
@@ -286,6 +282,7 @@ export function ServerMapDialog() {
             path={pathFromHome(s, byHost)}
             query={normalizedQuery}
             isFirstMatch={s.hostname === firstMatchHost}
+            formatGb={ns.format.ram}
           />
         ))}
       </div>
@@ -328,6 +325,7 @@ interface ServerRowProps {
   path: string;
   query: string;
   isFirstMatch: boolean;
+  formatGb: (input: number) => string;
 }
 
 function ServerRow({
@@ -337,6 +335,7 @@ function ServerRow({
   path,
   query,
   isFirstMatch,
+  formatGb,
 }: ServerRowProps) {
   const { colors, space } = useTheme();
   const rowRef = useRef<HTMLDivElement>(null);
@@ -369,7 +368,7 @@ function ServerRow({
   })();
 
   const ramPct = (ramFrac * 100).toFixed(0);
-  const hardwareTooltip = `Cores: ${s.cpuCores}\nRAM: ${formatGb(s.ramUsed)}/${formatGb(s.maxRam)} GB (${ramPct}%)`;
+  const hardwareTooltip = `Cores: ${s.cpuCores}\nRAM: ${formatGb(s.ramUsed)}/${formatGb(s.maxRam)} (${ramPct}%)`;
 
   // Security and money are only meaningful for hackable targets. Player-owned
   // boxes have moneyMax=0 and minDifficulty=1 with no scaling, so we hide the

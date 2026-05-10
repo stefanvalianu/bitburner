@@ -251,6 +251,17 @@ export function ChevronUpDownIcon({ color, title = "Sort", size }: NamedIconProp
   );
 }
 
+export function ShuffleIcon({ color, title = "Reallocate", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <path d="M2 4 H5 L10 12 H14" />
+      <path d="M12 10 L14 12 L12 14" />
+      <path d="M2 12 H5 L10 4 H14" />
+      <path d="M12 2 L14 4 L12 6" />
+    </Icon>
+  );
+}
+
 export function MoneyBagIcon({ color, title = "Money", size }: NamedIconProps) {
   return (
     <Icon color={color} title={title} size={size}>

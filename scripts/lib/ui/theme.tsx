@@ -9,6 +9,7 @@ export interface Theme {
   colors: {
     bg: string;
     surface: string;
+    dark: string;
     fg: string;
     fgDim: string;
     accent: string;
@@ -40,6 +41,7 @@ export function buildTheme(ns: NS): Theme {
     colors: {
       bg: t.backgroundprimary,
       surface: t.backgroundsecondary,
+      dark: t.secondarydark,
       fg: t.primary,
       fgDim: t.primarydark,
       accent: t.info,

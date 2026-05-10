@@ -211,7 +211,7 @@ function ProgressBar({ value, color }: { value: number; color: string }) {
       style={{
         width: "100%",
         height: BAR_HEIGHT,
-        background: colors.muted,
+        background: colors.well,
         overflow: "hidden",
       }}
     >

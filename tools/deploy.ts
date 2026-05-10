@@ -47,6 +47,48 @@ const useColor =
 const red = (s: string) => (useColor ? `\x1b[31m${s}\x1b[0m` : s);
 const green = (s: string) => (useColor ? `\x1b[32m${s}\x1b[0m` : s);
 
+// Renders a braille spinner overwriting the same line via \r. Returns a stop
+// function that clears the line, restores the cursor, and detaches the
+// SIGINT cleanup hook. When color/TTY isn't available the spinner degrades to
+// a single one-shot print so logs and CI runs aren't littered with frames.
+function startSpinner(label: string): () => void {
+  if (!useColor) {
+    process.stdout.write(`${label}...\n`);
+    return () => {};
+  }
+  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  let i = 0;
+  process.stdout.write("\x1b[?25l"); // hide cursor
+  const timer = setInterval(() => {
+    process.stdout.write(`\r${frames[i++ % frames.length]} ${label}`);
+  }, 80);
+  const cleanup = () => {
+    clearInterval(timer);
+    process.stdout.write("\r\x1b[K\x1b[?25h"); // clear line + show cursor
+  };
+  // Keep Ctrl-C from leaving the cursor hidden mid-spin.
+  const onSigint = () => {
+    cleanup();
+    process.exit(130);
+  };
+  process.once("SIGINT", onSigint);
+  return () => {
+    process.removeListener("SIGINT", onSigint);
+    cleanup();
+  };
+}
+
+async function callDeploy(): Promise<{ res: Response; body: string }> {
+  const stop = startSpinner("deploying");
+  try {
+    const res = await fetch(`http://127.0.0.1:${CONTROL_PORT}/deploy`, { method: "POST" });
+    const body = await res.text();
+    return { res, body };
+  } finally {
+    stop();
+  }
+}
+
 async function confirm(prompt: string): Promise<boolean> {
   if (!process.stdin.isTTY) return false;
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -61,8 +103,7 @@ async function confirm(prompt: string): Promise<boolean> {
 async function main(): Promise<void> {
   const oldManifest = await readManifest();
 
-  const res = await fetch(`http://127.0.0.1:${CONTROL_PORT}/deploy`, { method: "POST" });
-  const body = await res.text();
+  const { res, body } = await callDeploy();
   if (!res.ok) {
     console.error(`Deploy failed (${res.status}): ${body}`);
     process.exit(1);

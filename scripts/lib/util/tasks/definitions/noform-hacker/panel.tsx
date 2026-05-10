@@ -89,7 +89,12 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
     });
   };
 
-  const renderHeader = (label: string, column: SortColumn, flex: number, align: "left" | "right") => {
+  const renderHeader = (
+    label: string,
+    column: SortColumn,
+    flex: number,
+    align: "left" | "right",
+  ) => {
     const isActive = sort?.column === column;
     const direction = isActive ? sort!.direction : null;
     const chevronColor = isActive ? colors.accent : colors.fgDim;

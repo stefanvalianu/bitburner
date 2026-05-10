@@ -70,12 +70,12 @@ export function ServerPanel() {
           <span style={{ color: colors.fg }}>
             {playerOwned} owned · {nuked} nuked · {backdoored} backdoored
           </span>
-          { targets > 0 &&
-          <>
-            <Spinner active />
-            <span style={{ color: colors.fg }}>{targets} left</span>
-          </>
-          }
+          {targets > 0 && (
+            <>
+              <Spinner active />
+              <span style={{ color: colors.fg }}>{targets} left</span>
+            </>
+          )}
         </Row>
       </Panel>
       <Modal

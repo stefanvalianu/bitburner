@@ -110,12 +110,15 @@ export class Allocator {
     // reserve it on the host
     sorted[0].ram -= ram;
 
-    return {
+    const lease = {
       leaseId: this.leaseIncrement++,
       hostname: sorted[0].hostname,
       ram: ram,
       cores: sorted[0].cores,
     };
+
+    this.leases.set(lease.leaseId, lease);
+    return lease;
   }
 
   // Callers should free their leases when they're done, otherwise the

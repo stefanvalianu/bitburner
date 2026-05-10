@@ -85,7 +85,7 @@ export class Allocator {
   // up to the requested ram. Useful if you're OK to grow script threads
   // irresponsibly large. If `ram` is not provided, will return the biggest
   // slot.
-  lease_up_to(ram?: number): Lease | null {
+  leaseUpTo(ram?: number): Lease | null {
     // let's always prefer highCPU nodes, we already own them, might as well use em
     const sorted = this.sortedHosts(false);
     if (sorted.length === 0) return null;

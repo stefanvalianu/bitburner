@@ -1,5 +1,6 @@
+import { Player } from "@ns";
 import { DashboardState } from "../../../dashboardTypes";
-import { TaskDefinition } from "../../types";
+import { TaskDefinition, TaskState } from "../../types";
 
 export const PLAYER_MONITOR_TASK_ID = "player-monitor";
 
@@ -10,13 +11,9 @@ export interface Inventory {
   programs: { name: string; owned: boolean }[];
 }
 
-export interface Stats {
-  hackingLevel: number;
-}
-
-export interface PlayerMonitorTaskState extends Record<string, unknown> {
-  inventory?: Inventory;
-  stats?: Stats;
+export interface PlayerMonitorTaskState extends TaskState {
+  inventory: Inventory;
+  player: Player;
 }
 
 export const playerMonitorTask: TaskDefinition = {

@@ -37,29 +37,34 @@ function SectionHeading({ children }: { children: string }) {
   );
 }
 
-export function PlayerPanelDialog() {
+export function ProgramsDialog() {
+  const { space } = useTheme();
   const { state } = useDashboardController();
   const playerState = getPlayerMonitorState(state);
 
+  if (playerState === undefined || playerState.inventory === undefined) {
+    return <>Missing State</>;
+  }
+
+  const inv = playerState.inventory;
+
   return (
-    <Col gap={4}>
-      {playerState === undefined || playerState.inventory === undefined ? (
-        <>Missing State</>
-      ) : (
-        <>
-          <SectionHeading>General</SectionHeading>
-          <BoolRow label="TOR router" ok={playerState.inventory.hasRouter} />
-          <BoolRow label="Formulas.exe" ok={playerState.inventory.hasFormulas} />
-          <SectionHeading>Port openers</SectionHeading>
-          {playerState.inventory.portOpeners.map((p) => (
-            <BoolRow key={p.name} label={p.name} ok={p.owned} />
-          ))}
-          <SectionHeading>Programs</SectionHeading>
-          {playerState.inventory.programs.map((p) => (
-            <BoolRow key={p.name} label={p.name} ok={p.owned} />
-          ))}
-        </>
-      )}
-    </Col>
+    <Row gap={space.lg} style={{ alignItems: "flex-start" }}>
+      <Col gap={4}>
+        <SectionHeading>General</SectionHeading>
+        <BoolRow label="TOR router" ok={inv.hasRouter} />
+        <BoolRow label="Formulas.exe" ok={inv.hasFormulas} />
+        <SectionHeading>Port openers</SectionHeading>
+        {inv.portOpeners.map((p) => (
+          <BoolRow key={p.name} label={p.name} ok={p.owned} />
+        ))}
+      </Col>
+      <Col gap={4}>
+        <SectionHeading>Programs</SectionHeading>
+        {inv.programs.map((p) => (
+          <BoolRow key={p.name} label={p.name} ok={p.owned} />
+        ))}
+      </Col>
+    </Row>
   );
 }

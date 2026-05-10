@@ -175,7 +175,7 @@ export function ServerMapDialog() {
   const { state } = useDashboardController();
 
   const playerState = getPlayerMonitorState(state);
-  const hackingLevel = playerState?.stats?.hackingLevel || 0;
+  const hackingLevel = playerState?.player.skills.hacking || 0;
 
   const byHost = useMemo(
     () => new Map(state.allServers.map((s) => [s.hostname, s])),

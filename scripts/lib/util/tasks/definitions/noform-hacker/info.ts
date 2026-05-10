@@ -1,5 +1,5 @@
 import { HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
-import { TaskDefinition } from "../../types";
+import { TaskDefinition, TaskState } from "../../types";
 
 export const NOFORM_HACKER_TASK_ID = "noform-hacker";
 
@@ -21,7 +21,7 @@ export interface ServerAnalysisReport {
   ranAt: number;
 }
 
-export interface NoformHackerTaskState extends Record<string, unknown> {
+export interface NoformHackerTaskState extends TaskState {
   targetReport: ServerAnalysisReport;
 
   currentTargets: string[];

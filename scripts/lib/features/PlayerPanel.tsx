@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Button } from "../ui/Button";
-import { FormulasIcon, PortsIcon, ProgramsIcon, TorIcon, WrenchIcon } from "../ui/Icons";
+import { FormulasIcon, PortsIcon, ProgramsIcon, TorIcon } from "../ui/Icons";
 import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { useTheme } from "../ui/theme";
@@ -8,15 +8,15 @@ import { useDashboardController } from "../util/useDashboardController";
 import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
 import { Spinner } from "../ui/Spinner";
 import { Modal } from "../ui/Modal";
-import { PlayerPanelDialog } from "./PlayerPanelDialog";
+import { ProgramsDialog } from "./ProgramsDialog";
 
-interface ToolItemProps {
+interface MissingItemProps {
   icon: ReactNode;
   label: string;
   detail?: string;
 }
 
-function ToolItem({ icon, label, detail }: ToolItemProps) {
+function MissingItem({ icon, label, detail }: MissingItemProps) {
   const { colors, space } = useTheme();
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: space.xs }}>
@@ -44,14 +44,22 @@ export function PlayerPanel() {
   const missingFormulas = !hasPlayerState || !playerState.inventory!.hasFormulas;
   const missingPrograms = !hasPlayerState || programsOwned < playerState.inventory!.programs.length;
 
+  // Once the game has reported an inventory and every item is owned, there's
+  // nothing left to shop for — hide the panel entirely. During loading
+  // (`!hasPlayerState`) every "missing" flag is true, so this never fires
+  // before the inventory check has actually run.
+  if (hasPlayerState && !missingTor && !missingPorts && !missingFormulas && !missingPrograms) {
+    return null;
+  }
+
   return (
     <>
       <Panel
-        title="Player"
+        title="Shopping list"
         actions={
           <Button onClick={() => setModalOpen(true)} disabled={!hasPlayerState}>
-            <WrenchIcon color={colors.warn} />
-            Tools
+            <ProgramsIcon color={colors.fg} />
+            Inventory
           </Button>
         }
       >
@@ -62,13 +70,13 @@ export function PlayerPanel() {
             <>
               {missingTor && (
                 <>
-                  <ToolItem icon={<TorIcon color={colors.warn} />} label="TOR router" />
+                  <MissingItem icon={<TorIcon color={colors.warn} />} label="TOR router" />
                   <span style={{ color: colors.fg }}>·</span>
                 </>
               )}
               {missingPorts && (
                 <>
-                  <ToolItem
+                  <MissingItem
                     icon={<PortsIcon color={colors.warn} />}
                     label="Port openers"
                     detail={`${portsOwned}/${playerState.inventory!.portOpeners.length}`}
@@ -78,23 +86,16 @@ export function PlayerPanel() {
               )}
               {missingFormulas && (
                 <>
-                  <ToolItem icon={<FormulasIcon color={colors.warn} />} label="Formulas.exe" />
+                  <MissingItem icon={<FormulasIcon color={colors.warn} />} label="Formulas.exe" />
                   <span style={{ color: colors.fg }}>·</span>
                 </>
-              )}
-              {missingPrograms && (
-                <ToolItem
-                  icon={<ProgramsIcon color={colors.warn} />}
-                  label="Programs"
-                  detail={`${programsOwned}/${playerState.inventory!.programs.length}`}
-                />
               )}
             </>
           )}
         </Row>
       </Panel>
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Player">
-        <PlayerPanelDialog />
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Inventory">
+        <ProgramsDialog />
       </Modal>
     </>
   );

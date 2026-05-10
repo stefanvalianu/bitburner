@@ -39,27 +39,6 @@ class PlayerMonitorTask extends BaseTask<PlayerMonitorTaskState> {
       await this.ns.asleep(10_000);
     }
   }
-
-  // Gets the % that a skill is at the next level, from 0 to 1. Needs formulas.exe,
-  // otherwise this cannot be computed and we return 0. TODO move this to UX only
-  /*private getSkillProgressPercentage(skill: TrainableSkill): number {
-    if (!this.hasFormulas()) {
-      return 0;
-    }
-
-type TrainableSkill = "hacking" | "strength" | "defense" | "dexterity" | "agility" | "charisma";
-    const currentLevel = this.player.skills[skill];
-    const currentExp = this.player.exp[skill];
-    const skillMult = this.player.mults[skill];
-
-    const currentLevelExp = this.ns.formulas.skills.calculateExp(currentLevel, skillMult);
-
-    const nextLevelExp = this.ns.formulas.skills.calculateExp(currentLevel + 1, skillMult);
-
-    const progress = (currentExp - currentLevelExp) / (nextLevelExp - currentLevelExp);
-
-    return Math.max(0, Math.min(1, progress));
-  }*/
 }
 
 export async function main(ns: NS): Promise<void> {

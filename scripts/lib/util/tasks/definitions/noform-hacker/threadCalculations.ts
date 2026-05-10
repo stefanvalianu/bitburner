@@ -15,7 +15,12 @@ export function findGrowWeakSplit(
   totalThreads: number,
   target: string,
   cores: number,
-): GrowWeakSplit {
+): GrowWeakSplit | undefined {
+  // A useful split needs at least one grow and one weaken. With only 0 or 1
+  // thread of room there is nothing to slice — return undefined and let the
+  // caller skip the lease.
+  if (totalThreads < 2) return undefined;
+
   let best: GrowWeakSplit | undefined;
 
   const check = (growThreads: number): GrowWeakSplit => {
@@ -33,8 +38,11 @@ export function findGrowWeakSplit(
     };
   };
 
-  let low = 0;
-  let high = totalThreads;
+  // Search [1, totalThreads-1]: enforce ≥1 grow and ≥1 weaken on every probe.
+  // Endpoints 0 and totalThreads are either degenerate (0 grow does no money
+  // work) or always unsafe (0 weaken can't absorb any grow security).
+  let low = 1;
+  let high = totalThreads - 1;
 
   while (low <= high) {
     const growThreads = Math.floor((low + high) / 2);
@@ -55,7 +63,7 @@ export function findGrowWeakSplit(
     }
   }
 
-  return best!;
+  return best;
 }
 
 interface HackWeakenGrowWeakenSplit {

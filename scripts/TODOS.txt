@@ -4,4 +4,3 @@
 - Add 'search' in the server map so we can quickly search for a server to jump to it
 - Add a "status" (weaken/grow/hack) to the noform hacker so we can display it in the task panel
 - need to incorporate a KILL ALL script without adding the command to the dashboard, which would increase ram cost over 8gb
-- subtle bug needs to be fixed in noform hacker where calculating thread splits can actually end with some threads being 0 in edge cases (super powerful player, etc)

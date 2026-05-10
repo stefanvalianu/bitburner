@@ -280,6 +280,13 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
 
       const growWeakSplit = findGrowWeakSplit(this.ns, maxThreads, target, availableLease.cores);
 
+      if (!growWeakSplit) {
+        // Lease too small to fit ≥1 grow + ≥1 weaken. Skip — the RAM will
+        // come back next round when (maybe) a larger lease is available.
+        this.log.warn("Lease too small for grow/weak split; skipping.", availableLease);
+        continue;
+      }
+
       const targetGrowFinishTime = nextFinishTime;
       const targetWeakFinishTime = nextFinishTime + BATCH_FRAME_OFFSET_MS;
 

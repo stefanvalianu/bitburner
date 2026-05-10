@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import type { Player } from "@ns";
+import type { NS, Player } from "@ns";
 import { Button } from "../ui/Button";
 import { Col } from "../ui/Col";
 import { FormulasIcon, PortsIcon, ProgramsIcon, TorIcon } from "../ui/Icons";
@@ -16,6 +16,30 @@ import {
 import { useDashboardController } from "../util/useDashboardController";
 import { ProgramsDialog } from "./ProgramsDialog";
 
+// Skills the player can train via game actions. Intelligence is excluded — the
+// game grants it as a side-effect of other actions and there's no dedicated
+// training loop, so a progress bar would be misleading.
+type TrainableSkill = "hacking" | "strength" | "defense" | "dexterity" | "agility" | "charisma";
+
+// Fraction of the way toward the next level for `skill`, in [0, 1]. Returns 0
+// when Formulas.exe isn't owned — `ns.formulas.skills.calculateExp` throws at
+// runtime without it, and we don't have a sensible fallback.
+function skillProgressPct(
+  ns: NS,
+  player: Player,
+  skill: TrainableSkill,
+  hasFormulas: boolean,
+): number {
+  if (!hasFormulas) return 0;
+  const currentLevel = player.skills[skill];
+  const currentExp = player.exp[skill];
+  const skillMult = player.mults[skill];
+  const currentLevelExp = ns.formulas.skills.calculateExp(currentLevel, skillMult);
+  const nextLevelExp = ns.formulas.skills.calculateExp(currentLevel + 1, skillMult);
+  const progress = (currentExp - currentLevelExp) / (nextLevelExp - currentLevelExp);
+  return Math.max(0, Math.min(1, progress));
+}
+
 export function PlayerPanel() {
   const { colors, space } = useTheme();
   const { state } = useDashboardController();
@@ -30,8 +54,8 @@ export function PlayerPanel() {
 
   const actions = (
     <Button onClick={() => setModalOpen(true)} disabled={!hasPlayerState}>
-      <ProgramsIcon color={colors.fg} />
-      Inventory
+      <ProgramsIcon color={colors.fg} title="View programs" />
+      Programs
     </Button>
   );
 
@@ -42,7 +66,10 @@ export function PlayerPanel() {
           <Spinner active label="Player state not generated yet..." />
         ) : (
           <Row gap={space.lg} style={{ alignItems: "flex-start" }}>
-            <PlayerStats player={playerState.player} />
+            <PlayerStats
+              player={playerState.player}
+              hasFormulas={playerState.inventory.hasFormulas}
+            />
             <Col gap={space.md} style={{ flex: 1, minWidth: 0 }}>
               <Location city={playerState.player.city} />
               <CrimeSection player={playerState.player} />
@@ -93,10 +120,16 @@ function StatRow({ label, value, valueColor }: StatRowProps) {
   );
 }
 
-function PlayerStats({ player }: { player: Player }) {
+interface PlayerStatsProps {
+  player: Player;
+  hasFormulas: boolean;
+}
+
+function PlayerStats({ player, hasFormulas }: PlayerStatsProps) {
   const { colors, space } = useTheme();
   const ns = useNs();
   const fmtInt = (n: number) => ns.format.number(n, 0);
+  const pct = (s: TrainableSkill) => skillProgressPct(ns, player, s, hasFormulas);
   return (
     <Col gap={space.xs} style={{ minWidth: 120, maxWidth: 160, flexShrink: 0 }}>
       <SectionHeading>Stats</SectionHeading>
@@ -107,13 +140,83 @@ function PlayerStats({ player }: { player: Player }) {
       />
       <StatRow label="$" value={ns.format.number(player.money, 2)} valueColor={colors.money} />
       <div style={{ borderTop: `1px solid ${colors.fgDim}`, margin: `${space.xs}px 0` }} />
-      <StatRow label="hck" value={fmtInt(player.skills.hacking)} valueColor={colors.hack} />
-      <StatRow label="str" value={fmtInt(player.skills.strength)} />
-      <StatRow label="def" value={fmtInt(player.skills.defense)} />
-      <StatRow label="dex" value={fmtInt(player.skills.dexterity)} />
-      <StatRow label="agi" value={fmtInt(player.skills.agility)} />
-      <StatRow label="cha" value={fmtInt(player.skills.charisma)} />
+      <SkillRow
+        label="hck"
+        value={fmtInt(player.skills.hacking)}
+        valueColor={colors.hack}
+        progress={pct("hacking")}
+      />
+      <SkillRow
+        label="str"
+        value={fmtInt(player.skills.strength)}
+        valueColor={colors.white}
+        progress={pct("strength")}
+      />
+      <SkillRow
+        label="def"
+        value={fmtInt(player.skills.defense)}
+        valueColor={colors.white}
+        progress={pct("defense")}
+      />
+      <SkillRow
+        label="dex"
+        value={fmtInt(player.skills.dexterity)}
+        valueColor={colors.white}
+        progress={pct("dexterity")}
+      />
+      <SkillRow
+        label="agi"
+        value={fmtInt(player.skills.agility)}
+        valueColor={colors.white}
+        progress={pct("agility")}
+      />
+      <SkillRow
+        label="cha"
+        value={fmtInt(player.skills.charisma)}
+        valueColor={colors.cha}
+        progress={pct("charisma")}
+      />
     </Col>
+  );
+}
+
+interface SkillRowProps {
+  label: string;
+  value: string;
+  valueColor: string;
+  progress: number;
+}
+
+// A stat row with a thin progress bar flush beneath the number — no gap, so
+// the bar visually reads as part of the row. The outer Col's gap separates
+// the row+bar pair from the next stat.
+function SkillRow({ label, value, valueColor, progress }: SkillRowProps) {
+  return (
+    <Col gap={0}>
+      <StatRow label={label} value={value} valueColor={valueColor} />
+      <ProgressBar value={progress} color={valueColor} />
+    </Col>
+  );
+}
+
+// Bar geometry pinned in pixels on both halves so subpixel rendering can't
+// give each row a slightly different height.
+const BAR_HEIGHT = 2;
+
+function ProgressBar({ value, color }: { value: number; color: string }) {
+  const { colors } = useTheme();
+  const pct = Math.max(0, Math.min(1, value)) * 100;
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: BAR_HEIGHT,
+        background: colors.muted,
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ width: `${pct}%`, height: BAR_HEIGHT, background: color }} />
+    </div>
   );
 }
 

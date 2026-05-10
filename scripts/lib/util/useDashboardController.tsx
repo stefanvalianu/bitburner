@@ -74,6 +74,7 @@ function snapshot(ns: NS): DashboardState {
     propagatedVersion: ns.read(".state/version.txt").trim(),
     allServers: findAllServers(ns, "home"),
     tasks: data?.tasks || {},
+    reallocating: data?.reallocating || false,
   };
 }
 
@@ -105,6 +106,7 @@ export function DashboardControllerProvider({
     const id = setInterval(() => {
       const newState = snapshot(ns);
       newState.tasks = taskManager.runTick(newState); // note the tick wil be wrong, but we don't use it for task management
+      newState.reallocating = taskManager.isReallocating();
 
       setState((prev) => {
         newState.tick = prev.tick + 1;
@@ -122,6 +124,7 @@ export function DashboardControllerProvider({
       if (newTaskState) {
         const newState = snapshot(ns);
         newState.tasks = newTaskState;
+        newState.reallocating = taskManager.isReallocating();
         newState.tick = state.tick;
         publishSnapshot(ns, newState);
       }
@@ -136,11 +139,10 @@ export function DashboardControllerProvider({
       if (newTaskState) {
         const newState = snapshot(ns);
         newState.tasks = newTaskState;
+        newState.reallocating = taskManager.isReallocating();
         newState.tick = state.tick; // no need to have a quick tick
         publishSnapshot(ns, newState);
       }
-
-      taskManager.shutdown(taskId);
     },
     [taskManager, state],
   );
@@ -150,7 +152,17 @@ export function DashboardControllerProvider({
     [taskManager],
   );
 
-  const reallocate = useCallback(() => taskManager.reallocate(), [taskManager]);
+  const reallocate = useCallback(() => {
+    const newTaskState = taskManager.reallocate();
+    if (newTaskState) {
+      const newState = snapshot(ns);
+      newState.tasks = newTaskState;
+      newState.reallocating = taskManager.isReallocating();
+      newState.tick = state.tick;
+      publishSnapshot(ns, newState);
+      setState(newState);
+    }
+  }, [taskManager, state, ns]);
 
   const controller = useMemo(
     () =>

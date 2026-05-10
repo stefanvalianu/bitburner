@@ -34,6 +34,11 @@ export interface DashboardState {
   // collection is the summation of all outputs of the different tasks.
   tasks: Record<TaskId, TaskState>;
 
+  // True while a reallocation cycle is in progress: unbounded tasks have been
+  // asked to shut down and the system is waiting to re-request them. New
+  // task starts and manual shutdowns are blocked while this is set.
+  reallocating: boolean;
+
   // TODO - user preferences should be here, so player interacting with the
   // dashboard changes these preferences, and tasks can consume those preferences
 }
@@ -52,6 +57,8 @@ export interface DashboardController {
   // a starved unbounded task and enough RAM slack for redistribution to help.
   shouldShowReallocate: (state: DashboardState) => boolean;
 
-  // Command to redistribute RAM across running tasks. Currently a stub.
+  // Command to redistribute RAM across running tasks: requests shutdown of
+  // unbounded tasks that aren't at their cap so they can be re-allocated
+  // fresh once they've terminated.
   reallocate: () => void;
 }

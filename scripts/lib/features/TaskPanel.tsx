@@ -85,22 +85,32 @@ export function TaskPanel() {
   }, [startable, ns]);
 
   const showReallocate = shouldShowReallocate(state);
+  const isReallocating = state.reallocating;
 
   const actions = (
     <Row gap={space.sm}>
       <span style={{ color: colors.muted, fontSize: "0.85em" }}>
         {`${ns.format.ram(allottedRam)} / ${ns.format.ram(totalRam)}`}
       </span>
-      {showReallocate && (
-        <Button onClick={() => reallocate()}>
-          <ShuffleIcon
-            color={colors.accent}
-            title="Reallocate tasks to better utilize new server capacity. Will request shutdown from unbound tasks."
-          />
-          {" Reallocate"}
-        </Button>
+      {isReallocating ? (
+        <Row gap={space.sm} style={{ alignItems: "center", color: colors.muted }}>
+          <Spinner active />
+          <span style={{ fontSize: "0.85em" }}>Reallocating…</span>
+        </Row>
+      ) : (
+        showReallocate && (
+          <Button onClick={() => reallocate()}>
+            <ShuffleIcon
+              color={colors.accent}
+              title="Reallocate tasks to better utilize new server capacity. Will request shutdown from unbound tasks."
+            />
+            {" Reallocate"}
+          </Button>
+        )
       )}
-      <Button onClick={() => setNewTaskOpen(true)}>+ New task</Button>
+      <Button onClick={() => setNewTaskOpen(true)} disabled={isReallocating}>
+        + New task
+      </Button>
     </Row>
   );
 
@@ -164,6 +174,7 @@ export function TaskPanel() {
                   key={id}
                   id={id}
                   slot={slot}
+                  disableShutdown={isReallocating}
                   onInfo={() => setAllocationModalId(id)}
                   onStop={() => setConfirmStopId(id)}
                   onUnpin={() => unpin(id)}
@@ -179,6 +190,7 @@ export function TaskPanel() {
                   id={id}
                   slot={slot}
                   canPin={hasCustomPanel(id)}
+                  disableShutdown={isReallocating}
                   onInfo={() => setAllocationModalId(id)}
                   onStop={() => setConfirmStopId(id)}
                   onPin={() => pin(id)}
@@ -342,18 +354,19 @@ interface TaskTileProps {
   id: string;
   slot: TaskState;
   canPin: boolean;
+  disableShutdown?: boolean;
   onInfo: () => void;
   onStop: () => void;
   onPin: () => void;
 }
 
-function TaskTile({ id, slot, canPin, onInfo, onStop, onPin }: TaskTileProps) {
+function TaskTile({ id, slot, canPin, disableShutdown, onInfo, onStop, onPin }: TaskTileProps) {
   const { colors, space } = useTheme();
   const ns = useNs();
 
   const slices = slot.allocation?.servers ?? [];
   const ram = slices.reduce((sum, s) => sum + s.ram, 0);
-  const canStop = slot.status === "running";
+  const canStop = slot.status === "running" && !disableShutdown;
   const canInspect = slot.allocation !== null;
 
   const statusColor =
@@ -420,19 +433,27 @@ function TaskTile({ id, slot, canPin, onInfo, onStop, onPin }: TaskTileProps) {
 interface PinnedTaskCardProps {
   id: string;
   slot: TaskState;
+  disableShutdown?: boolean;
   onInfo: () => void;
   onStop: () => void;
   onUnpin: () => void;
 }
 
-function PinnedTaskCard({ id, slot, onInfo, onStop, onUnpin }: PinnedTaskCardProps) {
+function PinnedTaskCard({
+  id,
+  slot,
+  disableShutdown,
+  onInfo,
+  onStop,
+  onUnpin,
+}: PinnedTaskCardProps) {
   const { colors, space } = useTheme();
   const ns = useNs();
 
   const Custom = TASK_CUSTOM_PANELS[id];
   const slices = slot.allocation?.servers ?? [];
   const ram = slices.reduce((sum, s) => sum + s.ram, 0);
-  const canStop = slot.status === "running";
+  const canStop = slot.status === "running" && !disableShutdown;
   const canInspect = slot.allocation !== null;
 
   const statusColor =

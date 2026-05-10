@@ -33,13 +33,30 @@ export class TaskManager {
 
   private state?: DashboardState | undefined;
 
+  // True while a reallocation cycle is in progress: unbounded tasks have been
+  // asked to shut down so their RAM can be returned to the pool, and we're
+  // waiting for them to die before re-requesting them. begin/shutdown/manual
+  // reallocate are all refused while this is set.
+  private reallocating: boolean = false;
+  // Task ids that were shut down for reallocation and need to be re-requested
+  // once they've all actually terminated.
+  private restartIds: Set<TaskId> = new Set();
+
   constructor(ns: NS, logger: Logger) {
     this.ns = ns;
     this.logger = logger;
   }
 
+  isReallocating(): boolean {
+    return this.reallocating;
+  }
+
   // Triggers the manual creation of one or more task(s) to be placed/ran
   begin(taskIds: TaskId[]): Record<TaskId, TaskState> | undefined {
+    if (this.reallocating) {
+      this.logger.warn("Cannot start tasks while reallocation is in progress");
+      return undefined;
+    }
     const next: Record<TaskId, TaskState> = {
       ...this.state!.tasks,
     };
@@ -74,6 +91,10 @@ export class TaskManager {
 
   // Attempts to gracefully shutdown a given taskId
   shutdown(taskId: TaskId): Record<TaskId, TaskState> | undefined {
+    if (this.reallocating) {
+      this.logger.warn(`Cannot shutdown ${taskId} while reallocation is in progress`);
+      return undefined;
+    }
     const slot = this.state?.tasks[taskId];
     if (!slot) return undefined;
     if (slot.status !== "running") return undefined;
@@ -123,6 +144,34 @@ export class TaskManager {
         }
 
         delete snap[id];
+      }
+    }
+
+    // 2.5 Reallocation finalize: once every task we asked to shut down has
+    //     actually terminated, re-add them as `requested` so the allocator
+    //     places them fresh, and exit the reallocating phase.
+    if (this.reallocating && this.restartIds.size > 0) {
+      let anyAlive = false;
+      for (const id of this.restartIds) {
+        if (snap[id]) {
+          anyAlive = true;
+          break;
+        }
+      }
+      if (!anyAlive) {
+        for (const id of this.restartIds) {
+          snap[id] = {
+            allocation: null,
+            childPids: [],
+            pid: null,
+            host: null,
+            shutdownRequested: false,
+            status: "requested",
+          };
+        }
+        this.logger.info(`reallocate: ${this.restartIds.size} task(s) terminated, re-requesting`);
+        this.restartIds.clear();
+        this.reallocating = false;
       }
     }
 
@@ -247,7 +296,7 @@ export class TaskManager {
         break;
       }
     }
-    if (unplaced) {
+    if (unplaced && !this.reallocating) {
       let hasRunningUnbounded = false;
       for (const id of running.keys()) {
         if (snap[id]?.status !== "running") continue; // skip stopping/shutdown-requested
@@ -256,13 +305,23 @@ export class TaskManager {
           break;
         }
       }
-      if (hasRunningUnbounded) this.reallocate();
+      if (hasRunningUnbounded) {
+        const ids = this.flagUnboundedForShutdown(snap);
+        if (ids.length > 0) {
+          this.reallocating = true;
+          this.restartIds = new Set(ids);
+          this.logger.info(
+            `reallocate: auto-triggered, requesting shutdown of ${ids.length} task(s): ${ids.join(", ")}`,
+          );
+        }
+      }
     }
 
     return snap;
   }
 
   shouldShowReallocate(state: DashboardState): boolean {
+    if (this.reallocating) return false;
     let total = 0;
     for (const s of state.allServers) {
       if (!s.hasAdminRights || s.maxRam <= 0) continue;
@@ -288,8 +347,34 @@ export class TaskManager {
     return false;
   }
 
-  reallocate(): void {
-    this.logger.info("Task reallocation beginning.");
+  reallocate(): Record<TaskId, TaskState> | undefined {
+    if (this.reallocating || !this.state) return undefined;
+    const next: Record<TaskId, TaskState> = { ...this.state.tasks };
+    const ids = this.flagUnboundedForShutdown(next);
+    if (ids.length === 0) return undefined;
+    this.reallocating = true;
+    this.restartIds = new Set(ids);
+    this.logger.info(`reallocate: requesting shutdown of ${ids.length} task(s): ${ids.join(", ")}`);
+    return next;
+  }
+
+  // Marks each running unbounded task whose allocation is below its cap (or
+  // uncapped) as `stopping`. Mutates `tasks` in place and returns the ids it
+  // touched. Used by both the manual reallocate() entrypoint and the
+  // auto-trigger inside runTick.
+  private flagUnboundedForShutdown(tasks: Record<TaskId, TaskState>): TaskId[] {
+    const ids: TaskId[] = [];
+    for (const [id, slot] of Object.entries(tasks)) {
+      if (slot.status !== "running") continue;
+      const def = TASK_BY_ID.get(id);
+      if (!def?.demand.unbounded) continue;
+      const allocRam = slot.allocation?.servers.reduce((s, x) => s + x.ram, 0) ?? 0;
+      const cap = def.demand.maxRamDemand;
+      if (cap != null && allocRam >= cap) continue;
+      tasks[id] = { ...slot, shutdownRequested: true, status: "stopping" };
+      ids.push(id);
+    }
+    return ids;
   }
 
   private drainEvents(): TaskEvent[] {

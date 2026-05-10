@@ -67,6 +67,7 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
         tick: -1,
         currentVersion: "0",
         propagatedVersion: "0",
+        reallocating: false,
       }
     );
   }

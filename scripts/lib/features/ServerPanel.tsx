@@ -8,7 +8,6 @@ import { Row } from "../ui/Row";
 import { Spinner } from "../ui/Spinner";
 import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
-import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
 import { Modal } from "../ui/Modal";
 import { ServerMapDialog } from "./ServerMapDialog";
 
@@ -34,40 +33,27 @@ export function ServerPanel() {
   ).length;
   const targets = state.allServers.length - playerOwned - nuked - backdoored;
 
-  // NUKE every pwnable server every gameState tick. The port-opener calls
-  // throw if the corresponding .exe isn't owned, so we gate each one on
-  // inventory. NUKE itself is unconditional — the pwnable filter already
-  // confirmed admin rights are missing and the requirements are met.
+  // Greedily try to nuke every server that might be nukable
   useEffect(() => {
-    const playerState = getPlayerMonitorState(state);
-    const ownedPortOpeners = playerState?.inventory?.portOpeners.filter((p) => p.owned).length || 0;
-    const hackingLevel = playerState?.stats?.hackingLevel || 0;
+    const targets = state.allServers.filter((s) => !s.hasAdminRights && !s.purchasedByPlayer);
 
-    const pwnable = state.allServers.filter(
-      (s) =>
-        !s.hasAdminRights &&
-        !s.purchasedByPlayer &&
-        hackingLevel >= (s.requiredHackingSkill || 0) &&
-        ownedPortOpeners >= (s.numOpenPortsRequired || 0),
-    );
+    let pwned: string[] = [];
 
-    if (pwnable.length === 0) return;
-    const PN = ns.enums.ProgramName;
-    const owned = new Set(
-      playerState?.inventory?.portOpeners.filter((p) => p.owned).map((p) => p.name),
-    );
-    for (const { hostname } of pwnable) {
-      if (owned.has(PN.bruteSsh)) ns.brutessh(hostname);
-      if (owned.has(PN.ftpCrack)) ns.ftpcrack(hostname);
-      if (owned.has(PN.relaySmtp)) ns.relaysmtp(hostname);
-      if (owned.has(PN.httpWorm)) ns.httpworm(hostname);
-      if (owned.has(PN.sqlInject)) ns.sqlinject(hostname);
-      ns.nuke(hostname);
+    for (const target of targets) {
+      ns.brutessh(target.hostname);
+      ns.ftpcrack(target.hostname);
+      ns.relaysmtp(target.hostname);
+      ns.httpworm(target.hostname);
+      ns.sqlinject(target.hostname);
+      if (ns.nuke(target.hostname)) {
+        pwned.push(target.hostname);
+      }
     }
-    log.info(
-      `nuked ${pwnable.length} target${pwnable.length === 1 ? "" : "s"}: ${pwnable.map((p) => p.hostname).join(", ")}`,
-    );
-  }, [ns, log, state]);
+
+    if (pwned.length > 0) {
+      log.info(`nuked ${pwned.length} target${pwned.length === 1 ? "" : "s"}: ${pwned.join(", ")}`);
+    }
+  }, [ns, log, state.tick]);
 
   return (
     <>

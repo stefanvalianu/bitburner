@@ -8,7 +8,7 @@ export interface ServerAnalysis {
   hackChance: number;
   maxMoney: number;
   maxTime: number;
-  
+
   profitScore: number;
 }
 

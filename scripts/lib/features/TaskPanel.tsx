@@ -367,20 +367,17 @@ function PinnedTaskCard({ id, slot, onInfo, onStop, onUnpin }: PinnedTaskCardPro
           <span style={{ color: colors.muted }}>• {ns.format.ram(ram, 0)}</span>
         </Row>
         <Row gap={space.sm} style={{ marginLeft: "auto" }}>
+          <Button onClick={onUnpin}>
+            <PinIcon color={colors.accent} title={`Unpin ${id}`} />
+          </Button>
           <Button onClick={onInfo} disabled={!canInspect}>
             <BracesIcon
               color={canInspect ? colors.accent : colors.muted}
               title="Allocation details"
             />
-            Details
-          </Button>
-          <Button onClick={onUnpin}>
-            <PinIcon color={colors.accent} title={`Unpin ${id}`} />
-            Unpin
           </Button>
           <Button onClick={onStop} variant="warn" disabled={!canStop}>
             <PowerIcon color={canStop ? colors.warn : colors.muted} title={`Stop ${id}`} />
-            Stop
           </Button>
         </Row>
       </Row>

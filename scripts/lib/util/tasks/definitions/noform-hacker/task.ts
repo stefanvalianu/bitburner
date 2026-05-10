@@ -259,10 +259,8 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       leases.push(lease);
     }
 
-    // let's get an estimate of how long it would take to finish this batch of scripts, and make sure we wait that long
     const weakTime = this.ns.getWeakenTime(target);
     const growTime = this.ns.getGrowTime(target);
-    const estimatedWaitTime = weakTime + growTime + 2 * BATCH_FRAME_OFFSET_MS;
 
     const weakenRam = this.ns.getScriptRam(WEAKEN_SCRIPT);
     const growRam = this.ns.getScriptRam(GROW_SCRIPT);
@@ -275,6 +273,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
     // to land at their desired finish times.
     let nextFinishTime =
       Math.max(growTime, weakTime - BATCH_FRAME_OFFSET_MS) + BATCH_FRAME_OFFSET_MS;
+    let lastFinishTime = 0;
 
     for (const availableLease of leases) {
       // assumption: weakenRam === growRam
@@ -313,6 +312,8 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
         pids: [pidGrow, pidWeaken],
       });
 
+      lastFinishTime = targetWeakFinishTime;
+
       // Reserve the next two landing slots:
       // current grow landed at T
       // current weaken landed at T + offset
@@ -322,7 +323,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
 
     await this.waitAndFreeTaskLeases(
       taskLeases,
-      estimatedWaitTime + BATCH_FRAME_OFFSET_MS,
+      lastFinishTime + BATCH_FRAME_OFFSET_MS,
       { 
         forceKillOnExit: true,
         shouldExitEarly: () => this.ns.peek(HACKING_SYSTEM_COMMUNICATION_PORT) !== "NULL PORT DATA"

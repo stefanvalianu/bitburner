@@ -10,6 +10,7 @@ import { PlayerPanel } from "./lib/features/PlayerPanel";
 import { ServerPanel } from "./lib/features/ServerPanel";
 import { TaskPanel } from "./lib/features/TaskPanel";
 import { DashboardPanel } from "./lib/ui/DashboardPanel";
+import { SkullIcon } from "./lib/ui/Icons";
 import { Row } from "./lib/ui/Row";
 import { useTheme, ThemeProvider } from "./lib/ui/theme";
 
@@ -36,6 +37,24 @@ function Dashboard() {
   );
 }
 
+// BFS from `home` so we hit every reachable host. `ns.killall`'s safetyguard
+// keeps the dashboard alive on home; on remote hosts the calling script isn't
+// running there, so the guard is a no-op and everything dies.
+function killAllScripts(ns: NS): void {
+  const visited = new Set<string>();
+  const queue = ["home"];
+  while (queue.length > 0) {
+    const host = queue.shift()!;
+    if (visited.has(host)) continue;
+    visited.add(host);
+    ns.killall(host);
+    for (const neighbor of ns.scan(host)) {
+      if (!visited.has(neighbor)) queue.push(neighbor);
+    }
+  }
+  ns.exit();
+}
+
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
   ns.clearLog();
@@ -52,8 +71,39 @@ export async function main(ns: NS): Promise<void> {
   ns.ui.moveTail(vpW - width - margin, margin);
   ns.ui.setTailMinimized(false);
   ns.ui.setTailTitle(
-    <div style={{ color: theme.primary, fontSize: 16, fontWeight: "bolder", padding: 4 }}>
-      <span style={{ color: theme.hack }}>⦾</span> Dashboard
+    <div
+      style={{
+        width: "100%",
+        boxSizing: "border-box",
+        display: "flex",
+        alignItems: "center",
+        padding: 4,
+      }}
+    >
+      <span
+        style={{
+          flex: 1,
+          color: theme.primary,
+          fontSize: 16,
+          fontWeight: "bolder",
+        }}
+      >
+        <span style={{ color: theme.hack }}>⦾</span> Dashboard
+      </span>
+      <button
+        onClick={() => killAllScripts(ns)}
+        title="Kill all scripts"
+        style={{
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          padding: 4,
+          display: "inline-flex",
+          alignItems: "center",
+        }}
+      >
+        <SkullIcon color={theme.error} />
+      </button>
     </div>,
   );
 

@@ -3,4 +3,3 @@
 - Obviously, need to work on a trading task. Probably safe to assume full market access instead of increments, we'll just wait to trade until we have the whole thing (??)
 - Add 'search' in the server map so we can quickly search for a server to jump to it
 - Add a "status" (weaken/grow/hack) to the noform hacker so we can display it in the task panel
-- need to incorporate a KILL ALL script without adding the command to the dashboard, which would increase ram cost over 8gb

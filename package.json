@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "tsx tools/sync-server.ts"
+    "start": "tsx tools/sync-server.ts",
+    "deploy": "tsx tools/deploy.ts",
+    "ram": "tsx tools/ram.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

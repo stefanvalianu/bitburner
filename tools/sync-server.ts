@@ -11,6 +11,9 @@ const DIST_DIR = resolve("dist");
 const SERVER = "home";
 // Built output is JS only; .ts/.tsx have already been compiled away.
 const VALID_EXT = /\.(js|jsx|txt|script)$/i;
+// Subset of VALID_EXT that the game's calculateRam understands. Plain .txt
+// files are data, not scripts, so we skip them.
+const RAM_EXT = /\.(js|jsx|script)$/i;
 // Runtime-managed state lives under .state/ on the server. Never push or
 // delete these — they belong to the running game, not the build.
 const isStateFile = (filename: string) => filename.startsWith(".state/");
@@ -41,9 +44,12 @@ async function* walk(dir: string): AsyncGenerator<string> {
   }
 }
 
-async function pushAll(ws: WebSocket): Promise<{ pushed: number; deleted: number }> {
+async function pushAll(
+  ws: WebSocket,
+): Promise<{ pushed: string[]; deleted: string[]; ram: Record<string, number> }> {
   const localFiles = new Set<string>();
-  let pushed = 0;
+  const pushed: string[] = [];
+  const ramTargets: string[] = [];
   for await (const abs of walk(DIST_DIR)) {
     const filename = toGameFilename(abs);
     if (!VALID_EXT.test(filename)) continue;
@@ -52,24 +58,38 @@ async function pushAll(ws: WebSocket): Promise<{ pushed: number; deleted: number
     const content = await readFile(abs, "utf8");
     await call(ws, "pushFile", { filename, content, server: SERVER });
     console.log(`→ ${filename}`);
-    pushed++;
+    pushed.push(filename);
+    if (RAM_EXT.test(filename)) ramTargets.push(filename);
   }
 
   // Mirror dist/: anything on the server matching our managed extensions but
   // missing locally gets removed. Restricted to VALID_EXT so game-managed
   // files (.lit/.msg/.cct, etc.) are left alone.
   const remote = (await call(ws, "getFileNames", { server: SERVER })) as string[];
-  let deleted = 0;
+  const deleted: string[] = [];
   for (const filename of remote) {
     if (!VALID_EXT.test(filename)) continue;
     if (isStateFile(filename)) continue;
     if (localFiles.has(filename)) continue;
     await call(ws, "deleteFile", { filename, server: SERVER });
     console.log(`✗ ${filename}`);
-    deleted++;
+    deleted.push(filename);
   }
 
-  return { pushed, deleted };
+  // Compute static RAM after pushes complete so the game's calculator sees
+  // the freshly-written file. One bad file shouldn't fail the deploy — log
+  // and skip; the client treats absence as "no data, leave manifest alone".
+  const ram: Record<string, number> = {};
+  for (const filename of ramTargets) {
+    try {
+      const cost = (await call(ws, "calculateRam", { filename, server: SERVER })) as number;
+      if (typeof cost === "number" && Number.isFinite(cost)) ram[filename] = cost;
+    } catch (e) {
+      console.error(`calculateRam failed for ${filename}:`, e);
+    }
+  }
+
+  return { pushed, deleted, ram };
 }
 
 let connectedWs: WebSocket | null = null;
@@ -128,13 +148,16 @@ const control = createServer(async (req, res) => {
       return;
     }
     try {
-      const { pushed, deleted } = await pushAll(connectedWs);
-      const msg = `Deployed ${pushed} file${pushed === 1 ? "" : "s"}, deleted ${deleted}.\n`;
-      console.log(msg.trim());
-      res.writeHead(200, { "content-type": "text/plain" }).end(msg);
+      const result = await pushAll(connectedWs);
+      console.log(
+        `Deployed ${result.pushed.length} file${result.pushed.length === 1 ? "" : "s"}, deleted ${result.deleted.length}.`,
+      );
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(result));
     } catch (e) {
       console.error("Deploy failed:", e);
-      res.writeHead(500, { "content-type": "text/plain" }).end(`Deploy failed: ${e}\n`);
+      res
+        .writeHead(500, { "content-type": "application/json" })
+        .end(JSON.stringify({ error: String(e) }));
     }
     return;
   }

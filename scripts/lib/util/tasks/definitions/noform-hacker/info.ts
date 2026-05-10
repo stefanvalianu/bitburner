@@ -37,6 +37,7 @@ export const noformHackerTask: TaskDefinition = {
   id: NOFORM_HACKER_TASK_ID,
   description:
     "Hacking controller script to be used before the user has unlocked access to Formulas APIs.",
+  category: "hacking",
   icon: "🥈",
   autostart: false,
   communicationPort: HACKING_SYSTEM_COMMUNICATION_PORT,

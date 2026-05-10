@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { NOFORM_HACKER_TASK_ID, NoformHackerTaskState, UserCommunicationRequest } from "./info";
+import { NOFORM_HACKER_TASK_ID, NoformHackerTaskState, Phase, ServerAnalysisReport, UserCommunicationRequest } from "./info";
 import { performAnalysis } from "./profitAnalysis";
 import { Lease } from "../../allocator";
 import { findGrowWeakSplit, findHackWeakenGrowWeakenSplit } from "./threadCalculations";
@@ -24,8 +24,19 @@ interface TaskLease {
 }
 
 class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
+  private phase: Phase;
+  private target: string;
+  private analysis: ServerAnalysisReport;
+
+  // note it's not possible to have user select a target before running this script
+  private userTarget?: string;
+
   constructor(ns: NS) {
     super(ns, NOFORM_HACKER_TASK_ID, THIS_SCRIPT);
+
+    this.phase = "hack";
+    this.analysis = performAnalysis(this.ns, this.snapshot.allServers);
+    this.target = this.analysis.analysis.length === 0 ? "n00dles" : this.analysis.analysis[0].hostname;
   }
 
   // This script works by computing "batches" and attempting to execute them
@@ -42,31 +53,18 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
   // scripts finish before going to the next step. This is obviously less efficient
   // but much easier to implement right now :)
   protected async run_task(): Promise<void> {
-    // first, let's get a thorough analysis of available targets to prioritize.
-    // for now, we'll only do 1 target at a time. this can be expanded to prioritize
-    // multiple targets depending on availability and batch frame length, but let's
-    // start simple (and we might have formulas.exe by the time that's relevant)
-    let analysis = performAnalysis(this.ns, this.snapshot.allServers);
-
-    if (analysis.analysis.length === 0) {
+    if (this.analysis.analysis.length === 0) {
       this.log.error("Analysis returned no results");
       return;
     }
 
-    let target = analysis.analysis[0].hostname;
-    this.patchState({
-      currentTargets: [target],
-      targetReport: analysis,
-    });
-    this.log.info(`Targetting ${target} for hacking.`);
-
-    // note it's not possible to have user select a target before running this script
-    let userTarget: string | undefined = undefined;
+    this.target = this.analysis.analysis[0].hostname;
+    this.patchTaskState();
+    this.log.info(`Targetting ${this.target} for hacking.`);
 
     // this should start at max-1 so it repairs on first run if server is not good
     let badSecurityChecks = MAX_SEQUENTIAL_BAD_CHECKS - 1;
     let badMoneyChecks = MAX_SEQUENTIAL_BAD_CHECKS - 1;
-    let state: "working" | "fix_security" | "fix_money" = "working";
 
     while (true) {
       if (this.shouldShutdown) {
@@ -83,76 +81,69 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       if (request) {
         if (request.targetServers.length > 0) {
           // swap to user's target
-          userTarget = request.targetServers[0];
-          target = userTarget;
+          this.userTarget = request.targetServers[0];
+          this.target = this.userTarget;
         } else {
           // go back to best option
-          userTarget = undefined;
-          target = analysis.analysis[0].hostname;
+          this.userTarget = undefined;
+          this.target = this.analysis.analysis[0].hostname;
         }
 
-        this.log.info(`Targetting ${target} due to user request.`);
+        this.log.info(`Targetting ${this.target} due to user request.`);
 
         // reset 'health' state
         badSecurityChecks = MAX_SEQUENTIAL_BAD_CHECKS - 1;
         badMoneyChecks = MAX_SEQUENTIAL_BAD_CHECKS - 1;
-        state = "working";
+        this.phase = "hack";
 
         this.teardown(false);
-        this.patchState({
-          currentTargets: [target],
-          userTargets: userTarget ? [userTarget] : undefined,
-          targetReport: analysis,
-        });
+        this.patchTaskState();
       }
 
-      const targetMinSecurity = this.ns.getServerMinSecurityLevel(target);
+      const targetMinSecurity = this.ns.getServerMinSecurityLevel(this.target);
       const targetAcceptableSecurity = targetMinSecurity * 1.05;
-      const targetMaxMoney = this.ns.getServerMaxMoney(target);
+      const targetMaxMoney = this.ns.getServerMaxMoney(this.target);
       const targetAcceptableMoney = targetMaxMoney * 0.95;
 
       // occasionally, recalculate the optimal target to focus our efforts on
-      if (Date.now() - analysis.ranAt >= ANALYSIS_MAX_STALENESS_MS) {
-        analysis = performAnalysis(this.ns, this.snapshot.allServers);
+      if (Date.now() - this.analysis.ranAt >= ANALYSIS_MAX_STALENESS_MS) {
+        this.analysis = performAnalysis(this.ns, this.snapshot.allServers);
 
-        if (analysis.analysis.length === 0) {
+        if (this.analysis.analysis.length === 0) {
           this.log.error("Analysis returned no results");
           this.teardown(true);
           return;
         }
 
-        const newTarget = analysis.analysis[0].hostname;
+        const newTarget = this.analysis.analysis[0].hostname;
 
-        if (!userTarget && newTarget !== target) {
-          this.log.info(`Priority target changed from ${target} to ${newTarget}`);
+        if (!this.userTarget && newTarget !== this.target) {
+          this.log.info(`Priority target changed from ${this.target} to ${newTarget}`);
           badSecurityChecks = MAX_SEQUENTIAL_BAD_CHECKS - 1;
           badMoneyChecks = MAX_SEQUENTIAL_BAD_CHECKS - 1;
           // kill child processes; TBD if we want to do this more gracefully (leaving money on table right now)
           // the thing is if we don't kill and enter repair right away, we're losing available resources on previous
           // scripts since repairs are essentially one-shots. potential to revisit TODO
           this.teardown(false);
-          state = "working";
-          target = newTarget;
+          this.phase = "hack";
+          this.target = newTarget;
         }
 
-        this.patchState({
-          currentTargets: [target],
-          targetReport: analysis,
-          userTargets: userTarget ? [userTarget] : undefined,
-        });
+        this.patchTaskState();
       }
 
       // let's see if somehow the target is in a "BAD_SECURITY" state, meaning
       // that the security is too far away from minimum. Since this is a spot
       // check, we should add a threshold of 3-in-a-row bad-security checks
       // to enter "repair mode"
-      const securityLevel = this.ns.getServerSecurityLevel(target);
+      const securityLevel = this.ns.getServerSecurityLevel(this.target);
       const securityBad = securityLevel > targetAcceptableSecurity;
 
-      if (state === "fix_security") {
+      if (this.phase === "fix_security") {
         if (!securityBad) {
-          this.log.info(`Target ${target} security fixed.`);
-          state = "working";
+          this.log.info(`Target ${this.target} security fixed.`);
+          this.phase = "hack";
+          this.patchTaskState();
           badSecurityChecks = 0;
         }
       } else {
@@ -161,29 +152,31 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
 
           if (badSecurityChecks >= MAX_SEQUENTIAL_BAD_CHECKS) {
             this.log.info(
-              `Target ${target} security is too high ${securityLevel} / ${targetMinSecurity}, need to repair it.`,
+              `Target ${this.target} security is too high ${securityLevel} / ${targetMinSecurity}, need to repair it.`,
             );
-            state = "fix_security";
+            this.phase = "fix_security";
+            this.patchTaskState();
           }
         } else {
           badSecurityChecks = Math.max(0, badSecurityChecks - 1);
         }
       }
 
-      if (state === "fix_security") {
-        await this.repairSecurity(target);
+      if (this.phase === "fix_security") {
+        await this.repairSecurity();
         continue;
       }
 
       // let's see if somehow the target is in a "BAD_MONEY" state, meaning
       // that the money is too far away from maximum.
-      const moneyAvailable = this.ns.getServerMoneyAvailable(target);
+      const moneyAvailable = this.ns.getServerMoneyAvailable(this.target);
       const moneyBad = moneyAvailable < targetAcceptableMoney;
 
-      if (state === "fix_money") {
+      if (this.phase === "fix_money") {
         if (!moneyBad) {
-          this.log.info(`Target ${target} money fixed.`);
-          state = "working";
+          this.log.info(`Target ${this.target} money fixed.`);
+          this.phase = "hack";
+          this.patchTaskState();
           badMoneyChecks = 0;
         }
       } else {
@@ -192,31 +185,32 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
 
           if (badMoneyChecks >= MAX_SEQUENTIAL_BAD_CHECKS) {
             this.log.info(
-              `Target ${target} money is too low ${moneyAvailable} / ${targetMaxMoney}, need to repair it.`,
+              `Target ${this.target} money is too low ${moneyAvailable} / ${targetMaxMoney}, need to repair it.`,
             );
-            state = "fix_money";
+            this.phase = "fix_money";
+            this.patchTaskState();
           }
         } else {
           badMoneyChecks = Math.max(0, badMoneyChecks - 1);
         }
       }
 
-      if (state === "fix_money") {
-        await this.repairMoney(target);
+      if (this.phase === "fix_money") {
+        await this.repairMoney();
         continue;
       }
 
-      if (state === "working") {
-        await this.hack(target);
+      if (this.phase === "hack") {
+        await this.hack();
         continue;
       }
 
-      this.log.error(`Reached unexpected condition, state is ${state}`);
+      this.log.error(`Reached unexpected condition, state is ${this.phase}`);
       await this.ns.asleep(1000); // prevent infinite loops in error conditions lol
     }
   }
 
-  private async repairSecurity(target: string): Promise<void> {
+  private async repairSecurity(): Promise<void> {
     // Per current implementation (naively consuming our whole allocation)
     // for the job-at-hand, we're simply going to spam weaken on all our
     // resources and wait for them to finish
@@ -229,10 +223,10 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
     }
 
     // let's get an estimate of how long it would take to finish this batch of scripts, and make sure we wait that long
-    const estimatedWaitTime = this.ns.getWeakenTime(target);
+    const estimatedWaitTime = this.ns.getWeakenTime(this.target);
 
     for (const availableLease of leases) {
-      const pid = this.runScript(WEAKEN_SCRIPT, availableLease, target);
+      const pid = this.runScript(WEAKEN_SCRIPT, availableLease, this.target);
       if (pid) {
         taskLeases.push({
           lease: availableLease,
@@ -247,7 +241,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
     });
   }
 
-  private async repairMoney(target: string): Promise<void> {
+  private async repairMoney(): Promise<void> {
     // Per current implementation we'll consume our entire allocation to run
     // as many pairs of Grow/Weaken as we can.
     let leases: Lease[] = [];
@@ -258,8 +252,8 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       leases.push(lease);
     }
 
-    const weakTime = this.ns.getWeakenTime(target);
-    const growTime = this.ns.getGrowTime(target);
+    const weakTime = this.ns.getWeakenTime(this.target);
+    const growTime = this.ns.getGrowTime(this.target);
 
     const weakenRam = this.ns.getScriptRam(WEAKEN_SCRIPT);
     const growRam = this.ns.getScriptRam(GROW_SCRIPT);
@@ -278,7 +272,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       // assumption: weakenRam === growRam
       const maxThreads = Math.floor(availableLease.ram / this.ns.getScriptRam(WEAKEN_SCRIPT));
 
-      const growWeakSplit = findGrowWeakSplit(this.ns, maxThreads, target, availableLease.cores);
+      const growWeakSplit = findGrowWeakSplit(this.ns, maxThreads, this.target, availableLease.cores);
 
       if (!growWeakSplit) {
         // Lease too small to fit ≥1 grow + ≥1 weaken. Skip — the RAM will
@@ -296,7 +290,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       const pidGrow = this.runScript(
         GROW_SCRIPT,
         availableLease,
-        target,
+        this.target,
         growWeakSplit.growThreads,
         growDelay,
       );
@@ -306,7 +300,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       const pidWeaken = this.runScript(
         WEAKEN_SCRIPT,
         availableLease,
-        target,
+        this.target,
         growWeakSplit.weakThreads,
         weakDelay,
       );
@@ -333,7 +327,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
     });
   }
 
-  private async hack(target: string): Promise<void> {
+  private async hack(): Promise<void> {
     const leases: Lease[] = [];
     const taskLeases: TaskLease[] = [];
 
@@ -343,9 +337,9 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       leases.push(lease);
     }
 
-    const weakTime = this.ns.getWeakenTime(target);
-    const growTime = this.ns.getGrowTime(target);
-    const hackTime = this.ns.getHackTime(target);
+    const weakTime = this.ns.getWeakenTime(this.target);
+    const growTime = this.ns.getGrowTime(this.target);
+    const hackTime = this.ns.getHackTime(this.target);
 
     const weakenRam = this.ns.getScriptRam(WEAKEN_SCRIPT);
     const growRam = this.ns.getScriptRam(GROW_SCRIPT);
@@ -365,7 +359,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       const split = findHackWeakenGrowWeakenSplit(
         this.ns,
         availableLease.ram,
-        target,
+        this.target,
         availableLease.cores,
         hackRam,
         weakenRam,
@@ -393,7 +387,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       const pidHack = this.runScript(
         HACK_SCRIPT,
         availableLease,
-        target,
+        this.target,
         split.hackThreads,
         hackDelay,
       );
@@ -403,7 +397,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       const pidHackWeaken = this.runScript(
         WEAKEN_SCRIPT,
         availableLease,
-        target,
+        this.target,
         split.hackWeakenThreads,
         hackWeakenDelay,
       );
@@ -413,7 +407,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       const pidGrow = this.runScript(
         GROW_SCRIPT,
         availableLease,
-        target,
+        this.target,
         split.growThreads,
         growDelay,
       );
@@ -423,7 +417,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       const pidGrowWeaken = this.runScript(
         WEAKEN_SCRIPT,
         availableLease,
-        target,
+        this.target,
         split.growWeakenThreads,
         growWeakenDelay,
       );
@@ -445,6 +439,14 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
     await this.waitAndFreeTaskLeases(taskLeases, lastFinishTime + BATCH_FRAME_OFFSET_MS, {
       forceKillOnExit: true,
       shouldExitEarly: () => this.ns.peek(HACKING_SYSTEM_COMMUNICATION_PORT) !== "NULL PORT DATA",
+    });
+  }
+
+  private patchTaskState(): void {
+    this.patchState({
+      currentTargets: [{ phase: this.phase, hostname: this.target}],
+      targetReport: this.analysis,
+      userTargets: this.userTarget ? [this.userTarget] : undefined
     });
   }
 }

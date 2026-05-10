@@ -43,7 +43,7 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
     return <span style={{ color: colors.muted }}>No analysis yet — first scan pending.</span>;
   }
 
-  const currentSet = new Set(currentTargets);
+  const currentSet = new Set(currentTargets.map(t => t.hostname));
   const userSet = new Set(userTargets);
   const totalCount = report.analysis.length;
 
@@ -60,7 +60,7 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
     ns.writePort(
       HACKING_SYSTEM_COMMUNICATION_PORT,
       JSON.stringify({
-        targetServers: currentTargets.filter((t) => t !== hostname),
+        targetServers: currentTargets.filter((t) => t.hostname !== hostname).map(t => t.hostname),
       } satisfies UserCommunicationRequest),
     );
   };

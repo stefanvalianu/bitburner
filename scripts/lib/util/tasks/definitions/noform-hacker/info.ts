@@ -21,10 +21,18 @@ export interface ServerAnalysisReport {
   ranAt: number;
 }
 
+export type Phase = "hack" | "fix_security" | "fix_money";
+
+export interface HackState {
+  hostname: string;
+  phase: Phase;
+}
+
 export interface NoformHackerTaskState extends TaskState {
   targetReport: ServerAnalysisReport;
 
-  currentTargets: string[];
+  currentTargets: HackState[];
+  
   userTargets: string[];
 }
 

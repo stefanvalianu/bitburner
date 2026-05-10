@@ -131,8 +131,8 @@ export abstract class BaseSpawnerTask<
         this.log.info("Exiting wait early");
 
         if (forceKill) {
-          taskLeases.forEach(lease => {
-            lease.pids.forEach(pid => this.ns.kill(pid));
+          taskLeases.forEach((lease) => {
+            lease.pids.forEach((pid) => this.ns.kill(pid));
             this.allocator.return(lease.lease.leaseId);
           });
         }
@@ -169,8 +169,8 @@ export abstract class BaseSpawnerTask<
 
     if (remaining.length > 0) {
       if (forceKill) {
-        taskLeases.forEach(lease => {
-          lease.pids.forEach(pid => this.ns.kill(pid));
+        taskLeases.forEach((lease) => {
+          lease.pids.forEach((pid) => this.ns.kill(pid));
           this.allocator.return(lease.lease.leaseId);
         });
         this.log.warn(`Forcefully ended ${remaining.length} leases and their process ids`);

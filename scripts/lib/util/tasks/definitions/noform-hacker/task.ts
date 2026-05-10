@@ -239,13 +239,10 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       }
     }
 
-    await this.waitAndFreeTaskLeases(
-      taskLeases,
-      estimatedWaitTime + BATCH_FRAME_OFFSET_MS,
-      { 
-        forceKillOnExit: true,
-        shouldExitEarly: () => this.ns.peek(HACKING_SYSTEM_COMMUNICATION_PORT) !== "NULL PORT DATA"
-      });
+    await this.waitAndFreeTaskLeases(taskLeases, estimatedWaitTime + BATCH_FRAME_OFFSET_MS, {
+      forceKillOnExit: true,
+      shouldExitEarly: () => this.ns.peek(HACKING_SYSTEM_COMMUNICATION_PORT) !== "NULL PORT DATA",
+    });
   }
 
   private async repairMoney(target: string): Promise<void> {
@@ -321,13 +318,10 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       nextFinishTime += 2 * BATCH_FRAME_OFFSET_MS;
     }
 
-    await this.waitAndFreeTaskLeases(
-      taskLeases,
-      lastFinishTime + BATCH_FRAME_OFFSET_MS,
-      { 
-        forceKillOnExit: true,
-        shouldExitEarly: () => this.ns.peek(HACKING_SYSTEM_COMMUNICATION_PORT) !== "NULL PORT DATA"
-      });
+    await this.waitAndFreeTaskLeases(taskLeases, lastFinishTime + BATCH_FRAME_OFFSET_MS, {
+      forceKillOnExit: true,
+      shouldExitEarly: () => this.ns.peek(HACKING_SYSTEM_COMMUNICATION_PORT) !== "NULL PORT DATA",
+    });
   }
 
   private async hack(target: string): Promise<void> {
@@ -439,13 +433,10 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       nextFinishTime += 4 * BATCH_FRAME_OFFSET_MS;
     }
 
-    await this.waitAndFreeTaskLeases(
-      taskLeases, 
-      lastFinishTime + BATCH_FRAME_OFFSET_MS,
-      { 
-        forceKillOnExit: true,
-        shouldExitEarly: () => this.ns.peek(HACKING_SYSTEM_COMMUNICATION_PORT) !== "NULL PORT DATA"
-      });
+    await this.waitAndFreeTaskLeases(taskLeases, lastFinishTime + BATCH_FRAME_OFFSET_MS, {
+      forceKillOnExit: true,
+      shouldExitEarly: () => this.ns.peek(HACKING_SYSTEM_COMMUNICATION_PORT) !== "NULL PORT DATA",
+    });
   }
 }
 

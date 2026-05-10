@@ -23,6 +23,7 @@ export const playerMonitorTask: TaskDefinition = {
   id: PLAYER_MONITOR_TASK_ID,
   description:
     "Responsible for monitoring the player state and reporting it. Includes things like attributes, money, purchased hacks, etc.",
+  icon: "🩻",
   autostart: true,
   demand: {
     priority: "critical",

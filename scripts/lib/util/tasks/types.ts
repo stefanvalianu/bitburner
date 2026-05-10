@@ -72,6 +72,7 @@ export type TaskEvent =
 export interface TaskDefinition {
   id: TaskId;
   demand: DemandSpec;
+  icon?: string;
   description: string;
 
   // Whether the manager should always try to keep this task running.

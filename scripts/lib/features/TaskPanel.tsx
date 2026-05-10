@@ -144,6 +144,7 @@ export function TaskPanel() {
                         letterSpacing: "0.02em",
                       }}
                     >
+                      {def.icon}
                       {def.id}
                     </span>
                   </Row>

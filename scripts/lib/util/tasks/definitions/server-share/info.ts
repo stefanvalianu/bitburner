@@ -11,6 +11,6 @@ export const serverShareTask: TaskDefinition = {
   demand: {
     priority: "normal",
     unbounded: true,
-    maxRamDemand: 256,
+    maxRamDemand: 1024,
   },
 };

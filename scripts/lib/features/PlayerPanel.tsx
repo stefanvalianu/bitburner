@@ -257,13 +257,11 @@ function ShoppingItem({ icon, label, detail }: ShoppingItemProps) {
 function ShoppingList({ inventory }: { inventory: Inventory }) {
   const { colors, space } = useTheme();
   const portsOwned = inventory.portOpeners.filter((p) => p.owned).length;
-  const programsOwned = inventory.programs.filter((p) => p.owned).length;
   const missingTor = !inventory.hasRouter;
   const missingPorts = portsOwned < inventory.portOpeners.length;
   const missingFormulas = !inventory.hasFormulas;
-  const missingPrograms = programsOwned < inventory.programs.length;
 
-  if (!missingTor && !missingPorts && !missingFormulas && !missingPrograms) {
+  if (!missingTor && !missingPorts && !missingFormulas) {
     return null;
   }
 
@@ -281,13 +279,6 @@ function ShoppingList({ inventory }: { inventory: Inventory }) {
         )}
         {missingFormulas && (
           <ShoppingItem icon={<FormulasIcon color={colors.warn} />} label="Formulas.exe" />
-        )}
-        {missingPrograms && (
-          <ShoppingItem
-            icon={<ProgramsIcon color={colors.warn} />}
-            label="Programs"
-            detail={`${programsOwned}/${inventory.programs.length}`}
-          />
         )}
       </Row>
     </Col>

@@ -6,6 +6,9 @@ import {
   ChevronDownIcon,
   ChevronUpDownIcon,
   ChevronUpIcon,
+  HackIcon,
+  LockIcon,
+  MoneyBagIcon,
   TargetIcon,
   UntargetIcon,
 } from "../../../../ui/Icons";
@@ -43,7 +46,8 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
     return <span style={{ color: colors.muted }}>No analysis yet — first scan pending.</span>;
   }
 
-  const currentSet = new Set(currentTargets.map(t => t.hostname));
+  const currentSet = new Set(currentTargets.map((t) => t.hostname));
+  const phaseByHost = new Map(currentTargets.map((t) => [t.hostname, t.phase]));
   const userSet = new Set(userTargets);
   const totalCount = report.analysis.length;
 
@@ -60,7 +64,7 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
     ns.writePort(
       HACKING_SYSTEM_COMMUNICATION_PORT,
       JSON.stringify({
-        targetServers: currentTargets.filter((t) => t.hostname !== hostname).map(t => t.hostname),
+        targetServers: currentTargets.filter((t) => t.hostname !== hostname).map((t) => t.hostname),
       } satisfies UserCommunicationRequest),
     );
   };
@@ -195,8 +199,40 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
                     </Button>
                   )}
                 </span>
-                <span style={{ color: isCurrent ? colors.accent : colors.fg, flex: 2 }}>
+                <span
+                  style={{
+                    color: isCurrent ? colors.accent : colors.fg,
+                    flex: 2,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
                   {row.hostname}
+                  {isCurrent &&
+                    (() => {
+                      const phase = phaseByHost.get(row.hostname);
+                      if (phase === "fix_security") {
+                        return (
+                          <LockIcon
+                            color={colors.accent}
+                            title={`${row.hostname}: lowering security`}
+                          />
+                        );
+                      }
+                      if (phase === "fix_money") {
+                        return (
+                          <MoneyBagIcon
+                            color={colors.accent}
+                            title={`${row.hostname}: growing money`}
+                          />
+                        );
+                      }
+                      if (phase === "hack") {
+                        return <HackIcon color={colors.hack} title={`${row.hostname}: hacking`} />;
+                      }
+                      return null;
+                    })()}
                 </span>
                 <span style={{ color: colors.fg, flex: 1, textAlign: "right" }}>
                   {ns.format.percent(row.hackChance, 1)}

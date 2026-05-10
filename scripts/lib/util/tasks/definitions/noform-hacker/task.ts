@@ -1,5 +1,11 @@
 import { NS } from "@ns";
-import { NOFORM_HACKER_TASK_ID, NoformHackerTaskState, Phase, ServerAnalysisReport, UserCommunicationRequest } from "./info";
+import {
+  NOFORM_HACKER_TASK_ID,
+  NoformHackerTaskState,
+  Phase,
+  ServerAnalysisReport,
+  UserCommunicationRequest,
+} from "./info";
 import { performAnalysis } from "./profitAnalysis";
 import { Lease } from "../../allocator";
 import { findGrowWeakSplit, findHackWeakenGrowWeakenSplit } from "./threadCalculations";
@@ -36,7 +42,8 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
 
     this.phase = "hack";
     this.analysis = performAnalysis(this.ns, this.snapshot.allServers);
-    this.target = this.analysis.analysis.length === 0 ? "n00dles" : this.analysis.analysis[0].hostname;
+    this.target =
+      this.analysis.analysis.length === 0 ? "n00dles" : this.analysis.analysis[0].hostname;
   }
 
   // This script works by computing "batches" and attempting to execute them
@@ -272,7 +279,12 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       // assumption: weakenRam === growRam
       const maxThreads = Math.floor(availableLease.ram / this.ns.getScriptRam(WEAKEN_SCRIPT));
 
-      const growWeakSplit = findGrowWeakSplit(this.ns, maxThreads, this.target, availableLease.cores);
+      const growWeakSplit = findGrowWeakSplit(
+        this.ns,
+        maxThreads,
+        this.target,
+        availableLease.cores,
+      );
 
       if (!growWeakSplit) {
         // Lease too small to fit ≥1 grow + ≥1 weaken. Skip — the RAM will
@@ -444,9 +456,9 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
 
   private patchTaskState(): void {
     this.patchState({
-      currentTargets: [{ phase: this.phase, hostname: this.target}],
+      currentTargets: [{ phase: this.phase, hostname: this.target }],
       targetReport: this.analysis,
-      userTargets: this.userTarget ? [this.userTarget] : undefined
+      userTargets: this.userTarget ? [this.userTarget] : undefined,
     });
   }
 }

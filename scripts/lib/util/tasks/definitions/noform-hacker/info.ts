@@ -32,7 +32,7 @@ export interface NoformHackerTaskState extends TaskState {
   targetReport: ServerAnalysisReport;
 
   currentTargets: HackState[];
-  
+
   userTargets: string[];
 }
 

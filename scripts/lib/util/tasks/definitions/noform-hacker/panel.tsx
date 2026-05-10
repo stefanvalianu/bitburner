@@ -2,7 +2,13 @@ import { useState } from "react";
 import type { TaskCustomPanel } from "../../../../features/taskCustomPanels";
 import { Button } from "../../../../ui/Button";
 import { Col } from "../../../../ui/Col";
-import { TargetIcon, UntargetIcon } from "../../../../ui/Icons";
+import {
+  ChevronDownIcon,
+  ChevronUpDownIcon,
+  ChevronUpIcon,
+  TargetIcon,
+  UntargetIcon,
+} from "../../../../ui/Icons";
 import { Row } from "../../../../ui/Row";
 import { useTheme } from "../../../../ui/theme";
 import { useNs } from "../../../ns";
@@ -15,11 +21,16 @@ import {
 import { HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 import { formatDuration } from "../../../formatting";
 
+type SortColumn = "hostname" | "hackChance" | "maxMoney" | "maxTime" | "profitScore";
+type SortDirection = "asc" | "desc";
+type SortState = { column: SortColumn; direction: SortDirection } | null;
+
 export const NoformHackerPanel: TaskCustomPanel = () => {
   const { colors, space } = useTheme();
   const ns = useNs();
   const { state } = useDashboardController();
   const [expanded, setExpanded] = useState(false);
+  const [sort, setSort] = useState<SortState>(null);
 
   const taskState = state.tasks[NOFORM_HACKER_TASK_ID] as unknown as
     | NoformHackerTaskState
@@ -54,9 +65,61 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
     );
   };
 
-  const rows = expanded
+  const visibleRows = expanded
     ? report.analysis
     : report.analysis.filter((a) => currentSet.has(a.hostname));
+
+  const rows = sort
+    ? [...visibleRows].sort((a, b) => {
+        const av = a[sort.column];
+        const bv = b[sort.column];
+        const cmp =
+          typeof av === "string" && typeof bv === "string"
+            ? av.localeCompare(bv)
+            : (av as number) - (bv as number);
+        return sort.direction === "asc" ? cmp : -cmp;
+      })
+    : visibleRows;
+
+  const handleHeaderClick = (column: SortColumn) => {
+    setSort((prev) => {
+      if (!prev || prev.column !== column) return { column, direction: "asc" };
+      if (prev.direction === "asc") return { column, direction: "desc" };
+      return null;
+    });
+  };
+
+  const renderHeader = (label: string, column: SortColumn, flex: number, align: "left" | "right") => {
+    const isActive = sort?.column === column;
+    const direction = isActive ? sort!.direction : null;
+    const chevronColor = isActive ? colors.accent : colors.fgDim;
+    const chevron =
+      direction === "asc" ? (
+        <ChevronUpIcon color={chevronColor} size={10} />
+      ) : direction === "desc" ? (
+        <ChevronDownIcon color={chevronColor} size={10} />
+      ) : (
+        <ChevronUpDownIcon color={chevronColor} size={10} />
+      );
+    return (
+      <span
+        onClick={() => handleHeaderClick(column)}
+        style={{
+          color: isActive ? colors.fg : colors.muted,
+          flex,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: align === "right" ? "flex-end" : "flex-start",
+          gap: 4,
+          cursor: "pointer",
+          userSelect: "none",
+        }}
+      >
+        {label}
+        {chevron}
+      </span>
+    );
+  };
 
   const ageSeconds = Math.max(0, Math.floor((Date.now() - report.ranAt) / 1000));
   const ageLabel =
@@ -89,11 +152,11 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
           }}
         >
           <span style={{ width: 32, flexShrink: 0 }} />
-          <span style={{ color: colors.muted, flex: 2 }}>hostname</span>
-          <span style={{ color: colors.muted, flex: 1, textAlign: "right" }}>hack chance</span>
-          <span style={{ color: colors.muted, flex: 1, textAlign: "right" }}>max money</span>
-          <span style={{ color: colors.muted, flex: 1, textAlign: "right" }}>time</span>
-          <span style={{ color: colors.muted, flex: 1, textAlign: "right" }}>priority</span>
+          {renderHeader("hostname", "hostname", 2, "left")}
+          {renderHeader("hack chance", "hackChance", 1, "right")}
+          {renderHeader("max money", "maxMoney", 1, "right")}
+          {renderHeader("time", "maxTime", 1, "right")}
+          {renderHeader("priority", "profitScore", 1, "right")}
         </Row>
         {rows.length === 0 ? (
           <span style={{ color: colors.muted, fontSize: "0.85em" }}>

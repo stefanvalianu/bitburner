@@ -68,10 +68,14 @@ export function ServerPanel() {
       >
         <Row gap={space.sm}>
           <span style={{ color: colors.fg }}>
-            {playerOwned} owned · {nuked} nuked · {backdoored} backdoored ·
+            {playerOwned} owned · {nuked} nuked · {backdoored} backdoored
           </span>
-          <Spinner active={targets > 0} />
-          <span style={{ color: colors.fg }}>{targets} left</span>
+          { targets > 0 &&
+          <>
+            <Spinner active />
+            <span style={{ color: colors.fg }}>{targets} left</span>
+          </>
+          }
         </Row>
       </Panel>
       <Modal

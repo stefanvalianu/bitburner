@@ -226,6 +226,31 @@ export function PinIcon({ color, title = "Pin", size }: NamedIconProps) {
   );
 }
 
+export function ChevronUpIcon({ color, title = "Sort ascending", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <path d="M3 10 L8 5 L13 10" />
+    </Icon>
+  );
+}
+
+export function ChevronDownIcon({ color, title = "Sort descending", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <path d="M3 6 L8 11 L13 6" />
+    </Icon>
+  );
+}
+
+export function ChevronUpDownIcon({ color, title = "Sort", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <path d="M4 6 L8 3 L12 6" />
+      <path d="M4 10 L8 13 L12 10" />
+    </Icon>
+  );
+}
+
 export function MoneyBagIcon({ color, title = "Money", size }: NamedIconProps) {
   return (
     <Icon color={color} title={title} size={size}>

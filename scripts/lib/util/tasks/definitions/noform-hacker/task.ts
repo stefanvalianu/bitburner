@@ -1,10 +1,11 @@
 import { NS } from "@ns";
-import { NOFORM_HACKER_TASK_ID, NoformHackerTaskState } from "./info";
+import { NOFORM_HACKER_TASK_ID, NoformHackerTaskState, UserCommunicationRequest } from "./info";
 import { performAnalysis } from "./profitAnalysis";
 import { Lease } from "../../allocator";
 import { findGrowWeakSplit, findHackWeakenGrowWeakenSplit } from "./threadCalculations";
 import { BaseSpawnerTask } from "../../baseSpawnerTask";
 import { WEAKEN_SCRIPT, GROW_SCRIPT, HACK_SCRIPT } from "../../../script/constants";
+import { getPortData, HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 
 // number of miliseconds to aim for between batched operations
 const BATCH_FRAME_OFFSET_MS = 50;
@@ -59,6 +60,9 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
     });
     this.log.info(`Targetting ${target} for hacking.`);
 
+    // note it's not possible to have user select a target before running this script
+    let userTarget: string | undefined = undefined;
+
     // this should start at max-1 so it repairs on first run if server is not good
     let badSecurityChecks = MAX_SEQUENTIAL_BAD_CHECKS - 1;
     let badMoneyChecks = MAX_SEQUENTIAL_BAD_CHECKS - 1;
@@ -68,6 +72,31 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       if (this.shouldShutdown) {
         this.teardown(true);
         return;
+      }
+
+      const request = getPortData<UserCommunicationRequest>(
+        this.ns,
+        HACKING_SYSTEM_COMMUNICATION_PORT,
+        true,
+      );
+      if (request) {
+        if (request.targetServers.length > 0) {
+          this.log.info(`Targetting ${target} due to user request.`);
+          
+          userTarget = request.targetServers[0];
+          target = userTarget;
+          badSecurityChecks = MAX_SEQUENTIAL_BAD_CHECKS - 1;
+          badMoneyChecks = MAX_SEQUENTIAL_BAD_CHECKS - 1;
+          state = "working";
+
+          this.teardown(false);
+          this.patchState({
+            currentTargets: [target],
+            targetReport: analysis,
+          });
+        } else {
+          userTarget = undefined;
+        }
       }
 
       const targetMinSecurity = this.ns.getServerMinSecurityLevel(target);
@@ -87,7 +116,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
 
         const newTarget = analysis.analysis[0].hostname;
 
-        if (newTarget !== target) {
+        if (!userTarget && newTarget !== target) {
           this.log.info(`Priority target changed from ${target} to ${newTarget}`);
           badSecurityChecks = MAX_SEQUENTIAL_BAD_CHECKS - 1;
           badMoneyChecks = MAX_SEQUENTIAL_BAD_CHECKS - 1;

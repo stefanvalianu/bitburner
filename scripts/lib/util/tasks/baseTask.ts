@@ -1,6 +1,6 @@
 import type { NS } from "@ns";
 import { createLogger, type Logger } from "../logging/log";
-import { TASK_EVENTS_PORT, DASHBOARD_STATE_PORT } from "../ports";
+import { TASK_EVENTS_PORT, DASHBOARD_STATE_PORT, getPortData } from "../ports";
 import type { Allocation, TaskEvent, TaskId, TaskState } from "./types";
 import { DashboardState } from "../dashboardTypes";
 
@@ -58,26 +58,17 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
   // Full task-state snapshot. Useful for cross-task reads (e.g. hack reading
   // scout's published target).
   protected get snapshot(): DashboardState {
-    const raw = this.ns.peek(DASHBOARD_STATE_PORT);
-    if (raw === "NULL PORT DATA")
-      return {
+    const data = getPortData<DashboardState>(this.ns, DASHBOARD_STATE_PORT);
+
+    return (
+      data ?? {
         allServers: [],
         tasks: {},
         tick: -1,
         currentVersion: "0",
         propagatedVersion: "0",
-      };
-    try {
-      return JSON.parse(raw as string) as DashboardState;
-    } catch {
-      return {
-        allServers: [],
-        tasks: {},
-        tick: -1,
-        currentVersion: "0",
-        propagatedVersion: "0",
-      };
-    }
+      }
+    );
   }
 
   // True iff the manager has flagged us for shutdown. Subclasses should

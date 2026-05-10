@@ -1,3 +1,4 @@
+import { HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 import { TaskDefinition } from "../../types";
 
 export const NOFORM_HACKER_TASK_ID = "noform-hacker";
@@ -24,6 +25,12 @@ export interface NoformHackerTaskState extends Record<string, unknown> {
   targetReport: ServerAnalysisReport;
 
   currentTargets: string[];
+  userTargets: string[];
+}
+
+export interface UserCommunicationRequest {
+  // Which servers should the noform hacker target
+  targetServers: string[];
 }
 
 export const noformHackerTask: TaskDefinition = {
@@ -32,7 +39,7 @@ export const noformHackerTask: TaskDefinition = {
     "Hacking controller script to be used before the user has unlocked access to Formulas APIs.",
   icon: "🥈",
   autostart: false,
-  communicationPort: 10,
+  communicationPort: HACKING_SYSTEM_COMMUNICATION_PORT,
   demand: {
     priority: "normal",
     unbounded: true,

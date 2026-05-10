@@ -17,7 +17,7 @@ import {
 import type { NS } from "@ns";
 import { useNs } from "./ns";
 import { TaskId } from "./tasks/types";
-import { DASHBOARD_STATE_PORT } from "./ports";
+import { DASHBOARD_STATE_PORT, getPortData } from "./ports";
 import { DashboardController, DashboardState, ServerInfo } from "./dashboardTypes";
 import { TaskManager } from "./tasks/taskManager";
 import { useLogger } from "./logging/log";
@@ -66,14 +66,7 @@ function findAllServers(ns: NS, root: string = "home"): ServerInfo[] {
 }
 
 function snapshot(ns: NS): DashboardState {
-  const raw = ns.peek(DASHBOARD_STATE_PORT);
-  let data: DashboardState | undefined = undefined;
-
-  if (raw !== "NULL PORT DATA") {
-    try {
-      data = JSON.parse(raw as string) as DashboardState;
-    } catch {}
-  }
+  const data = getPortData<DashboardState>(ns, DASHBOARD_STATE_PORT);
 
   return {
     tick: data?.tick || 0,

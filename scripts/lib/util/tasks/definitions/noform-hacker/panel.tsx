@@ -7,7 +7,12 @@ import { Row } from "../../../../ui/Row";
 import { useTheme } from "../../../../ui/theme";
 import { useNs } from "../../../ns";
 import { useDashboardController } from "../../../useDashboardController";
-import { NOFORM_HACKER_TASK_ID, type NoformHackerTaskState } from "./info";
+import {
+  NOFORM_HACKER_TASK_ID,
+  UserCommunicationRequest,
+  type NoformHackerTaskState,
+} from "./info";
+import { HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 
 export const NoformHackerPanel: TaskCustomPanel = () => {
   const { colors, space } = useTheme();
@@ -29,7 +34,9 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
   const totalCount = report.analysis.length;
 
   const handleTarget = (hostname: string) => {
-    // user wants to change this target, let's write
+    ns.writePort(HACKING_SYSTEM_COMMUNICATION_PORT, {
+      targetServers: [hostname],
+    } satisfies UserCommunicationRequest);
   };
 
   const rows = expanded

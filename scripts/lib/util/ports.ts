@@ -13,9 +13,33 @@ export const DASHBOARD_STATE_PORT = 2;
 // tick and applies events to its in-memory snapshot.
 export const TASK_EVENTS_PORT = 3;
 
+// Used by one of the various hacking system tasks.
+export const HACKING_SYSTEM_COMMUNICATION_PORT = 10;
+
 // Ran on main dashboard start-up to avoid dirty state
 export function clearPorts(ns: NS) {
+  // clear core system ports
   ns.clearPort(LOG_PORT);
   ns.clearPort(DASHBOARD_STATE_PORT);
   ns.clearPort(TASK_EVENTS_PORT);
+
+  // clear the task-specific ports too
+  ns.clearPort(HACKING_SYSTEM_COMMUNICATION_PORT);
+}
+
+// Use consume if you want to destroy the data after reading (consume)
+export function getPortData<TData>(
+  ns: NS,
+  portNumber: number,
+  consume?: boolean,
+): TData | undefined {
+  const raw = consume ? ns.readPort(portNumber) : ns.peek(portNumber);
+  let data: TData | undefined = undefined;
+
+  if (raw !== "NULL PORT DATA") {
+    try {
+      data = JSON.parse(raw as string) as TData;
+    } catch {}
+  }
+  return data;
 }

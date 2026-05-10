@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { TaskCustomPanel } from "../../../../features/taskCustomPanels";
 import { Button } from "../../../../ui/Button";
 import { Col } from "../../../../ui/Col";
-import { TargetIcon } from "../../../../ui/Icons";
+import { TargetIcon, UntargetIcon } from "../../../../ui/Icons";
 import { Row } from "../../../../ui/Row";
 import { useTheme } from "../../../../ui/theme";
 import { useNs } from "../../../ns";
@@ -13,6 +13,7 @@ import {
   type NoformHackerTaskState,
 } from "./info";
 import { HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
+import { formatDuration } from "../../../formatting";
 
 export const NoformHackerPanel: TaskCustomPanel = () => {
   const { colors, space } = useTheme();
@@ -25,18 +26,32 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
     | undefined;
   const report = taskState?.targetReport;
   const currentTargets = taskState?.currentTargets ?? [];
+  const userTargets = taskState?.userTargets ?? [];
 
   if (!report || report.analysis.length === 0) {
     return <span style={{ color: colors.muted }}>No analysis yet — first scan pending.</span>;
   }
 
   const currentSet = new Set(currentTargets);
+  const userSet = new Set(userTargets);
   const totalCount = report.analysis.length;
 
   const handleTarget = (hostname: string) => {
-    ns.writePort(HACKING_SYSTEM_COMMUNICATION_PORT, {
-      targetServers: [hostname],
-    } satisfies UserCommunicationRequest);
+    ns.writePort(
+      HACKING_SYSTEM_COMMUNICATION_PORT,
+      JSON.stringify({
+        targetServers: [hostname],
+      } satisfies UserCommunicationRequest),
+    );
+  };
+
+  const handleUntarget = (hostname: string) => {
+    ns.writePort(
+      HACKING_SYSTEM_COMMUNICATION_PORT,
+      JSON.stringify({
+        targetServers: currentTargets.filter((t) => t !== hostname),
+      } satisfies UserCommunicationRequest),
+    );
   };
 
   const rows = expanded
@@ -87,10 +102,22 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
         ) : (
           rows.map((row) => {
             const isCurrent = currentSet.has(row.hostname);
+            const isUserTarget = userSet.has(row.hostname);
+
             return (
               <Row key={row.hostname} gap={space.md} style={{ fontSize: "0.85em" }}>
                 <span style={{ width: 32, flexShrink: 0, display: "inline-flex" }}>
-                  {!isCurrent && (
+                  {isCurrent ? (
+                    isUserTarget ? (
+                      <Button onClick={() => handleUntarget(row.hostname)}>
+                        <UntargetIcon
+                          color={colors.warn}
+                          title={`Un-target ${row.hostname}`}
+                          size={10}
+                        />
+                      </Button>
+                    ) : undefined
+                  ) : (
                     <Button onClick={() => handleTarget(row.hostname)}>
                       <TargetIcon
                         color={colors.accent}
@@ -110,7 +137,7 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
                   ${ns.format.number(row.maxMoney, 0)}
                 </span>
                 <span style={{ color: colors.fg, flex: 1, textAlign: "right" }}>
-                  {ns.format.time(row.maxTime)}
+                  {formatDuration(row.maxTime)}
                 </span>
                 <span style={{ color: colors.fg, flex: 1, textAlign: "right" }}>
                   {ns.format.number(row.profitScore)}

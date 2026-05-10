@@ -208,6 +208,15 @@ export function LockIcon({ color, title = "Security", size }: NamedIconProps) {
   );
 }
 
+export function UntargetIcon({ color, title = "Un-target", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M3.5 12.5 L12.5 3.5" />
+    </Icon>
+  );
+}
+
 export function PinIcon({ color, title = "Pin", size }: NamedIconProps) {
   return (
     <Icon color={color} title={title} size={size}>

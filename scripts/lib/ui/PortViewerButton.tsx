@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNs } from "../util/ns";
-import { TASK_EVENTS_PORT, DASHBOARD_STATE_PORT } from "../util/ports";
+import {
+  TASK_EVENTS_PORT,
+  DASHBOARD_STATE_PORT,
+  HACKING_SYSTEM_COMMUNICATION_PORT,
+} from "../util/ports";
 import { Button } from "./Button";
 import { Col } from "./Col";
 import { BracesIcon } from "./Icons";
@@ -29,7 +33,13 @@ const PORTS: PortDescriptor[] = [
     port: TASK_EVENTS_PORT,
     name: "Task events",
     semantics: "queue",
-    description: "FIFO of TaskEvents drained each tick — head only, often empty.",
+    description: "Queue of events sent from tasks to the task manager.",
+  },
+  {
+    port: HACKING_SYSTEM_COMMUNICATION_PORT,
+    name: "Hack commands",
+    semantics: "queue",
+    description: "Queue of command sent from the user to the hacking system.",
   },
 ];
 

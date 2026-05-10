@@ -8,6 +8,17 @@ export interface TaskLease {
   pids: number[];
 }
 
+export interface WaitAndFreeTaskLeaseOptions {
+  pollIntervalMs?: number;
+  extraBufferMs?: number;
+  shouldExitEarly?: () => boolean;
+
+  // if true, pids and leases will be killed/renewed
+  // when exiting function, regardless of their
+  // completion
+  forceKillOnExit?: boolean;
+}
+
 export abstract class BaseSpawnerTask<
   TState extends Record<string, unknown> = Record<string, unknown>,
 > extends BaseTask<TState> {
@@ -57,6 +68,7 @@ export abstract class BaseSpawnerTask<
     return pid;
   }
 
+  /*
   // Waits the estimatedWait ms before checking that the task leases are done
   // If they're not, will wait a bit more before reporting an error and returning
   protected async waitAndFreeTaskLeases(
@@ -96,6 +108,78 @@ export abstract class BaseSpawnerTask<
     this.log.error(
       `${remaining.length} lease${remaining.length === 1 ? "" : "s"} still running after max retries. Next round will be missing resources.`,
     );
+  }*/
+  // Waits up to estimatedWait + extraBufferMs, checking periodically.
+  // Frees each task lease as soon as all of its pids are done.
+  // Returns early if all leases finish, or if shouldExitEarly returns true.
+  protected async waitAndFreeTaskLeases(
+    taskLeases: TaskLease[],
+    estimatedWait: number,
+    options: WaitAndFreeTaskLeaseOptions = {},
+  ): Promise<void> {
+    const pollIntervalMs = options.pollIntervalMs ?? 2_000;
+    const extraBufferMs = options.extraBufferMs ?? 5_000;
+    const shouldExitEarly = options.shouldExitEarly ?? (() => false);
+    const forceKill = options.forceKillOnExit ?? false;
+
+    const deadline = Date.now() + estimatedWait + extraBufferMs;
+
+    let remaining = [...taskLeases];
+
+    while (remaining.length > 0 && Date.now() < deadline) {
+      if (shouldExitEarly()) {
+        this.log.info("Exiting wait early");
+
+        if (forceKill) {
+          taskLeases.forEach(lease => {
+            lease.pids.forEach(pid => this.ns.kill(pid));
+            this.allocator.return(lease.lease.leaseId);
+          });
+        }
+
+        return;
+      }
+
+      const stillRunning: TaskLease[] = [];
+
+      for (const taskLease of remaining) {
+        const isStillRunning = taskLease.pids.some((pid) => this.ns.isRunning(pid));
+
+        if (isStillRunning) {
+          stillRunning.push(taskLease);
+        } else {
+          this.allocator.return(taskLease.lease.leaseId);
+        }
+      }
+
+      remaining = stillRunning;
+
+      if (remaining.length === 0) {
+        return;
+      }
+
+      const remainingWaitMs = deadline - Date.now();
+
+      if (remainingWaitMs <= 0) {
+        break;
+      }
+
+      await this.ns.asleep(Math.min(pollIntervalMs, remainingWaitMs));
+    }
+
+    if (remaining.length > 0) {
+      if (forceKill) {
+        taskLeases.forEach(lease => {
+          lease.pids.forEach(pid => this.ns.kill(pid));
+          this.allocator.return(lease.lease.leaseId);
+        });
+        this.log.warn(`Forcefully ended ${remaining.length} leases and their process ids`);
+      } else {
+        this.log.error(
+          `${remaining.length} lease${remaining.length === 1 ? "" : "s"} still running after wait deadline. Next round will be missing resources.`,
+        );
+      }
+    }
   }
 
   protected teardown(log: boolean): void {

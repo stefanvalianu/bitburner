@@ -237,6 +237,28 @@ export class TaskManager {
       } as TaskState;
     }
 
+    // 8. Auto-trigger reallocation when a requested task couldn't be placed
+    //    AND there's an unbounded task running whose RAM might be reclaimable.
+    let unplaced = false;
+    for (const [id, slices] of allocations) {
+      if (running.has(id)) continue;
+      if (slices.length === 0) {
+        unplaced = true;
+        break;
+      }
+    }
+    if (unplaced) {
+      let hasRunningUnbounded = false;
+      for (const id of running.keys()) {
+        if (snap[id]?.status !== "running") continue; // skip stopping/shutdown-requested
+        if (TASK_BY_ID.get(id)?.demand.unbounded) {
+          hasRunningUnbounded = true;
+          break;
+        }
+      }
+      if (hasRunningUnbounded) this.reallocate();
+    }
+
     return snap;
   }
 

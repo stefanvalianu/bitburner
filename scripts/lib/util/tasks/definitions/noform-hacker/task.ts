@@ -3,10 +3,14 @@ import { BaseTask } from "../../baseTask";
 import { NOFORM_HACKER_TASK_ID, NoformHackerTaskState } from "./info";
 import { performAnalysis } from "./profitAnalysis";
 import { Allocator, Lease } from "../../allocator";
+import { findGrowWeakSplit } from "./threadCalculations";
 
 const HACK_SCRIPT = "lib/util/script/hack.js";
 const GROW_SCRIPT = "lib/util/script/grow.js";
 const WEAKEN_SCRIPT = "lib/util/script/weaken.js";
+
+// number of miliseconds to aim for between batched operations
+const BATCH_FRAME_OFFSET_MS = 50;
 
 // For money and securtiy, how many checks in a row can be "Bad" before entering repair mode
 const MAX_SEQUENTIAL_BAD_CHECKS = 3;
@@ -18,7 +22,7 @@ const ANALYSIS_MAX_STALENESS_MS = 10 * 60 * 1000; // 10 min
 
 interface TaskLease {
   lease: Lease;
-  pid: number;
+  pids: number[];
 }
 
 class NoformHackerTask extends BaseTask<NoformHackerTaskState> {
@@ -201,8 +205,7 @@ class NoformHackerTask extends BaseTask<NoformHackerTaskState> {
 
     while ((lease = this.allocator.lease_up_to()) !== null) {
       leases.push(lease);
-      this.log.info("Got a lease", lease);
-      await this.ns.asleep(1000); // test
+      this.log.info("Leased", lease);
     }
 
     // let's get an estimate of how long it would take to finish this batch of scripts, and make sure we wait that long
@@ -213,16 +216,88 @@ class NoformHackerTask extends BaseTask<NoformHackerTaskState> {
       if (pid) {
         taskLeases.push({
           lease: availableLease,
-          pid: pid,
+          pids: [pid],
         });
       }
     }
 
-    await this.waitAndFreeTaskLeases(taskLeases, estimatedWaitTime + 100);
+    await this.waitAndFreeTaskLeases(taskLeases, estimatedWaitTime + BATCH_FRAME_OFFSET_MS);
   }
 
   private async repairMoney(target: string): Promise<void> {
-    await this.ns.sleep(2000);
+    // Per current implementation we'll consume our entire allocation to run
+    // as many pairs of Grow/Weaken as we can.
+    let leases: Lease[] = [];
+    let taskLeases: TaskLease[] = [];
+    let lease: Lease | null = null;
+
+    while ((lease = this.allocator.lease_up_to()) !== null) {
+      leases.push(lease);
+      this.log.info("Leased", lease);
+    }
+
+    // let's get an estimate of how long it would take to finish this batch of scripts, and make sure we wait that long
+    const weakTime = this.ns.getWeakenTime(target);
+    const growTime = this.ns.getGrowTime(target);
+    const estimatedWaitTime = weakTime + growTime + 2 * BATCH_FRAME_OFFSET_MS;
+
+    const weakenRam = this.ns.getScriptRam(WEAKEN_SCRIPT);
+    const growRam = this.ns.getScriptRam(GROW_SCRIPT);
+
+    if (weakenRam !== growRam) {
+      this.log.error(`weaken script RAM (${weakenRam}) differs from grow script RAM (${growRam}).`);
+    }
+
+    // First grow finish must be late enough that both grow and weaken can be delayed
+    // to land at their desired finish times.
+    let nextFinishTime =
+      Math.max(growTime, weakTime - BATCH_FRAME_OFFSET_MS) + BATCH_FRAME_OFFSET_MS;
+
+    for (const availableLease of leases) {
+      // assumption: weakenRam === growRam
+      const maxThreads = Math.floor(availableLease.ram / this.ns.getScriptRam(WEAKEN_SCRIPT));
+
+      const growWeakSplit = findGrowWeakSplit(this.ns, maxThreads, target, availableLease.cores);
+
+      const targetGrowFinishTime = nextFinishTime;
+      const targetWeakFinishTime = nextFinishTime + BATCH_FRAME_OFFSET_MS;
+
+      const growDelay = Math.max(0, targetGrowFinishTime - growTime);
+      const weakDelay = Math.max(0, targetWeakFinishTime - weakTime);
+
+      const pidGrow = this.runScript(
+        GROW_SCRIPT,
+        availableLease,
+        target,
+        growWeakSplit.growThreads,
+        growDelay,
+      );
+
+      if (!pidGrow) continue;
+
+      const pidWeaken = this.runScript(
+        WEAKEN_SCRIPT,
+        availableLease,
+        target,
+        growWeakSplit.weakThreads,
+        weakDelay,
+      );
+
+      if (!pidWeaken) continue;
+
+      taskLeases.push({
+        lease: availableLease,
+        pids: [pidGrow, pidWeaken],
+      });
+
+      // Reserve the next two landing slots:
+      // current grow landed at T
+      // current weaken landed at T + offset
+      // next grow should land at T + 2 * offset
+      nextFinishTime += 2 * BATCH_FRAME_OFFSET_MS;
+    }
+
+    await this.waitAndFreeTaskLeases(taskLeases, estimatedWaitTime + BATCH_FRAME_OFFSET_MS);
   }
 
   private async hack(target: string): Promise<void> {
@@ -230,17 +305,24 @@ class NoformHackerTask extends BaseTask<NoformHackerTaskState> {
   }
 
   // Runs a script and returns its pid (or undefined if unsuccessful).
-  // when script run is unsuccessful, frees the lease from the allocator
-  private runScript(scriptName: string, lease: Lease, target: string): number | undefined {
+  // when script run is unsuccessful, frees the lease from the allocator.
+  // If threads are not specified, will attempt to use all available threads
+  private runScript(
+    scriptName: string,
+    lease: Lease,
+    target: string,
+    threads?: number,
+    additionalMsec?: number,
+  ): number | undefined {
     const pid = this.ns.exec(
       scriptName,
       lease.hostname,
-      Math.floor(lease.ram / this.ns.getScriptRam(scriptName)),
+      threads ?? Math.floor(lease.ram / this.ns.getScriptRam(scriptName)),
       target,
     );
 
     if (pid === 0) {
-      this.log.warn(`Failed to spawn script against ${lease.hostname}`);
+      this.log.error(`Failed to spawn script against ${lease.hostname}`);
       this.allocator.return(lease.leaseId);
       return undefined;
     }
@@ -265,7 +347,7 @@ class NoformHackerTask extends BaseTask<NoformHackerTaskState> {
       const stillRunning: TaskLease[] = [];
 
       for (const taskLease of remaining) {
-        if (this.ns.isRunning(taskLease.pid)) {
+        if (taskLease.pids.find((pid) => this.ns.isRunning(pid))) {
           stillRunning.push(taskLease);
         } else {
           this.allocator.return(taskLease.lease.leaseId);

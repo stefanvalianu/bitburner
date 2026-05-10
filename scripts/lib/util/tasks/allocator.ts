@@ -4,6 +4,7 @@ export interface Lease {
   leaseId: number;
   hostname: string;
   ram: number;
+  cores: number;
 }
 
 interface PoolEntry {
@@ -113,6 +114,7 @@ export class Allocator {
       leaseId: this.leaseIncrement++,
       hostname: sorted[0].hostname,
       ram: ram,
+      cores: sorted[0].cores,
     };
   }
 

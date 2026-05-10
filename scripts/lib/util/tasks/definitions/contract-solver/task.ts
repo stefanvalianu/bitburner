@@ -12,7 +12,7 @@ class ChallengeSolverTask extends BaseTask {
     try {
       this.ns.codingcontract.getContract("something", "home");
       this.ns.codingcontract.attempt("answer", "file", "home");
-    } catch(_) {}
+    } catch (_) {}
   }
 }
 

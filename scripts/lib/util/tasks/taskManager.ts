@@ -139,7 +139,7 @@ export class TaskManager {
       const slot = snap[def.id];
       if (slot && (slot.status === "running" || slot.status === "stopping")) continue;
 
-      const path = this.getTaskScriptPath(def);
+      const path = getTaskScriptPath(def);
       // ns.getScriptRam returns 0.05GB-aligned floats (e.g. 2.4) — round up so
       // every value entering the allocator is an integer GB and reservations
       // can never accumulate fractional drift across hosts.
@@ -159,7 +159,7 @@ export class TaskManager {
         this.logger.error(`cannot find task definition for ${id}`);
         continue;
       }
-      const path = this.getTaskScriptPath(def);
+      const path = getTaskScriptPath(def);
       const entrypointRam = Math.ceil(this.ns.getScriptRam(path));
       if (entrypointRam === 0) {
         this.logger.error(`script not found: ${path}`);
@@ -214,7 +214,7 @@ export class TaskManager {
         continue;
       }
 
-      const path = this.getTaskScriptPath(def);
+      const path = getTaskScriptPath(def);
       const pid = this.ns.exec(path, controller.hostname, 1);
       if (pid === 0) {
         this.logger.warn(`failed to exec ${path} on ${controller.hostname}`);
@@ -285,8 +285,8 @@ export class TaskManager {
     }
     return out;
   }
+}
 
-  private getTaskScriptPath(task: TaskDefinition): string {
-    return `lib/util/tasks/definitions/${task.id}/task.js`;
-  }
+export function getTaskScriptPath(task: TaskDefinition): string {
+  return `lib/util/tasks/definitions/${task.id}/task.js`;
 }

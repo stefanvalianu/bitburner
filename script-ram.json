@@ -44,6 +44,8 @@
   "lib/util/tasks/allocator.js": 1.6,
   "lib/util/tasks/baseSpawnerTask.js": 3.6,
   "lib/util/tasks/baseTask.js": 3.5,
+  "lib/util/tasks/definitions/contract-solver/info.js": 1.6,
+  "lib/util/tasks/definitions/contract-solver/task.js": 28.5,
   "lib/util/tasks/definitions/noform-hacker/info.js": 1.6,
   "lib/util/tasks/definitions/noform-hacker/panel.js": 3.2,
   "lib/util/tasks/definitions/noform-hacker/profitAnalysis.js": 3.75,

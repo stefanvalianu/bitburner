@@ -9,7 +9,7 @@ import { Row } from "../ui/Row";
 import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
 import { ALL_TASKS } from "../util/tasks/definitions/tasks";
-import { HOME_RESERVED_RAM_GB } from "../util/tasks/taskManager";
+import { HOME_RESERVED_RAM_GB, getTaskScriptPath } from "../util/tasks/taskManager";
 import type { TaskDefinition, TaskState } from "../util/tasks/types";
 import { Spinner } from "../ui/Spinner";
 import { useNs } from "../util/ns";
@@ -76,6 +76,14 @@ export function TaskPanel() {
     return { totalRam: total, allottedRam: allotted };
   }, [state.allServers, state.tasks]);
 
+  const startableRam = useMemo(() => {
+    const out = new Map<string, number>();
+    for (const def of startable) {
+      out.set(def.id, Math.ceil(ns.getScriptRam(getTaskScriptPath(def))));
+    }
+    return out;
+  }, [startable, ns]);
+
   const showReallocate = shouldShowReallocate(state);
 
   const actions = (
@@ -85,7 +93,10 @@ export function TaskPanel() {
       </span>
       {showReallocate && (
         <Button onClick={() => reallocate()}>
-          <ShuffleIcon color={colors.accent} title="Reallocate" />
+          <ShuffleIcon
+            color={colors.accent}
+            title="Reallocate tasks to better utilize new server capacity. Will request shutdown from unbound tasks."
+          />
           {" Reallocate"}
         </Button>
       )}
@@ -278,6 +289,21 @@ export function TaskPanel() {
                           <span
                             style={{
                               color: colors.muted,
+                              fontSize: "0.85em",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {(() => {
+                              const entry = startableRam.get(def.id) ?? 0;
+                              if (!def.demand.unbounded) return ns.format.ram(entry);
+                              const cap = def.demand.maxRamDemand;
+                              const upper = cap == null ? "∞" : ns.format.ram(cap);
+                              return `from ${ns.format.ram(entry)} to ${upper}`;
+                            })()}
+                          </span>
+                          <span
+                            style={{
+                              color: colors.fg,
                               fontSize: "0.9em",
                               whiteSpace: "normal",
                               overflowWrap: "break-word",

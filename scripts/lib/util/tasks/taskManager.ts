@@ -115,7 +115,7 @@ export class TaskManager {
     // avoid sharing references with the previous snapshot.
     const snap: Record<TaskId, TaskState> = {};
     for (const [id, slot] of Object.entries(state.tasks)) {
-      snap[id] = { ...slot, childPids: [...slot.childPids] };
+      snap[id] = { ...slot };
     }
 
     // 1. Drain events from tasks and apply them to the snapshot.
@@ -123,9 +123,7 @@ export class TaskManager {
     for (const ev of events) {
       const slot = snap[ev.taskId];
       if (!slot) continue;
-      if (ev.type === "child-spawned") {
-        if (!slot.childPids.includes(ev.pid)) slot.childPids.push(ev.pid);
-      } else if (ev.type === "state-patch") {
+      if (ev.type === "state-patch") {
         for (const [k, v] of Object.entries(ev.patch)) {
           if (BASE_STATE_KEYS.has(k)) continue; // manager-owned
           (slot as Record<string, unknown>)[k] = v;

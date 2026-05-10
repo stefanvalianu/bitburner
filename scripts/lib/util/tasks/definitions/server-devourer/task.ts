@@ -54,14 +54,13 @@ class ServerDevourerTask extends BaseSpawnerTask {
 
     while ((lease = this.allocator.leaseUpTo()) !== null) {
       leases.push(lease);
-      // this.log.info("Leased", lease);
     }
 
     // let's get an estimate of how long it would take to finish this batch of scripts, and make sure we wait that long
     const estimatedWaitTime = this.ns.getHackTime(target);
 
     for (const availableLease of leases) {
-      const pid = this.runScript(HACK_SCRIPT, availableLease, target);
+      const pid = this.runScript(HACK_SCRIPT, availableLease, undefined, target);
       if (pid) {
         taskLeases.push({
           lease: availableLease,

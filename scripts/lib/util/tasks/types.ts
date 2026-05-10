@@ -44,7 +44,6 @@ export type TaskStatus = "requested" | "running" | "stopping";
 export interface BaseTaskState {
   pid: number | null;
   host: string | null;
-  childPids: number[];
   shutdownRequested: boolean;
   status: TaskStatus;
   allocation: Allocation | null;
@@ -58,15 +57,12 @@ export type TaskState<T extends Record<string, unknown> = Record<string, unknown
 export const BASE_STATE_KEYS: ReadonlySet<string> = new Set([
   "pid",
   "host",
-  "childPids",
   "shutdownRequested",
   "status",
   "allocation",
 ]);
 
-export type TaskEvent =
-  | { type: "state-patch"; taskId: TaskId; patch: Record<string, unknown> }
-  | { type: "child-spawned"; taskId: TaskId; pid: number; hostname: string };
+export type TaskEvent = { type: "state-patch"; taskId: TaskId; patch: Record<string, unknown> };
 
 // Note the script path of a task is assumed to be "lib/util/tasks/definitions/{id}/task.js"
 export interface TaskDefinition {

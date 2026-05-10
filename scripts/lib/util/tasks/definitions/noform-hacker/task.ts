@@ -103,7 +103,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
         badMoneyChecks = MAX_SEQUENTIAL_BAD_CHECKS - 1;
         this.phase = "hack";
 
-        this.teardown(false);
+        this.teardown();
         this.patchTaskState();
       }
 
@@ -131,7 +131,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
           // kill child processes; TBD if we want to do this more gracefully (leaving money on table right now)
           // the thing is if we don't kill and enter repair right away, we're losing available resources on previous
           // scripts since repairs are essentially one-shots. potential to revisit TODO
-          this.teardown(false);
+          this.teardown();
           this.phase = "hack";
           this.target = newTarget;
         }
@@ -233,7 +233,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
     const estimatedWaitTime = this.ns.getWeakenTime(this.target);
 
     for (const availableLease of leases) {
-      const pid = this.runScript(WEAKEN_SCRIPT, availableLease, this.target);
+      const pid = this.runScript(WEAKEN_SCRIPT, availableLease, undefined, this.target);
       if (pid) {
         taskLeases.push({
           lease: availableLease,
@@ -302,8 +302,8 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       const pidGrow = this.runScript(
         GROW_SCRIPT,
         availableLease,
-        this.target,
         growWeakSplit.growThreads,
+        this.target,
         growDelay,
       );
 
@@ -312,8 +312,8 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       const pidWeaken = this.runScript(
         WEAKEN_SCRIPT,
         availableLease,
-        this.target,
         growWeakSplit.weakThreads,
+        this.target,
         weakDelay,
       );
 
@@ -399,8 +399,8 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       const pidHack = this.runScript(
         HACK_SCRIPT,
         availableLease,
-        this.target,
         split.hackThreads,
+        this.target,
         hackDelay,
       );
 
@@ -409,8 +409,8 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       const pidHackWeaken = this.runScript(
         WEAKEN_SCRIPT,
         availableLease,
-        this.target,
         split.hackWeakenThreads,
+        this.target,
         hackWeakenDelay,
       );
 
@@ -419,8 +419,8 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       const pidGrow = this.runScript(
         GROW_SCRIPT,
         availableLease,
-        this.target,
         split.growThreads,
+        this.target,
         growDelay,
       );
 
@@ -429,8 +429,8 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
       const pidGrowWeaken = this.runScript(
         WEAKEN_SCRIPT,
         availableLease,
-        this.target,
         split.growWeakenThreads,
+        this.target,
         growWeakenDelay,
       );
 

@@ -22,15 +22,6 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
     } catch (e) {
       this.log.error(`task crashed: ${e instanceof Error ? e.message : String(e)}`);
       throw e;
-    } finally {
-      // when a task exits, we should kill all children (lol comments)
-      const pids = this.state?.childPids;
-      if (pids.length > 0) {
-        for (const pid of pids) {
-          if (this.ns.isRunning(pid)) this.ns.kill(pid);
-        }
-        this.log.info(`shutdown: killed ${pids.length} worker(s)`);
-      }
     }
   }
 
@@ -93,28 +84,6 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
       patch: patch as Record<string, unknown>,
     });
   }
-
-  // Spawn a worker. Wraps ns.exec and auto-emits a child-spawned event so
-  // the manager can track the worker for cleanup. Intended to be used for
-  // long-running tasks that will be auto-cleaned up during teardown. The
-  // list of pids is not watched for completion, so be wary of using this
-  // for scripts that infinitely spawn many sub-tasks.
-  protected exec(
-    script: string,
-    hostname: string,
-    threads: number,
-    ...args: (string | number | boolean)[]
-  ): number {
-    const pid = this.ns.exec(script, hostname, threads, ...args);
-    if (pid !== 0) {
-      this.emitEvent({ type: "child-spawned", taskId: this.taskId, pid, hostname });
-    }
-    return pid;
-  }
-
-  // -------------------------------------------------------------------------
-  // Internals
-  // -------------------------------------------------------------------------
 
   private emitEvent(event: TaskEvent): void {
     this.ns.getPortHandle(TASK_EVENTS_PORT).write(JSON.stringify(event));

@@ -1,12 +1,14 @@
 import { NS } from "@ns";
-import { BaseTask } from "../../baseTask";
 import { SERVER_SHARE_TASK_ID } from "./info";
+import { BaseSpawnerTask, TaskLease } from "../../baseSpawnerTask";
+import { Lease } from "../../allocator";
 
 const SHARE_SCRIPT = "lib/util/script/share.js";
+const THIS_SCRIPT = "lib/util/tasks/definitions/noform-hacker/task.js";
 
-class ServerShareTask extends BaseTask {
+class ServerShareTask extends BaseSpawnerTask {
   constructor(ns: NS) {
-    super(ns, SERVER_SHARE_TASK_ID);
+    super(ns, SERVER_SHARE_TASK_ID, THIS_SCRIPT);
   }
 
   protected async run_task(): Promise<void> {
@@ -17,35 +19,33 @@ class ServerShareTask extends BaseTask {
       return;
     }
 
-    for (const slice of this.allocation.servers) {
-      const threads = Math.floor(slice.ram / shareRam);
-      if (threads <= 0) continue;
-      const pid = this.exec(SHARE_SCRIPT, slice.hostname, threads);
-      if (pid === 0) {
-        this.log.warn(`exec ${SHARE_SCRIPT} failed on ${slice.hostname} (threads=${threads})`);
-        continue;
+    let leases: Lease[] = [];
+    let taskLeases: TaskLease[] = [];
+    let lease: Lease | null = null;
+
+    while ((lease = this.allocator.leaseUpTo()) !== null) {
+      leases.push(lease);
+    }
+
+    // these scripts run indefinitely, so we'll need to stay vigilent for a shutdown script
+    for (const availableLease of leases) {
+      const pid = this.runScript(SHARE_SCRIPT, availableLease, undefined);
+      if (pid) {
+        taskLeases.push({
+          lease: availableLease,
+          pids: [pid],
+        });
       }
-      this.log.info(`started ${threads} ${SHARE_SCRIPT} threads from ${slice.hostname}`);
     }
 
     while (true) {
-      // script remains running only so it can be there to shutdown child PIDs
       if (this.shouldShutdown) {
-        this.teardown();
+        this.teardown(true);
         return;
       }
 
-      await this.ns.asleep(10_000);
+      await this.ns.asleep(5_000);
     }
-  }
-
-  // Cooperative teardown — kill every worker we spawned.
-  private teardown(): void {
-    const pids = this.state.childPids;
-    for (const pid of pids) {
-      if (this.ns.isRunning(pid)) this.ns.kill(pid);
-    }
-    this.log.info(`shutdown: killed ${pids.length} worker(s)`);
   }
 }
 

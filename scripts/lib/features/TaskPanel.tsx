@@ -166,6 +166,7 @@ export function TaskPanel() {
         open={newTaskOpen}
         onClose={closeNewTask}
         title="New task"
+        style={{ minWidth: 800 }}
         actions={
           startable.length > 0 ? (
             <Button onClick={confirmNewTasks} disabled={selectedIds.size === 0}>
@@ -177,79 +178,93 @@ export function TaskPanel() {
         {startable.length === 0 ? (
           <span style={{ color: colors.muted }}>All tasks are running.</span>
         ) : (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: space.md,
-              maxWidth: 720,
-            }}
-          >
-            {startable.map((def) => {
-              const checked = selectedIds.has(def.id);
-              const blocked = isPortBlocked(def);
+          <Col gap={space.lg}>
+            {[...new Set(startable.map((def) => def.category))].sort().map((category) => {
+              const inCategory = startable.filter((def) => def.category === category);
               return (
-                <label
-                  key={def.id}
-                  style={{
-                    border: `3px solid ${checked ? colors.accent : colors.fg}`,
-                    background: colors.surface,
-                    padding: space.md,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: space.sm,
-                    flex: "1 1 220px",
-                    maxWidth: 240,
-                    minWidth: 200,
-                    cursor: blocked ? "not-allowed" : "pointer",
-                    opacity: blocked ? 0.5 : 1,
-                  }}
-                >
-                  <Row gap={space.sm} style={{ alignItems: "center" }}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={blocked}
-                      onChange={() => {
-                        if (blocked) return;
-                        toggleSelected(def.id);
-                      }}
-                      style={{
-                        accentColor: colors.accent,
-                        cursor: blocked ? "not-allowed" : "pointer",
-                      }}
-                    />
-                    <span
-                      style={{
-                        color: colors.accent,
-                        fontWeight: "bold",
-                        fontSize: "1.15em",
-                        letterSpacing: "0.02em",
-                      }}
-                    >
-                      {def.icon}
-                      {def.id}
-                    </span>
-                  </Row>
-                  <span
+                <Col key={category} gap={space.sm}>
+                  <div
                     style={{
                       color: colors.muted,
-                      fontSize: "0.9em",
-                      whiteSpace: "normal",
-                      overflowWrap: "break-word",
+                      borderBottom: `1px solid ${colors.fgDim}`,
+                      paddingBottom: space.xs,
+                      fontSize: "0.8em",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
                     }}
                   >
-                    {def.description}
-                  </span>
-                  {blocked && (
-                    <span style={{ color: colors.warn, fontSize: "0.85em" }}>
-                      conflicts with other task
-                    </span>
-                  )}
-                </label>
+                    {category}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: space.md }}>
+                    {inCategory.map((def) => {
+                      const checked = selectedIds.has(def.id);
+                      const blocked = isPortBlocked(def);
+                      return (
+                        <label
+                          key={def.id}
+                          style={{
+                            border: `3px solid ${checked ? colors.accent : colors.fg}`,
+                            background: colors.surface,
+                            padding: space.md,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: space.sm,
+                            flex: "1 1 220px",
+                            maxWidth: 240,
+                            minWidth: 200,
+                            cursor: blocked ? "not-allowed" : "pointer",
+                            opacity: blocked ? 0.5 : 1,
+                          }}
+                        >
+                          <Row gap={space.sm} style={{ alignItems: "center" }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={blocked}
+                              onChange={() => {
+                                if (blocked) return;
+                                toggleSelected(def.id);
+                              }}
+                              style={{
+                                accentColor: colors.accent,
+                                cursor: blocked ? "not-allowed" : "pointer",
+                              }}
+                            />
+                            <span
+                              style={{
+                                color: colors.accent,
+                                fontWeight: "bold",
+                                fontSize: "1.15em",
+                                letterSpacing: "0.02em",
+                              }}
+                            >
+                              {def.icon}
+                              {def.id}
+                            </span>
+                          </Row>
+                          <span
+                            style={{
+                              color: colors.muted,
+                              fontSize: "0.9em",
+                              whiteSpace: "normal",
+                              overflowWrap: "break-word",
+                            }}
+                          >
+                            {def.description}
+                          </span>
+                          {blocked && (
+                            <span style={{ color: colors.warn, fontSize: "0.85em" }}>
+                              conflicts with other task
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </Col>
               );
             })}
-          </div>
+          </Col>
         )}
       </Modal>
 

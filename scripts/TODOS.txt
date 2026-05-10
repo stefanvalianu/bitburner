@@ -1,6 +1,4 @@
-- Add categories to TaskDefinition and have the new task panel arrange tasks by category
 - Make the new task panel wider
 - Need a way to force rebalance unbounded growth tasks when new tasks are scheduled (if new tasks don't have room). Manager should ask unbounded tasks to shut down, wait for them, then re-plan allocation (with pending tasks + refreshed unbound task)
 - Fix/remove ability to untarget something in noform-hacker
 - When available server capacity changes dramatically (can probably identify by amount of total server capacity exceeding the task manager's task allocations, IF there are unbound tasks), we should show an o ption in the task panel UX to re-calculate available space and re-plan unbound tasks on the new space.
-- Update the sync server to watch for unintentional changes to script RAM; have user confirm whether they accept increases to script RAM, and flag decreases to script RAM positively

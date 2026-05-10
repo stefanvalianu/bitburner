@@ -10,7 +10,6 @@ import { PlayerPanel } from "./lib/features/PlayerPanel";
 import { ServerPanel } from "./lib/features/ServerPanel";
 import { TaskPanel } from "./lib/features/TaskPanel";
 import { DashboardPanel } from "./lib/ui/DashboardPanel";
-import { SkullIcon } from "./lib/ui/Icons";
 import { Row } from "./lib/ui/Row";
 import { useTheme, ThemeProvider } from "./lib/ui/theme";
 
@@ -70,40 +69,15 @@ export async function main(ns: NS): Promise<void> {
   ns.ui.resizeTail(width, height);
   ns.ui.moveTail(vpW - width - margin, margin);
   ns.ui.setTailMinimized(false);
+
+  // when the script is stopped, we'll kill every running script
+  ns.atExit(() => killAllScripts(ns));
+
   ns.ui.setTailTitle(
-    <div
-      style={{
-        width: "100%",
-        boxSizing: "border-box",
-        display: "flex",
-        alignItems: "center",
-        padding: 4,
-      }}
-    >
-      <span
-        style={{
-          flex: 1,
-          color: theme.primary,
-          fontSize: 16,
-          fontWeight: "bolder",
-        }}
-      >
-        <span style={{ color: theme.hack }}>⦾</span> Dashboard
+    <div style={{ padding: "4px 8px" }}>
+      <span style={{ color: theme.primary, fontSize: 16, fontWeight: "bolder" }}>
+        <span style={{ color: theme.hack, paddingBottom: "2px" }}>⦾</span> Dashboard
       </span>
-      <button
-        onClick={() => killAllScripts(ns)}
-        title="Kill all scripts"
-        style={{
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          padding: 4,
-          display: "inline-flex",
-          alignItems: "center",
-        }}
-      >
-        <SkullIcon color={theme.error} />
-      </button>
     </div>,
   );
 

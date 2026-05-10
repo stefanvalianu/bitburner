@@ -103,20 +103,6 @@ export function PowerIcon({ color, title = "Kill all", size }: NamedIconProps) {
   );
 }
 
-export function SkullIcon({ color, title = "Kill all scripts", size }: NamedIconProps) {
-  return (
-    <Icon color={color} title={title} size={size}>
-      {/* Cranium dome (arcs up over the top), with a chin notch sticking down. */}
-      <path d="M4 8 A5 5 0 0 1 12 8 V11 H10 V13 H6 V11 H4 Z" />
-      {/* Eye sockets. */}
-      <circle cx="6.25" cy="7.5" r="1" />
-      <circle cx="9.75" cy="7.5" r="1" />
-      {/* Two teeth in the jaw. */}
-      <path d="M7 11 V13 M9 11 V13" />
-    </Icon>
-  );
-}
-
 export function MoneyIcon({ color, title = "Money", size }: NamedIconProps) {
   return (
     <Icon color={color} title={title} size={size}>

@@ -101,6 +101,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
         this.teardown(false);
         this.patchState({
           currentTargets: [target],
+          userTargets: userTarget ? [userTarget] : undefined,
           targetReport: analysis,
         });
       }
@@ -137,6 +138,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
         this.patchState({
           currentTargets: [target],
           targetReport: analysis,
+          userTargets: userTarget ? [userTarget] : undefined,
         });
       }
 

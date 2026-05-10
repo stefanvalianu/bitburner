@@ -323,7 +323,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
 
       if (!split) {
         this.log.warn(
-          `Could not find valid HWGW split for lease. Needed ram ${weakenRam + weakenRam + growRam + hackRam} out of ${availableLease.ram}`,
+          `Could not find valid HWGW split for lease. (likely insufficient RAM) ${availableLease.ram}`,
           availableLease,
         );
         continue;

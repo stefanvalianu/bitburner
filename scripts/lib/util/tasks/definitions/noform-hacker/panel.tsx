@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { TaskCustomPanel } from "../../../../features/taskCustomPanels";
 import { Button } from "../../../../ui/Button";
 import { Col } from "../../../../ui/Col";
+import { TargetIcon } from "../../../../ui/Icons";
 import { Row } from "../../../../ui/Row";
 import { useTheme } from "../../../../ui/theme";
 import { useNs } from "../../../ns";
@@ -25,8 +26,11 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
   }
 
   const currentSet = new Set(currentTargets);
-  const rankByHost = new Map(report.analysis.map((a, i) => [a.hostname, i + 1]));
   const totalCount = report.analysis.length;
+
+  const handleTarget = (hostname: string) => {
+    // user wants to change this target, let's write 
+  };
 
   const rows = expanded
     ? report.analysis
@@ -62,7 +66,7 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
             fontSize: "0.85em",
           }}
         >
-          <span style={{ color: colors.muted, width: 32, textAlign: "right" }}>#</span>
+          <span style={{ width: 32, flexShrink: 0 }} />
           <span style={{ color: colors.muted, flex: 2 }}>hostname</span>
           <span style={{ color: colors.muted, flex: 1, textAlign: "right" }}>hack chance</span>
           <span style={{ color: colors.muted, flex: 1, textAlign: "right" }}>max money</span>
@@ -75,11 +79,20 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
           </span>
         ) : (
           rows.map((row) => {
-            const rank = rankByHost.get(row.hostname) ?? 0;
             const isCurrent = currentSet.has(row.hostname);
             return (
               <Row key={row.hostname} gap={space.md} style={{ fontSize: "0.85em" }}>
-                <span style={{ color: colors.muted, width: 32, textAlign: "right" }}>{rank}</span>
+                <span style={{ width: 32, flexShrink: 0, display: "inline-flex" }}>
+                  {!isCurrent && (
+                    <Button onClick={() => handleTarget(row.hostname)}>
+                      <TargetIcon
+                        color={colors.accent}
+                        title={`Target ${row.hostname}`}
+                        size={10}
+                      />
+                    </Button>
+                  )}
+                </span>
                 <span style={{ color: isCurrent ? colors.accent : colors.fg, flex: 2 }}>
                   {row.hostname}
                 </span>

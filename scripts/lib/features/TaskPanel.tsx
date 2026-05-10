@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "../ui/Button";
 import { Col } from "../ui/Col";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { BracesIcon, PowerIcon } from "../ui/Icons";
+import { BracesIcon, PinIcon, PowerIcon } from "../ui/Icons";
 import { Modal } from "../ui/Modal";
 import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
@@ -12,6 +12,7 @@ import { ALL_TASKS } from "../util/tasks/definitions/tasks";
 import type { TaskDefinition, TaskState } from "../util/tasks/types";
 import { Spinner } from "../ui/Spinner";
 import { useNs } from "../util/ns";
+import { TASK_CUSTOM_PANELS, hasCustomPanel } from "./taskCustomPanels";
 
 const TASK_BY_ID = new Map<string, TaskDefinition>(ALL_TASKS.map((t) => [t.id, t]));
 
@@ -22,9 +23,40 @@ export function TaskPanel() {
   const [allocationModalId, setAllocationModalId] = useState<string | null>(null);
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => new Set());
 
   const taskEntries = Object.entries(state.tasks);
   const startable = ALL_TASKS.filter((def) => state.tasks[def.id] === undefined);
+
+  // Drop pinned ids whose tasks have disappeared (e.g. stopped while pinned).
+  useEffect(() => {
+    setPinnedIds((prev) => {
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (state.tasks[id] !== undefined) next.add(id);
+      }
+      return next.size === prev.size ? prev : next;
+    });
+  }, [state.tasks]);
+
+  const pinnedEntries = taskEntries.filter(([id]) => pinnedIds.has(id) && hasCustomPanel(id));
+  const gridEntries = taskEntries.filter(([id]) => !pinnedIds.has(id) || !hasCustomPanel(id));
+
+  const pin = (id: string) =>
+    setPinnedIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+
+  const unpin = (id: string) =>
+    setPinnedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
 
   const actions = <Button onClick={() => setNewTaskOpen(true)}>+ New task</Button>;
 
@@ -57,17 +89,37 @@ export function TaskPanel() {
           No active tasks — click <em>New task</em> to start one.
         </span>
       ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: space.md }}>
-          {taskEntries.map(([id, slot]) => (
-            <TaskTile
-              key={id}
-              id={id}
-              slot={slot}
-              onInfo={() => setAllocationModalId(id)}
-              onStop={() => setConfirmStopId(id)}
-            />
-          ))}
-        </div>
+        <Col gap={space.md}>
+          {pinnedEntries.length > 0 && (
+            <Col gap={space.md}>
+              {pinnedEntries.map(([id, slot]) => (
+                <PinnedTaskCard
+                  key={id}
+                  id={id}
+                  slot={slot}
+                  onInfo={() => setAllocationModalId(id)}
+                  onStop={() => setConfirmStopId(id)}
+                  onUnpin={() => unpin(id)}
+                />
+              ))}
+            </Col>
+          )}
+          {gridEntries.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: space.md }}>
+              {gridEntries.map(([id, slot]) => (
+                <TaskTile
+                  key={id}
+                  id={id}
+                  slot={slot}
+                  canPin={hasCustomPanel(id)}
+                  onInfo={() => setAllocationModalId(id)}
+                  onStop={() => setConfirmStopId(id)}
+                  onPin={() => pin(id)}
+                />
+              ))}
+            </div>
+          )}
+        </Col>
       )}
 
       <ConfirmDialog
@@ -181,11 +233,13 @@ export function TaskPanel() {
 interface TaskTileProps {
   id: string;
   slot: TaskState;
+  canPin: boolean;
   onInfo: () => void;
   onStop: () => void;
+  onPin: () => void;
 }
 
-function TaskTile({ id, slot, onInfo, onStop }: TaskTileProps) {
+function TaskTile({ id, slot, canPin, onInfo, onStop, onPin }: TaskTileProps) {
   const { colors, space } = useTheme();
   const ns = useNs();
 
@@ -236,18 +290,111 @@ function TaskTile({ id, slot, onInfo, onStop }: TaskTileProps) {
         </Row>
       </Row>
       <Row gap={space.sm} style={{ marginTop: "auto", justifyContent: "flex-end" }}>
+        {canPin && (
+          <Button onClick={onPin}>
+            <PinIcon color={colors.accent} title={`Pin ${id}`} />
+          </Button>
+        )}
         <Button onClick={onInfo} disabled={!canInspect}>
           <BracesIcon
             color={canInspect ? colors.accent : colors.muted}
             title="Allocation details"
           />
-          Details
         </Button>
         <Button onClick={onStop} variant="warn" disabled={!canStop}>
           <PowerIcon color={canStop ? colors.warn : colors.muted} title={`Stop ${id}`} />
-          Stop
         </Button>
       </Row>
+    </div>
+  );
+}
+
+interface PinnedTaskCardProps {
+  id: string;
+  slot: TaskState;
+  onInfo: () => void;
+  onStop: () => void;
+  onUnpin: () => void;
+}
+
+function PinnedTaskCard({ id, slot, onInfo, onStop, onUnpin }: PinnedTaskCardProps) {
+  const { colors, space } = useTheme();
+  const ns = useNs();
+
+  const Custom = TASK_CUSTOM_PANELS[id];
+  const slices = slot.allocation?.servers ?? [];
+  const ram = slices.reduce((sum, s) => sum + s.ram, 0);
+  const canStop = slot.status === "running";
+  const canInspect = slot.allocation !== null;
+
+  const statusColor =
+    slot.status === "running"
+      ? colors.muted
+      : slot.status === "stopping"
+        ? colors.warn
+        : colors.accent;
+
+  return (
+    <div
+      style={{
+        border: `3px solid ${colors.fg}`,
+        background: colors.surface,
+        padding: space.md,
+        display: "flex",
+        flexDirection: "column",
+        gap: space.sm,
+        width: "100%",
+        boxSizing: "border-box",
+      }}
+    >
+      <Row gap={space.md}>
+        <Row gap={space.sm}>
+          <span
+            style={{
+              color: colors.accent,
+              fontWeight: "bold",
+              fontSize: "1.15em",
+              letterSpacing: "0.02em",
+            }}
+          >
+            {id}
+          </span>
+          {slot.status === "running" && <Spinner active />}
+        </Row>
+        <Row gap={space.sm} style={{ fontSize: "0.85em", marginLeft: space.lg }}>
+          <span style={{ color: statusColor }}>{slot.status}</span>
+          <span style={{ color: colors.muted }}>on {slot.host ?? "?"}</span>
+          <span style={{ color: colors.muted }}>• {ns.format.ram(ram, 0)}</span>
+        </Row>
+        <Row gap={space.sm} style={{ marginLeft: "auto" }}>
+          <Button onClick={onInfo} disabled={!canInspect}>
+            <BracesIcon
+              color={canInspect ? colors.accent : colors.muted}
+              title="Allocation details"
+            />
+            Details
+          </Button>
+          <Button onClick={onUnpin}>
+            <PinIcon color={colors.accent} title={`Unpin ${id}`} />
+            Unpin
+          </Button>
+          <Button onClick={onStop} variant="warn" disabled={!canStop}>
+            <PowerIcon color={canStop ? colors.warn : colors.muted} title={`Stop ${id}`} />
+            Stop
+          </Button>
+        </Row>
+      </Row>
+      {Custom && (
+        <div
+          style={{
+            border: `1px solid ${colors.border}`,
+            padding: space.md,
+            minHeight: 80,
+          }}
+        >
+          <Custom id={id} slot={slot} />
+        </div>
+      )}
     </div>
   );
 }

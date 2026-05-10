@@ -208,6 +208,15 @@ export function LockIcon({ color, title = "Security", size }: NamedIconProps) {
   );
 }
 
+export function PinIcon({ color, title = "Pin", size }: NamedIconProps) {
+  return (
+    <Icon color={color} title={title} size={size}>
+      <path d="M6 2 H10 L9.5 6 L12 8.5 H4 L6.5 6 Z" />
+      <path d="M8 8.5 V13.5" />
+    </Icon>
+  );
+}
+
 export function MoneyBagIcon({ color, title = "Money", size }: NamedIconProps) {
   return (
     <Icon color={color} title={title} size={size}>

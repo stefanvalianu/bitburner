@@ -1,4 +1,3 @@
-import { useNs } from "../util/ns";
 import { useDashboardController } from "../util/useDashboardController";
 import { useTheme } from "./theme";
 

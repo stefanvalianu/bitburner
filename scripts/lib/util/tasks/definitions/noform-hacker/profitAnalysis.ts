@@ -134,8 +134,11 @@ function analyzeTarget(ns: NS, server: ServerInfo): ServerAnalysis | undefined {
   const profitScore = expectedBatchValue / (batchWallTime * batchRam);
 
   return {
-    hostname,
-    profitScore,
+    hostname: hostname,
+    profitScore: profitScore,
+    hackChance: hackChance,
+    maxMoney: moneyMax,
+    maxTime: batchWallTime
   };
 }
 

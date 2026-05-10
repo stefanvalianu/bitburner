@@ -5,7 +5,10 @@ export const NOFORM_HACKER_TASK_ID = "noform-hacker";
 export interface ServerAnalysis {
   hostname: string;
 
-  // todo - expand this to more fields, etc
+  hackChance: number;
+  maxMoney: number;
+  maxTime: number;
+  
   profitScore: number;
 }
 

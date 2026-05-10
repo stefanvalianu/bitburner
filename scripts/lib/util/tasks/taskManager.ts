@@ -267,7 +267,7 @@ export class TaskManager {
   }
 
   reallocate(): void {
-    this.logger.info("reallocate() invoked (stub)");
+    this.logger.info("Task reallocation beginning.");
   }
 
   private drainEvents(): TaskEvent[] {

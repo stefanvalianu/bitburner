@@ -1,6 +1,5 @@
 import { NS } from "@ns";
-
-const HACK_SCRIPT = "lib/util/script/hack.js";
+import { HACK_SCRIPT } from "./constants";
 
 // The purpose of this script is to be deployed on a "target" machine
 // and invoked. When running, this script essentially serves as a simple

@@ -3,8 +3,7 @@ import { SERVER_DEVOURER_TASK_ID } from "./info";
 import { Lease } from "../../allocator";
 import { ServerInfo } from "../../../dashboardTypes";
 import { BaseSpawnerTask, TaskLease } from "../../baseSpawnerTask";
-
-const HACK_SCRIPT = "lib/util/script/hack.js";
+import { HACK_SCRIPT } from "../../../script/constants";
 
 const THIS_SCRIPT = "lib/util/tasks/definitions/server-devourer/task.js";
 

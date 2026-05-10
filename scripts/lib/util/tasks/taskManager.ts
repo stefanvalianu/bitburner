@@ -218,7 +218,7 @@ export class TaskManager {
 
       const totalRam = slices.reduce((sum, s) => sum + s.ram, 0);
       this.logger.info(
-        `${id} on ${controller.hostname} → ${slices.length} hosts (${totalRam}GB) pid=${pid}`,
+        `${id} on ${controller.hostname} → ${slices.length} hosts (${this.ns.format.ram(totalRam, 0)}) pid=${pid}`,
       );
 
       snap[id] = {

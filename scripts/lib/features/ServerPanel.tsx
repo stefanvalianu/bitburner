@@ -65,7 +65,7 @@ export function ServerPanel() {
       ns.nuke(hostname);
     }
     log.info(
-      `nuked ${pwnable.length} target${pwnable.length === 1 ? "" : "s"}: ${pwnable.map(p => p.hostname).join(", ")}`,
+      `nuked ${pwnable.length} target${pwnable.length === 1 ? "" : "s"}: ${pwnable.map((p) => p.hostname).join(", ")}`,
     );
   }, [ns, log, state]);
 

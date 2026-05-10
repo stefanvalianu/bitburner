@@ -10,6 +10,8 @@ import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
 import { ALL_TASKS } from "../util/tasks/definitions/tasks";
 import type { TaskDefinition, TaskState } from "../util/tasks/types";
+import { Spinner } from "../ui/Spinner";
+import { useNs } from "../util/ns";
 
 const TASK_BY_ID = new Map<string, TaskDefinition>(ALL_TASKS.map((t) => [t.id, t]));
 
@@ -185,6 +187,8 @@ interface TaskTileProps {
 
 function TaskTile({ id, slot, onInfo, onStop }: TaskTileProps) {
   const { colors, space } = useTheme();
+  const ns = useNs();
+
   const slices = slot.allocation?.servers ?? [];
   const ram = slices.reduce((sum, s) => sum + s.ram, 0);
   const canStop = slot.status === "running";
@@ -192,7 +196,7 @@ function TaskTile({ id, slot, onInfo, onStop }: TaskTileProps) {
 
   const statusColor =
     slot.status === "running"
-      ? colors.success
+      ? colors.muted
       : slot.status === "stopping"
         ? colors.warn
         : colors.accent;
@@ -211,21 +215,24 @@ function TaskTile({ id, slot, onInfo, onStop }: TaskTileProps) {
         minWidth: 180,
       }}
     >
-      <span
-        style={{
-          color: colors.accent,
-          fontWeight: "bold",
-          fontSize: "1.15em",
-          letterSpacing: "0.02em",
-        }}
-      >
-        {id}
-      </span>
+      <Row>
+        <span
+          style={{
+            color: colors.accent,
+            fontWeight: "bold",
+            fontSize: "1.15em",
+            letterSpacing: "0.02em",
+          }}
+        >
+          {id}
+        </span>
+        {slot.status === "running" && <Spinner active />}
+      </Row>
       <Row gap={space.sm} style={{ fontSize: "0.85em" }}>
         <span style={{ color: statusColor }}>{slot.status}</span>
         <Row>
           <span style={{ color: colors.muted }}>on {slot.host ?? "?"}</span>
-          <span style={{ color: colors.muted, marginLeft: "auto" }}>• {ram}GB</span>
+          <span style={{ color: colors.muted, marginLeft: "auto" }}>• {ns.format.ram(ram, 0)}</span>
         </Row>
       </Row>
       <Row gap={space.sm} style={{ marginTop: "auto", justifyContent: "flex-end" }}>
@@ -247,6 +254,7 @@ function TaskTile({ id, slot, onInfo, onStop }: TaskTileProps) {
 
 function AllocationDetails({ slot, def }: { slot: TaskState; def: TaskDefinition | undefined }) {
   const { colors, space } = useTheme();
+  const ns = useNs();
   const slices = slot.allocation?.servers ?? [];
   const totalRam = slices.reduce((sum, s) => sum + s.ram, 0);
 
@@ -274,7 +282,7 @@ function AllocationDetails({ slot, def }: { slot: TaskState; def: TaskDefinition
             style={{ borderBottom: `1px solid ${colors.fgDim}`, paddingBottom: space.xs }}
           >
             <span style={{ color: colors.muted, flex: 2 }}>hostname</span>
-            <span style={{ color: colors.muted, flex: 1, textAlign: "right" }}>RAM (GB)</span>
+            <span style={{ color: colors.muted, flex: 1, textAlign: "right" }}>RAM</span>
             <span style={{ color: colors.muted, flex: 1, textAlign: "right" }}>cores</span>
           </Row>
           {slices.length === 0 ? (
@@ -283,7 +291,9 @@ function AllocationDetails({ slot, def }: { slot: TaskState; def: TaskDefinition
             slices.map((s) => (
               <Row key={s.hostname} gap={space.md}>
                 <span style={{ color: colors.fg, flex: 2 }}>{s.hostname}</span>
-                <span style={{ color: colors.fg, flex: 1, textAlign: "right" }}>{s.ram}</span>
+                <span style={{ color: colors.fg, flex: 1, textAlign: "right" }}>
+                  {ns.format.ram(s.ram)}
+                </span>
                 <span style={{ color: colors.fg, flex: 1, textAlign: "right" }}>
                   {s.cores ?? "—"}
                 </span>
@@ -294,7 +304,7 @@ function AllocationDetails({ slot, def }: { slot: TaskState; def: TaskDefinition
       </div>
       <Row gap={space.lg}>
         <span style={{ color: colors.muted }}>
-          Total: <span style={{ color: colors.fg }}>{totalRam}GB</span> across{" "}
+          Total: <span style={{ color: colors.fg }}>{ns.format.ram(totalRam, 0)}</span> across{" "}
           <span style={{ color: colors.fg }}>{slices.length}</span> host
           {slices.length === 1 ? "" : "s"}
         </span>

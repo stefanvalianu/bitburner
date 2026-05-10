@@ -4,10 +4,7 @@ import { performAnalysis } from "./profitAnalysis";
 import { Lease } from "../../allocator";
 import { findGrowWeakSplit, findHackWeakenGrowWeakenSplit } from "./threadCalculations";
 import { BaseSpawnerTask } from "../../baseSpawnerTask";
-
-const HACK_SCRIPT = "lib/util/script/hack.js";
-const GROW_SCRIPT = "lib/util/script/grow.js";
-const WEAKEN_SCRIPT = "lib/util/script/weaken.js";
+import { WEAKEN_SCRIPT, GROW_SCRIPT, HACK_SCRIPT } from "../../../script/constants";
 
 // number of miliseconds to aim for between batched operations
 const BATCH_FRAME_OFFSET_MS = 50;

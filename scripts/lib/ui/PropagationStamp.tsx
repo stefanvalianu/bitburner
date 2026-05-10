@@ -1,3 +1,4 @@
+import { useNs } from "../util/ns";
 import { useDashboardController } from "../util/useDashboardController";
 import { useTheme } from "./theme";
 
@@ -18,7 +19,14 @@ export function PropagationStamp() {
         pointerEvents: "none",
       }}
     >
-      {state.propagatedVersion}
+      last updated{" "}
+      {new Date(Number(state.propagatedVersion)).toLocaleString("en-US", {
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: false,
+      })}
     </span>
   );
 }

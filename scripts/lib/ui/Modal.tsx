@@ -16,9 +16,24 @@ interface ModalProps {
   actions?: ReactNode;
 }
 
+// Find the first text-editing input under `root` and put it into a "ready
+// to type" state. Used by the modal's Ctrl+F binding.
+function focusFirstSearchInput(root: HTMLElement | null): boolean {
+  if (!root) return false;
+  const el = root.querySelector("input, textarea");
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag !== "INPUT" && tag !== "TEXTAREA") return false;
+  const input = el as HTMLInputElement | HTMLTextAreaElement;
+  input.focus();
+  input.select();
+  return true;
+}
+
 export function Modal({ open, onClose, title, children, style, actions }: ModalProps) {
   const { space } = useTheme();
   const sentinelRef = useRef<HTMLSpanElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [body, setBody] = useState<HTMLElement | null>(null);
 
   // Reach the document body via a mounted sentinel's `ownerDocument` rather
@@ -32,7 +47,16 @@ export function Modal({ open, onClose, title, children, style, actions }: ModalP
   useEffect(() => {
     if (!open || !body) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        // Fallback Ctrl+F handler for when focus has drifted to body —
+        // the React onKeyDown below catches the in-modal-content case.
+        if (focusFirstSearchInput(contentRef.current)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
     };
     body.addEventListener("keydown", onKey);
     return () => body.removeEventListener("keydown", onKey);
@@ -56,7 +80,43 @@ export function Modal({ open, onClose, title, children, style, actions }: ModalP
               }}
             >
               <div
+                ref={contentRef}
                 onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  // Ctrl+F jumps to the first input in the modal regardless
+                  // of the current target, so it works the same whether the
+                  // user is on a row, a button, or already in the search box.
+                  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+                    if (focusFirstSearchInput(contentRef.current)) {
+                      e.preventDefault();
+                      e.nativeEvent.stopPropagation();
+                    }
+                    return;
+                  }
+
+                  // Bitburner installs a document-level keydown listener for
+                  // its global hotkeys and preventDefaults modifier-key
+                  // combos, which breaks browser shortcuts in inputs that
+                  // live inside our portaled modals. Stop the native event
+                  // here so it never reaches the game's listener. Escape is
+                  // allowed through so the body listener below can still
+                  // close the modal.
+                  if (e.key === "Escape") return;
+                  const t = e.target as HTMLElement | null;
+                  if (!t) return;
+                  const tag = t.tagName;
+                  const isInput = tag === "INPUT" || tag === "TEXTAREA";
+                  if (!isInput && !t.isContentEditable) return;
+                  e.nativeEvent.stopPropagation();
+
+                  // Ctrl+A is intercepted by Bitburner before the browser's
+                  // default "select all in input" runs (Ctrl+C/V are not).
+                  // Reach the same outcome by calling .select() ourselves.
+                  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a" && isInput) {
+                    e.preventDefault();
+                    (t as HTMLInputElement | HTMLTextAreaElement).select();
+                  }
+                }}
                 style={{
                   maxWidth: "90vw",
                   maxHeight: "90vh",

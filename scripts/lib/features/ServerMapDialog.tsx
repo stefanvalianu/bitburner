@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CopyIcon, DoorIcon, HackIcon, HardwareIcon, LockIcon, MoneyBagIcon } from "../ui/Icons";
 import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
@@ -141,31 +141,95 @@ function LegendHostname({
   return <span style={{ color, fontWeight: bold ? 600 : 400 }}>{label}</span>;
 }
 
-function Legend() {
-  const { colors, space } = useTheme();
+interface TopBarProps {
+  query: string;
+  onQueryChange: (v: string) => void;
+  matchCount: number;
+  hasQuery: boolean;
+}
+
+function TopBar({ query, onQueryChange, matchCount, hasQuery }: TopBarProps) {
+  const { colors, fonts, space } = useTheme();
+  const noMatches = hasQuery && matchCount === 0;
   return (
     <div
       style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 1,
         display: "flex",
-        flexWrap: "wrap",
-        gap: space.lg,
+        alignItems: "center",
+        gap: space.md,
         padding: `${space.sm}px ${space.md}px`,
+        background: colors.surface,
         borderBottom: `1px solid ${colors.fgDim}`,
         fontSize: 12,
       }}
     >
-      <LegendHostname color={colors.fg} label="nuked" />
-      <LegendHostname color={colors.muted} label="not nuked" />
-      <LegendHostname color={colors.accent} bold label="player-owned" />
-      <LegendIcon
-        icon={<HardwareIcon color={colors.error} title="RAM warning" />}
-        label={`ram ≥ ${RAM_WARN_THRESHOLD * 100}%`}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: space.lg,
+          flex: 1,
+          minWidth: 0,
+        }}
+      >
+        <LegendHostname color={colors.fg} label="nuked" />
+        <LegendHostname color={colors.muted} label="not nuked" />
+        <LegendHostname color={colors.accent} bold label="player-owned" />
+        <LegendIcon
+          icon={<HardwareIcon color={colors.error} title="RAM warning" />}
+          label={`ram ≥ ${RAM_WARN_THRESHOLD * 100}%`}
+        />
+        <LegendIcon
+          icon={<LockIcon color={colors.success} title="Min security" />}
+          label="min security"
+        />
+        <LegendIcon
+          icon={<MoneyBagIcon color={colors.warn} title="Max money" />}
+          label="max money"
+        />
+      </div>
+      <input
+        type="text"
+        value={query}
+        placeholder="filter hosts"
+        spellCheck={false}
+        onChange={(e) => onQueryChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && query !== "") {
+            e.preventDefault();
+            // Stop the native event so the enclosing Modal's body listener
+            // doesn't also see Escape and close the dialog.
+            e.nativeEvent.stopPropagation();
+            onQueryChange("");
+          }
+        }}
+        style={{
+          flexShrink: 0,
+          width: 180,
+          background: colors.bg,
+          color: noMatches ? colors.error : colors.fg,
+          border: `1px solid ${noMatches ? colors.error : colors.border}`,
+          fontFamily: fonts.mono,
+          fontSize: 12,
+          padding: `${space.xs}px ${space.sm}px`,
+          outline: "none",
+        }}
       />
-      <LegendIcon
-        icon={<LockIcon color={colors.success} title="Min security" />}
-        label="min security"
-      />
-      <LegendIcon icon={<MoneyBagIcon color={colors.warn} title="Max money" />} label="max money" />
+      {hasQuery && (
+        <span
+          style={{
+            color: noMatches ? colors.error : colors.muted,
+            minWidth: 48,
+            textAlign: "right",
+            userSelect: "none",
+          }}
+        >
+          {matchCount} match{matchCount === 1 ? "" : "es"}
+        </span>
+      )}
     </div>
   );
 }
@@ -187,9 +251,31 @@ export function ServerMapDialog() {
   // a recessed-table feel against the elevated panel.
   const rowBackgrounds: [string, string] = [colors.bg, colors.surface];
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const hasQuery = normalizedQuery !== "";
+
+  const { matchCount, firstMatchHost } = useMemo(() => {
+    if (!hasQuery) return { matchCount: 0, firstMatchHost: null as string | null };
+    let count = 0;
+    let first: string | null = null;
+    for (const s of state.allServers) {
+      if (s.hostname.toLowerCase().includes(normalizedQuery)) {
+        if (first === null) first = s.hostname;
+        count++;
+      }
+    }
+    return { matchCount: count, firstMatchHost: first };
+  }, [hasQuery, normalizedQuery, state.allServers]);
+
   return (
     <div style={{ fontFamily: fonts.mono, fontSize: FONT_SIZE }}>
-      <Legend />
+      <TopBar
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
+        matchCount={matchCount}
+        hasQuery={hasQuery}
+      />
       <div style={{ overflow: "auto", maxHeight: "65vh" }}>
         {state.allServers.map((s, idx) => (
           <ServerRow
@@ -198,10 +284,40 @@ export function ServerMapDialog() {
             background={rowBackgrounds[idx % 2]}
             hackingLevel={hackingLevel}
             path={pathFromHome(s, byHost)}
+            query={normalizedQuery}
+            isFirstMatch={s.hostname === firstMatchHost}
           />
         ))}
       </div>
     </div>
+  );
+}
+
+function HighlightedHostname({
+  hostname,
+  query,
+  color,
+  bold,
+}: {
+  hostname: string;
+  query: string;
+  color: string;
+  bold: boolean;
+}) {
+  const { colors } = useTheme();
+  const baseStyle = { color, fontWeight: bold ? 600 : 400 };
+  if (query === "") return <span style={baseStyle}>{hostname}</span>;
+  const idx = hostname.toLowerCase().indexOf(query);
+  if (idx < 0) return <span style={baseStyle}>{hostname}</span>;
+  const before = hostname.slice(0, idx);
+  const match = hostname.slice(idx, idx + query.length);
+  const after = hostname.slice(idx + query.length);
+  return (
+    <span style={baseStyle}>
+      {before}
+      <span style={{ background: colors.warn, color: colors.bg, borderRadius: 2 }}>{match}</span>
+      {after}
+    </span>
   );
 }
 
@@ -210,10 +326,26 @@ interface ServerRowProps {
   background: string;
   hackingLevel: number;
   path: string;
+  query: string;
+  isFirstMatch: boolean;
 }
 
-function ServerRow({ server: s, background, hackingLevel, path }: ServerRowProps) {
+function ServerRow({
+  server: s,
+  background,
+  hackingLevel,
+  path,
+  query,
+  isFirstMatch,
+}: ServerRowProps) {
   const { colors, space } = useTheme();
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isFirstMatch && query !== "") {
+      rowRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [isFirstMatch, query]);
 
   const purchased = s.purchasedByPlayer;
   const nuked = s.hasAdminRights;
@@ -260,6 +392,7 @@ function ServerRow({ server: s, background, hackingLevel, path }: ServerRowProps
 
   return (
     <div
+      ref={rowRef}
       style={{
         display: "flex",
         alignItems: "center",
@@ -278,7 +411,12 @@ function ServerRow({ server: s, background, hackingLevel, path }: ServerRowProps
         }
         return <RailColumn key={i} kind={kind} />;
       })}
-      <span style={{ color: hostnameColor, fontWeight: purchased ? 600 : 400 }}>{s.hostname}</span>
+      <HighlightedHostname
+        hostname={s.hostname}
+        query={query}
+        color={hostnameColor}
+        bold={purchased}
+      />
       <span
         style={{
           display: "inline-flex",

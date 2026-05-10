@@ -8,6 +8,7 @@ export const simpleHackerTask: TaskDefinition = {
     "Very simple hacking script that deploys a simple 'hack myself' script to all nodes.",
   icon: "🥉",
   autostart: false,
+  communicationPort: 10,
   demand: {
     priority: "normal",
     unbounded: true,

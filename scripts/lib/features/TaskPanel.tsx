@@ -68,6 +68,29 @@ export function TaskPanel() {
     setSelectedIds(new Set());
   };
 
+  // Ports occupied by tasks that already exist in the manager state. These are
+  // hard-blocked: a colliding startable can't be selected at all.
+  const runningPorts = new Set<number>();
+  for (const id of Object.keys(state.tasks)) {
+    const port = TASK_BY_ID.get(id)?.communicationPort;
+    if (port != null) runningPorts.add(port);
+  }
+  // Ports claimed by the user's current selection. A startable is blocked if
+  // its port collides with a running task OR another currently-selected startable.
+  const selectedPorts = new Set<number>();
+  for (const id of selectedIds) {
+    const port = TASK_BY_ID.get(id)?.communicationPort;
+    if (port != null) selectedPorts.add(port);
+  }
+
+  const isPortBlocked = (def: TaskDefinition): boolean => {
+    if (def.communicationPort == null) return false;
+    if (runningPorts.has(def.communicationPort)) return true;
+    // Don't let a def block itself.
+    if (selectedIds.has(def.id)) return false;
+    return selectedPorts.has(def.communicationPort);
+  };
+
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -164,6 +187,7 @@ export function TaskPanel() {
           >
             {startable.map((def) => {
               const checked = selectedIds.has(def.id);
+              const blocked = isPortBlocked(def);
               return (
                 <label
                   key={def.id}
@@ -177,17 +201,22 @@ export function TaskPanel() {
                     flex: "1 1 220px",
                     maxWidth: 240,
                     minWidth: 200,
-                    cursor: "pointer",
+                    cursor: blocked ? "not-allowed" : "pointer",
+                    opacity: blocked ? 0.5 : 1,
                   }}
                 >
                   <Row gap={space.sm} style={{ alignItems: "center" }}>
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => toggleSelected(def.id)}
+                      disabled={blocked}
+                      onChange={() => {
+                        if (blocked) return;
+                        toggleSelected(def.id);
+                      }}
                       style={{
                         accentColor: colors.accent,
-                        cursor: "pointer",
+                        cursor: blocked ? "not-allowed" : "pointer",
                       }}
                     />
                     <span
@@ -212,6 +241,11 @@ export function TaskPanel() {
                   >
                     {def.description}
                   </span>
+                  {blocked && (
+                    <span style={{ color: colors.warn, fontSize: "0.85em" }}>
+                      conflicts with other task
+                    </span>
+                  )}
                 </label>
               );
             })}

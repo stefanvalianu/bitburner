@@ -78,4 +78,9 @@ export interface TaskDefinition {
   // Whether the manager should always try to keep this task running.
   // Lifecycle concern, not a resource ask - distinct from `demand`.
   autostart?: boolean;
+
+  // Optional shared netscript port. Two tasks declaring the same port are
+  // mutually exclusive — TaskPanel blocks starting one while another with
+  // the same port is already running.
+  communicationPort?: number;
 }

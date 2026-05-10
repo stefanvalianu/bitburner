@@ -29,7 +29,7 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
   const totalCount = report.analysis.length;
 
   const handleTarget = (hostname: string) => {
-    // user wants to change this target, let's write 
+    // user wants to change this target, let's write
   };
 
   const rows = expanded

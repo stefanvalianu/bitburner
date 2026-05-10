@@ -8,6 +8,7 @@ export const serverDevourerTask: TaskDefinition = {
     "Uses all available resources to ONLY hack all available servers in a round-robin fashion (quickest first).",
   icon: "🍕",
   autostart: false,
+  communicationPort: 10,
   demand: {
     priority: "normal",
     unbounded: true,

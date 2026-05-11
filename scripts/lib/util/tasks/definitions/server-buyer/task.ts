@@ -36,7 +36,6 @@ class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
       let dirty = false;
 
       const cloudServerNames = this.ns.cloud.getServerNames();
-      let money = this.getPlayerSpendingMoney();
 
       // check for user requests
       const userRequests = drainPortData<ServerPurchaseRequest>(

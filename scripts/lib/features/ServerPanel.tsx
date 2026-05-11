@@ -21,6 +21,7 @@ import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/
 import {
   CLOUD_SERVER_PREFIX,
   getServerBuyerState,
+  type CloudServerInfo,
   type PurchasePreference,
   type ServerPurchaseRequest,
 } from "../util/tasks/definitions/server-buyer/info";
@@ -62,6 +63,14 @@ export function ServerPanel() {
   const buyer = getServerBuyerState(state);
   const purchasedCount = ownedSorted.filter((s) => s.hostname !== "home").length;
   const emptySlots = buyer ? Math.max(0, buyer.maxCloudServers - purchasedCount) : 0;
+
+  // Lookup map of cloud-server info by hostname so each tile can color/tooltip
+  // itself based on current upgrade affordability.
+  const cloudInfoByHost = useMemo(() => {
+    const m = new Map<string, CloudServerInfo>();
+    if (buyer && buyer.cloudServers) for (const c of buyer.cloudServers) m.set(c.hostname, c);
+    return m;
+  }, [buyer]);
 
   // Greedily try to nuke every server that might be nukable
   useEffect(() => {
@@ -111,7 +120,12 @@ export function ServerPanel() {
           </Row>
           <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm }}>
             {ownedSorted.map((s) => (
-              <ServerTile key={s.hostname} hostname={s.hostname} />
+              <ServerTile
+                key={s.hostname}
+                hostname={s.hostname}
+                cloudInfo={cloudInfoByHost.get(s.hostname)}
+                ramGB={s.maxRam}
+              />
             ))}
             {Array.from({ length: emptySlots }).map((_, i) => (
               <EmptyServerTile key={`empty-${i}`} />
@@ -132,33 +146,84 @@ export function ServerPanel() {
   );
 }
 
-const TILE_SIZE = 32;
-const TILE_ICON_SIZE = 18;
-const TILE_FONT_SIZE = 14;
+const TILE_SIZE = 48;
+const TILE_ICON_SIZE = 24;
+const TILE_FONT_SIZE = 18;
 
-function ServerTile({ hostname }: { hostname: string }) {
+interface ServerTileProps {
+  hostname: string;
+  cloudInfo?: CloudServerInfo;
+  ramGB: number;
+}
+
+function ServerTile({ hostname, cloudInfo, ramGB }: ServerTileProps) {
   const { colors, fonts } = useTheme();
+  const [hovered, setHovered] = useState(false);
   const isHome = hostname === "home";
   const label = isHome ? null : cloudSuffix(hostname);
+
+  // A cloud server is "upgradeable" while the buyer task can still grow it.
+  // maxUpgradeCost = -1 means it's already at the cap (or info missing).
+  const upgradeable = cloudInfo !== undefined && cloudInfo.maxUpgradeCost !== -1;
+  const accent = upgradeable ? colors.accent : colors.fg;
+
   return (
     <div
-      title={hostname}
+      title={upgradeable ? undefined : hostname}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
+        position: "relative",
         width: TILE_SIZE,
         height: TILE_SIZE,
-        border: `1px solid ${colors.border}`,
+        border: `1px solid ${upgradeable ? colors.accent : colors.border}`,
         background: colors.surface,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        color: colors.fg,
+        color: accent,
         fontFamily: fonts.mono,
         fontSize: TILE_FONT_SIZE,
         fontWeight: "bold",
         boxSizing: "border-box",
       }}
     >
-      {isHome ? <HomeIcon color={colors.fg} size={TILE_ICON_SIZE} /> : label}
+      {isHome ? <HomeIcon color={accent} size={TILE_ICON_SIZE} /> : label}
+      {upgradeable && hovered && cloudInfo && (
+        <UpgradeTooltip cloudInfo={cloudInfo} ramGB={ramGB} />
+      )}
+    </div>
+  );
+}
+
+function UpgradeTooltip({ cloudInfo, ramGB }: { cloudInfo: CloudServerInfo; ramGB: number }) {
+  const { colors, space } = useTheme();
+  const ns = useNs();
+  const nextCost =
+    cloudInfo.nextUpgradeCost !== -1 ? `$${ns.format.number(cloudInfo.nextUpgradeCost, 2)}` : "—";
+  const maxCost = `$${ns.format.number(cloudInfo.maxUpgradeCost, 2)}`;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "100%",
+        left: 0,
+        marginTop: space.xs,
+        background: colors.surface,
+        border: `1px solid ${colors.border}`,
+        padding: space.sm,
+        minWidth: 200,
+        zIndex: 100,
+        pointerEvents: "none",
+        fontSize: "0.85em",
+      }}
+    >
+      <Col gap={space.xs}>
+        <span style={{ color: colors.muted }}>{cloudInfo.hostname}</span>
+        <StatRow label="RAM" value={ns.format.ram(ramGB)} />
+        <StatRow label="Next upgrade" value={nextCost} valueColor={colors.money} />
+        <StatRow label="To max" value={maxCost} valueColor={colors.money} />
+      </Col>
     </div>
   );
 }

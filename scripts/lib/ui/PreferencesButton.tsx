@@ -1,15 +1,18 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useState } from "react";
 import { useNs } from "../util/ns";
 import { usePreferences } from "../util/usePreferences";
 import { Button } from "./Button";
 import { Col } from "./Col";
+import { Hint } from "./Hint";
 import { WrenchIcon } from "./Icons";
 import { Modal } from "./Modal";
+import { NumberInput } from "./NumberInput";
 import { Row } from "./Row";
+import { SectionHeading } from "./SectionHeading";
 import { useTheme } from "./theme";
 
 export function PreferencesButton() {
-  const { colors, space, fonts } = useTheme();
+  const { colors, space } = useTheme();
   const ns = useNs();
   const { preferences, setPreferences } = usePreferences();
 
@@ -56,30 +59,18 @@ export function PreferencesButton() {
         actions={<Button onClick={save}>Save</Button>}
       >
         <Col gap={space.lg}>
-          <PrefSection heading="Reserved money">
+          <Col gap={space.sm}>
+            <SectionHeading>Reserved money</SectionHeading>
             <Row gap={space.sm} style={{ alignItems: "center" }}>
               <span style={{ color: colors.muted }}>$</span>
-              <input
-                type="number"
-                min={0}
-                value={reservedMoneyInput}
-                onChange={(e) => setReservedMoneyInput(e.target.value)}
-                style={{
-                  background: colors.surface,
-                  color: colors.fg,
-                  border: `1px solid ${colors.border}`,
-                  padding: space.xs,
-                  fontFamily: fonts.mono,
-                  fontSize: "1em",
-                  minWidth: 220,
-                }}
-              />
-              <span style={{ color: colors.muted, fontSize: "0.85em" }}>{preview}</span>
+              <NumberInput value={reservedMoneyInput} onChange={setReservedMoneyInput} />
+              <Hint>{preview}</Hint>
             </Row>
             <Hint>Money the dashboard will refuse to spend below. 0 means spend freely.</Hint>
-          </PrefSection>
+          </Col>
 
-          <PrefSection heading="Auto-purchasing">
+          <Col gap={space.sm}>
+            <SectionHeading>Auto-purchasing</SectionHeading>
             <CheckboxRow
               checked={autobuyServers}
               onChange={setAutobuyServers}
@@ -92,35 +83,11 @@ export function PreferencesButton() {
               label="Buy & upgrade hacknet nodes"
               hint="Hacknet task will purchase nodes and apply upgrades automatically."
             />
-          </PrefSection>
+          </Col>
         </Col>
       </Modal>
     </>
   );
-}
-
-function PrefSection({ heading, children }: { heading: string; children: ReactNode }) {
-  const { colors, space } = useTheme();
-  return (
-    <Col gap={space.sm}>
-      <span
-        style={{
-          color: colors.fgDim,
-          fontSize: 11,
-          textTransform: "uppercase",
-          letterSpacing: 1,
-        }}
-      >
-        {heading}
-      </span>
-      {children}
-    </Col>
-  );
-}
-
-function Hint({ children, style }: { children: ReactNode; style?: CSSProperties }) {
-  const { colors } = useTheme();
-  return <span style={{ color: colors.muted, fontSize: "0.85em", ...style }}>{children}</span>;
 }
 
 interface CheckboxRowProps {

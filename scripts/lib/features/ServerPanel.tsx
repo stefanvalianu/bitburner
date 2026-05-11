@@ -3,15 +3,21 @@ import { useLogger } from "../util/logging/log";
 import { useNs } from "../util/ns";
 import { Button } from "../ui/Button";
 import { Col } from "../ui/Col";
+import { Hint } from "../ui/Hint";
 import { HardwareIcon, HomeIcon, WorldIcon } from "../ui/Icons";
+import { NumberInput } from "../ui/NumberInput";
 import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
+import { SectionHeading } from "../ui/SectionHeading";
 import { Spinner } from "../ui/Spinner";
+import { StatRow } from "../ui/StatRow";
 import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
+import { usePreferences } from "../util/usePreferences";
 import { Modal } from "../ui/Modal";
 import { ServerMapDialog } from "./ServerMapDialog";
 import { SERVER_PURCHASE_COMMUNICATION_PORT } from "../util/ports";
+import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
 import {
   CLOUD_SERVER_PREFIX,
   getServerBuyerState,
@@ -126,7 +132,9 @@ export function ServerPanel() {
   );
 }
 
-const TILE_SIZE = 64;
+const TILE_SIZE = 32;
+const TILE_ICON_SIZE = 18;
+const TILE_FONT_SIZE = 14;
 
 function ServerTile({ hostname }: { hostname: string }) {
   const { colors, fonts } = useTheme();
@@ -145,12 +153,12 @@ function ServerTile({ hostname }: { hostname: string }) {
         justifyContent: "center",
         color: colors.fg,
         fontFamily: fonts.mono,
-        fontSize: 20,
+        fontSize: TILE_FONT_SIZE,
         fontWeight: "bold",
         boxSizing: "border-box",
       }}
     >
-      {isHome ? <HomeIcon color={colors.fg} size={32} /> : label}
+      {isHome ? <HomeIcon color={colors.fg} size={TILE_ICON_SIZE} /> : label}
     </div>
   );
 }
@@ -177,18 +185,28 @@ interface BuyServerModalProps {
 }
 
 function BuyServerModal({ open, onClose }: BuyServerModalProps) {
-  const { colors, space, fonts } = useTheme();
+  const { colors, space } = useTheme();
   const ns = useNs();
+  const { state } = useDashboardController();
+  const { preferences } = usePreferences();
 
   const [preference, setPreference] = useState<PurchasePreference>("auto");
   const [budgetInput, setBudgetInput] = useState<string>("");
 
+  const money = getPlayerMonitorState(state)?.player?.money ?? 0;
+  const reserved = preferences.reservedMoney;
+  const spendable = Math.max(0, money - reserved);
+
+  // Mirrors the server-buyer task's resolution: a blank input falls back to
+  // spendable; otherwise it's max(requestedBudget, spendable) so the task
+  // can spend everything available even if the user under-asked.
+  const parsedBudget = Number(budgetInput);
+  const hasBudget = budgetInput.trim() !== "" && Number.isFinite(parsedBudget) && parsedBudget > 0;
+  const effectiveBudget = hasBudget ? Math.max(parsedBudget, spendable) : spendable;
+
   const submit = () => {
     const request: ServerPurchaseRequest = { preference };
-    const parsed = Number(budgetInput);
-    if (budgetInput.trim() !== "" && Number.isFinite(parsed) && parsed > 0) {
-      request.budget = parsed;
-    }
+    if (hasBudget) request.budget = parsedBudget;
     ns.writePort(SERVER_PURCHASE_COMMUNICATION_PORT, JSON.stringify(request));
     onClose();
   };
@@ -198,9 +216,34 @@ function BuyServerModal({ open, onClose }: BuyServerModalProps) {
       open={open}
       onClose={onClose}
       title="Buy server"
-      actions={<Button onClick={submit}>Send request</Button>}
+      actions={
+        <Row gap={space.md} style={{ alignItems: "center" }}>
+          <Hint>Effective budget</Hint>
+          <span
+            style={{
+              color: colors.money,
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            ${ns.format.number(effectiveBudget, 2)}
+          </span>
+          <Button onClick={submit}>Send request</Button>
+        </Row>
+      }
     >
       <Col gap={space.lg}>
+        <Col gap={space.sm}>
+          <SectionHeading>Funds</SectionHeading>
+          <Row gap={space.lg}>
+            <StatRow
+              label="Available"
+              value={`$${ns.format.number(money, 2)}`}
+              valueColor={colors.money}
+            />
+            <StatRow label="Reserved" value={`$${ns.format.number(reserved, 2)}`} />
+          </Row>
+        </Col>
+
         <Col gap={space.sm}>
           <SectionHeading>Preference</SectionHeading>
           <Row gap={space.md}>
@@ -232,45 +275,16 @@ function BuyServerModal({ open, onClose }: BuyServerModalProps) {
           <SectionHeading>Budget (optional)</SectionHeading>
           <Row gap={space.sm} style={{ alignItems: "center" }}>
             <span style={{ color: colors.muted }}>$</span>
-            <input
-              type="number"
-              min={0}
+            <NumberInput
               value={budgetInput}
-              onChange={(e) => setBudgetInput(e.target.value)}
+              onChange={setBudgetInput}
               placeholder="leave blank for all spendable"
-              style={{
-                background: colors.surface,
-                color: colors.fg,
-                border: `1px solid ${colors.border}`,
-                padding: space.xs,
-                fontFamily: fonts.mono,
-                fontSize: "1em",
-                minWidth: 220,
-              }}
             />
           </Row>
-          <span style={{ color: colors.muted, fontSize: "0.85em" }}>
-            Cap on this purchase. Blank = use all money above the reserved threshold.
-          </span>
+          <Hint>Cap on this purchase. Blank = use all money above the reserved threshold.</Hint>
         </Col>
       </Col>
     </Modal>
-  );
-}
-
-function SectionHeading({ children }: { children: string }) {
-  const { colors } = useTheme();
-  return (
-    <span
-      style={{
-        color: colors.fgDim,
-        fontSize: 11,
-        textTransform: "uppercase",
-        letterSpacing: 1,
-      }}
-    >
-      {children}
-    </span>
   );
 }
 

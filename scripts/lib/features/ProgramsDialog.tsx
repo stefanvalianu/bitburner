@@ -1,6 +1,7 @@
 import { Check } from "../ui/Check";
 import { Col } from "../ui/Col";
 import { Row } from "../ui/Row";
+import { SectionHeading } from "../ui/SectionHeading";
 import { useTheme } from "../ui/theme";
 import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
 import { useDashboardController } from "../util/useDashboardController";
@@ -17,23 +18,6 @@ function BoolRow({ label, ok }: BoolRowProps) {
       <Check ok={ok} />
       <span style={{ color: ok ? colors.fg : colors.muted }}>{label}</span>
     </Row>
-  );
-}
-
-function SectionHeading({ children }: { children: string }) {
-  const { colors, space } = useTheme();
-  return (
-    <span
-      style={{
-        color: colors.fgDim,
-        fontSize: 11,
-        textTransform: "uppercase",
-        letterSpacing: 1,
-        paddingTop: space.xs,
-      }}
-    >
-      {children}
-    </span>
   );
 }
 

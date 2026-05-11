@@ -6,7 +6,9 @@ import { FormulasIcon, PortsIcon, ProgramsIcon, TorIcon } from "../ui/Icons";
 import { Modal } from "../ui/Modal";
 import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
+import { SectionHeading } from "../ui/SectionHeading";
 import { Spinner } from "../ui/Spinner";
+import { StatRow } from "../ui/StatRow";
 import { useTheme } from "../ui/theme";
 import { useNs } from "../util/ns";
 import {
@@ -90,41 +92,6 @@ export function PlayerPanel() {
         <ProgramsDialog />
       </Modal>
     </>
-  );
-}
-
-function SectionHeading({ children }: { children: string }) {
-  const { colors, space } = useTheme();
-  return (
-    <span
-      style={{
-        color: colors.fgDim,
-        fontSize: 11,
-        textTransform: "uppercase",
-        letterSpacing: 1,
-        paddingTop: space.xs,
-      }}
-    >
-      {children}
-    </span>
-  );
-}
-
-interface StatRowProps {
-  label: string;
-  value: string;
-  valueColor?: string;
-}
-
-function StatRow({ label, value, valueColor }: StatRowProps) {
-  const { colors, space } = useTheme();
-  return (
-    <Row gap={space.sm} style={{ justifyContent: "space-between" }}>
-      <span style={{ color: colors.muted }}>{label}</span>
-      <span style={{ color: valueColor ?? colors.fg, fontVariantNumeric: "tabular-nums" }}>
-        {value}
-      </span>
-    </Row>
   );
 }
 

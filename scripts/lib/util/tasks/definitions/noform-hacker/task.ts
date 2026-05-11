@@ -22,7 +22,7 @@ const MAX_SEQUENTIAL_BAD_CHECKS = 3;
 const THIS_SCRIPT = "lib/util/tasks/definitions/noform-hacker/task.js";
 
 // re-run analysis every this many milliseconds
-const ANALYSIS_MAX_STALENESS_MS = 10 * 60 * 1000; // 10 min
+const ANALYSIS_MAX_STALENESS_MS = 60 * 1000; // 1 min
 
 interface TaskLease {
   lease: Lease;

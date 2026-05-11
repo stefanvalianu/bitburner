@@ -4,13 +4,13 @@ import { useTheme } from "./theme";
 interface ButtonProps {
   children: ReactNode;
   onClick?: () => void;
-  variant?: "default" | "warn" | "error";
+  variant?: "default" | "warn" | "error" | "primary";
   disabled?: boolean;
 }
 
 export function Button({ children, onClick, variant = "default", disabled = false }: ButtonProps) {
   const { colors, fonts, space } = useTheme();
-  const active = variant === "warn" ? colors.warn : variant === "error" ? colors.error : colors.fg;
+  const active = variant === "warn" ? colors.warn : variant === "error" ? colors.error : variant === "primary" ? colors.accent : colors.fg;
   const c = disabled ? colors.muted : active;
   return (
     <button

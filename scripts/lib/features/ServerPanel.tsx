@@ -131,6 +131,7 @@ export function ServerPanel() {
               <EmptyServerTile key={`empty-${i}`} />
             ))}
           </div>
+          {!buyer && <Spinner active label="Loading server purchase & upgrade info…" />}
         </Col>
       </Panel>
       <Modal
@@ -292,7 +293,9 @@ function BuyServerModal({ open, onClose }: BuyServerModalProps) {
           >
             ${ns.format.number(effectiveBudget, 2)}
           </span>
-          <Button onClick={submit}>Send request</Button>
+          <Button onClick={submit} disabled={effectiveBudget === 0}>
+            Send request
+          </Button>
         </Row>
       }
     >
@@ -306,6 +309,14 @@ function BuyServerModal({ open, onClose }: BuyServerModalProps) {
               valueColor={colors.money}
             />
             <StatRow label="Reserved" value={`$${ns.format.number(reserved, 2)}`} />
+          </Row>
+        </Col>
+
+        <Col gap={space.sm}>
+          <SectionHeading>Budget (optional)</SectionHeading>
+          <Row gap={space.sm} style={{ alignItems: "center" }}>
+            <span style={{ color: colors.muted }}>$</span>
+            <NumberInput value={budgetInput} onChange={setBudgetInput} placeholder="spending cap" />
           </Row>
         </Col>
 
@@ -334,19 +345,6 @@ function BuyServerModal({ open, onClose }: BuyServerModalProps) {
               hint="Only buy new servers (up to the cap)."
             />
           </Row>
-        </Col>
-
-        <Col gap={space.sm}>
-          <SectionHeading>Budget (optional)</SectionHeading>
-          <Row gap={space.sm} style={{ alignItems: "center" }}>
-            <span style={{ color: colors.muted }}>$</span>
-            <NumberInput
-              value={budgetInput}
-              onChange={setBudgetInput}
-              placeholder="leave blank for all spendable"
-            />
-          </Row>
-          <Hint>Cap on this purchase. Blank = use all money above the reserved threshold.</Hint>
         </Col>
       </Col>
     </Modal>

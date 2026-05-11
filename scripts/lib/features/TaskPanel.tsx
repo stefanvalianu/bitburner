@@ -99,7 +99,7 @@ export function TaskPanel() {
         </Row>
       ) : (
         showReallocate && (
-          <Button onClick={() => reallocate()}>
+          <Button onClick={() => reallocate()} variant="primary">
             <ShuffleIcon
               color={colors.accent}
               title="Reallocate tasks to better utilize new server capacity. Will request shutdown from unbound tasks."

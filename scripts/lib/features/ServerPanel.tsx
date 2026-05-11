@@ -207,9 +207,10 @@ function UpgradeTooltip({ cloudInfo, ramGB }: { cloudInfo: CloudServerInfo; ramG
     <div
       style={{
         position: "absolute",
-        top: "100%",
-        left: 0,
-        marginTop: space.xs,
+        bottom: "100%",
+        left: "50%",
+        transform: "translateX(-50%)",
+        marginBottom: space.xs,
         background: colors.surface,
         border: `1px solid ${colors.border}`,
         padding: space.sm,

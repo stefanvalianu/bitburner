@@ -1,4 +1,4 @@
 - Need to work on a trading task. Probably safe to assume full market access instead of increments, we'll just wait to trade until we have the whole thing (??)
 - Apparent bug, I have an unbound task running with headroom (8tb/11tb allocated), but allocating a new unbounded task (with an upper limit of 1tb), the task stays in requested state instead of being placed
 - Seemingly more bugs with script spawning issues, need to investigate/add telemetry
-
+- Potential bug during rebalance; is it possible an older allocation / computation / server list is being used that isn't representative of current? (staleness across tasks?)

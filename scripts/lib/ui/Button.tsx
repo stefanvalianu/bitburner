@@ -10,7 +10,14 @@ interface ButtonProps {
 
 export function Button({ children, onClick, variant = "default", disabled = false }: ButtonProps) {
   const { colors, fonts, space } = useTheme();
-  const active = variant === "warn" ? colors.warn : variant === "error" ? colors.error : variant === "primary" ? colors.accent : colors.fg;
+  const active =
+    variant === "warn"
+      ? colors.warn
+      : variant === "error"
+        ? colors.error
+        : variant === "primary"
+          ? colors.accent
+          : colors.fg;
   const c = disabled ? colors.muted : active;
   return (
     <button

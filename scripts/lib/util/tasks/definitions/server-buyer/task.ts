@@ -4,7 +4,7 @@ import { BaseTask } from "../../baseTask";
 import { drainPortData, SERVER_PURCHASE_COMMUNICATION_PORT } from "../../../ports";
 
 // all cloud servers will be named `${CLOUD-SERVER-PREFIX}-#`
-const CLOUD_SERVER_PREFIX = "cloud";
+export const CLOUD_SERVER_PREFIX = "cloud";
 
 class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
   private readonly maxCloudServerRam: number;

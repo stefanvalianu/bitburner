@@ -18,6 +18,9 @@ class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
   }
 
   protected async run_task(): Promise<void> {
+    // send this right away as we may not be dirty for a while
+    this.patchState({ cloudServers: this.getCloudServers(), maxCloudServers: this.maxCloudServers });
+
     while (true) {
       if (this.shouldShutdown) {
         return;
@@ -37,11 +40,11 @@ class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
           let budget = request.budget ? Math.max(request.budget, spendingMoney) : spendingMoney;
           
           if (request.preference === "new") {
-            this.tryPurchase(false, budget);
+            if (0 !== this.tryPurchase(false, budget)) dirty = true;
           } else if (request.preference === "upgrade") {
-            this.tryUpgrade(false, budget, cloudServerNames);
+            if (0 !== this.tryUpgrade(false, budget, cloudServerNames)) dirty = true;
           } else {
-            this.autoBuySomething(budget);
+            if (0 !== this.autoBuySomething(budget)) dirty = true;
           }
         }
       }
@@ -55,12 +58,14 @@ class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
           // couldn't buy anything
           if (cost === 0) {
             break;
+          } else {
+            dirty = true;
           }
         }
       }
 
       if (dirty) {
-        this.patchState({ cloudServers: this.getCloudServers() });
+        this.patchState({ cloudServers: this.getCloudServers(), maxCloudServers: this.maxCloudServers });
       }
       await this.ns.asleep(10_000);
     }

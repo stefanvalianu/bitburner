@@ -15,7 +15,11 @@ export interface CloudServerInfo {
 }
 
 export interface ServerBuyerTaskState extends TaskState {
-  cloudServers: CloudServerInfo[]
+  // current cloud servers
+  cloudServers: CloudServerInfo[];
+
+  // max possible cloud servers
+  maxCloudServers: number;
 }
 
 export type PurchasePreference = "auto" | "upgrade" | "new";

@@ -16,6 +16,8 @@ export const TASK_EVENTS_PORT = 3;
 // Used by one of the various hacking system tasks.
 export const HACKING_SYSTEM_COMMUNICATION_PORT = 10;
 
+export const SERVER_PURCHASE_COMMUNICATION_PORT = 11;
+
 // Ran on main dashboard start-up to avoid dirty state
 export function clearPorts(ns: NS) {
   // clear core system ports
@@ -42,4 +44,23 @@ export function getPortData<TData>(
     } catch {}
   }
   return data;
+}
+
+// Drains a port of all of its data, returning it
+export function drainPortData<TData>(
+  ns: NS,
+  portNumber: number
+): TData[] | undefined {
+  let response: TData[] = [];
+  const portHandle = ns.getPortHandle(portNumber);
+
+  while (!portHandle.empty()) {
+    let raw = portHandle.read();
+    try {
+      const deserialized = JSON.parse(raw) as TData;
+      if (deserialized) response.push(deserialized);
+    } catch {}
+  }
+
+  return response.length > 0 ? response : undefined;
 }

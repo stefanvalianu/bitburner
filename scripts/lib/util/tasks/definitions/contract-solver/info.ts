@@ -1,10 +1,6 @@
-import { TaskDefinition, TaskState } from "../../types";
+import { TaskDefinition } from "../../types";
 
 export const CONTRACT_SOLVER_TASK_ID = "contract-solver";
-
-export interface ContractSolverTaskState extends TaskState {
-  todo: string;
-}
 
 export const contractSolverTask: TaskDefinition = {
   id: CONTRACT_SOLVER_TASK_ID,

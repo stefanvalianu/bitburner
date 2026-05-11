@@ -1,9 +1,9 @@
 import { NS } from "@ns";
-import { CONTRACT_SOLVER_TASK_ID, ContractSolverTaskState } from "./info";
+import { CONTRACT_SOLVER_TASK_ID } from "./info";
 import { BaseTask } from "../../baseTask";
 import { CodingContractSolver } from "./codingContractSolver";
 
-class ContractSolverTask extends BaseTask<ContractSolverTaskState> {
+class ContractSolverTask extends BaseTask {
   private readonly contractSolver: CodingContractSolver;
 
   constructor(ns: NS) {

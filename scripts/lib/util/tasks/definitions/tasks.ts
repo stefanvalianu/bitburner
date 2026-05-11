@@ -4,6 +4,7 @@ import { TaskDefinition } from "../types";
 import { contractSolverTask } from "./contract-solver/info";
 import { noformHackerTask } from "./noform-hacker/info";
 import { playerMonitorTask } from "./player-monitor/info";
+import { serverBuyerTask } from "./server-buyer/info";
 import { serverDevourerTask } from "./server-devourer/info";
 import { serverShareTask } from "./server-share/info";
 
@@ -11,6 +12,7 @@ import { serverShareTask } from "./server-share/info";
 export const ALL_TASKS: TaskDefinition[] = [
   contractSolverTask,
   playerMonitorTask,
+  serverBuyerTask,
   noformHackerTask,
   serverDevourerTask,
   serverShareTask,

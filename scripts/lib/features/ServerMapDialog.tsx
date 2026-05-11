@@ -358,7 +358,7 @@ function ServerRow({
 
   const ramFrac = s.maxRam > 0 ? s.ramUsed / s.maxRam : 0;
   const ramHigh = ramFrac >= RAM_WARN_THRESHOLD;
-  const hardwareColor = ramHigh ? colors.error : colors.fgDim;
+  const hardwareColor = ramHigh ? colors.error : colors.muted;
 
   const hackTooltip = (() => {
     const parts: string[] = [];
@@ -377,7 +377,7 @@ function ServerRow({
   const curDiff = s.hackDifficulty ?? 0;
   const showSecurity = minDiff > 0 && !purchased;
   const securityAtMin = curDiff <= minDiff * SECURITY_NEAR_MIN_RATIO;
-  const securityColor = securityAtMin ? colors.success : colors.fgDim;
+  const securityColor = securityAtMin ? colors.success : colors.muted;
   const securityTooltip = `Security: ${curDiff.toFixed(2)} (min ${minDiff.toFixed(2)})`;
 
   const moneyMax = s.moneyMax ?? 0;
@@ -385,7 +385,7 @@ function ServerRow({
   const showMoney = moneyMax > 0 && !purchased;
   const moneyFrac = moneyMax > 0 ? moneyAvail / moneyMax : 0;
   const moneyNearMax = moneyFrac >= MONEY_NEAR_MAX_RATIO;
-  const moneyColor = moneyNearMax ? colors.warn : colors.fgDim;
+  const moneyColor = moneyNearMax ? colors.warn : colors.muted;
   const moneyPct = (moneyFrac * 100).toFixed(0);
   const moneyTooltip = `Money: ${formatMoney(moneyAvail)} / ${formatMoney(moneyMax)} (${moneyPct}%)`;
 
@@ -424,7 +424,7 @@ function ServerRow({
           marginLeft: space.sm,
         }}
       >
-        <CopyPathButton text={path} color={colors.fgDim} />
+        <CopyPathButton text={path} color={colors.muted} />
         {s.backdoorInstalled && <DoorIcon color={colors.success} title="Backdoor installed" />}
         {!nuked && <HackIcon color={colors.warn} title={hackTooltip} />}
         <HardwareIcon color={hardwareColor} title={hardwareTooltip} />

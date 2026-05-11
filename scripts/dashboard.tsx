@@ -1,10 +1,12 @@
 import type { NS } from "@ns";
 import { DashboardControllerProvider } from "./lib/util/useDashboardController";
 import { NsProvider } from "./lib/util/ns";
+import { PreferencesProvider } from "./lib/util/usePreferences";
 import { usePropagate } from "./lib/util/usePropagate";
 import { clearPorts } from "./lib/util/ports";
 import { LogButton } from "./lib/util/logging/LogButton";
 import { PortViewerButton } from "./lib/ui/PortViewerButton";
+import { PreferencesButton } from "./lib/ui/PreferencesButton";
 import { PropagationStamp } from "./lib/ui/PropagationStamp";
 import { PlayerPanel } from "./lib/features/PlayerPanel";
 import { ServerPanel } from "./lib/features/ServerPanel";
@@ -22,6 +24,7 @@ function Dashboard() {
       <DashboardPanel
         actions={
           <Row gap={space.sm}>
+            <PreferencesButton />
             <PortViewerButton />
             <LogButton />
           </Row>
@@ -86,9 +89,11 @@ export async function main(ns: NS): Promise<void> {
   ns.printRaw(
     <NsProvider ns={ns}>
       <ThemeProvider>
-        <DashboardControllerProvider>
-          <Dashboard />
-        </DashboardControllerProvider>
+        <PreferencesProvider>
+          <DashboardControllerProvider>
+            <Dashboard />
+          </DashboardControllerProvider>
+        </PreferencesProvider>
       </ThemeProvider>
     </NsProvider>,
   );

@@ -14,6 +14,7 @@ import {
   type Inventory,
 } from "../util/tasks/definitions/player-monitor/info";
 import { useDashboardController } from "../util/useDashboardController";
+import { usePreferences } from "../util/usePreferences";
 import { ProgramsDialog } from "./ProgramsDialog";
 
 // Skills the player can train via game actions. Intelligence is excluded — the
@@ -42,7 +43,9 @@ function skillProgressPct(
 
 export function PlayerPanel() {
   const { colors, space } = useTheme();
+  const ns = useNs();
   const { state } = useDashboardController();
+  const { preferences } = usePreferences();
   const playerState = getPlayerMonitorState(state);
 
   const [modalOpen, setModalOpen] = useState<boolean>(false);
@@ -53,10 +56,15 @@ export function PlayerPanel() {
     playerState.player !== undefined;
 
   const actions = (
-    <Button onClick={() => setModalOpen(true)} disabled={!hasPlayerState}>
-      <ProgramsIcon color={colors.fg} title="View programs" />
-      Programs
-    </Button>
+    <Row gap={space.sm} style={{ alignItems: "center" }}>
+      <span style={{ color: colors.muted, fontSize: "0.85em" }}>
+        {`Reserved: $${ns.format.number(preferences.reservedMoney, 2)}`}
+      </span>
+      <Button onClick={() => setModalOpen(true)} disabled={!hasPlayerState}>
+        <ProgramsIcon color={colors.fg} title="View programs" />
+        Programs
+      </Button>
+    </Row>
   );
 
   return (

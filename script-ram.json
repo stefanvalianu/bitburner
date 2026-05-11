@@ -21,6 +21,7 @@
   "lib/ui/NotificationDot.js": 1.6,
   "lib/ui/Panel.js": 1.6,
   "lib/ui/PortViewerButton.js": 1.6,
+  "lib/ui/PreferencesButton.js": 1.6,
   "lib/ui/PropagationStamp.js": 3.1,
   "lib/ui/Row.js": 1.6,
   "lib/ui/ScrollScope.js": 1.6,
@@ -73,5 +74,6 @@
   "lib/util/tasks/taskManager.js": 3.1,
   "lib/util/tasks/types.js": 1.6,
   "lib/util/useDashboardController.js": 5.3,
+  "lib/util/usePreferences.js": 1.6,
   "lib/util/usePropagate.js": 4.9
 }

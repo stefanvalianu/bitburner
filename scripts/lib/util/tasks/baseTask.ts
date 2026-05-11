@@ -2,7 +2,7 @@ import type { NS } from "@ns";
 import { createLogger, type Logger } from "../logging/log";
 import { TASK_EVENTS_PORT, DASHBOARD_STATE_PORT, getPortData } from "../ports";
 import type { Allocation, TaskEvent, TaskId, TaskState } from "./types";
-import { DashboardState } from "../dashboardTypes";
+import { DashboardState, DEFAULT_PREFERENCES } from "../dashboardTypes";
 
 export abstract class BaseTask<TState extends Record<string, unknown> = Record<string, unknown>> {
   protected readonly ns: NS;
@@ -59,6 +59,9 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
         currentVersion: "0",
         propagatedVersion: "0",
         reallocating: false,
+        preferences: {
+          ...DEFAULT_PREFERENCES
+        },
       }
     );
   }

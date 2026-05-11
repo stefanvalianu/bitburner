@@ -18,9 +18,15 @@ import type { NS } from "@ns";
 import { useNs } from "./ns";
 import { TaskId } from "./tasks/types";
 import { DASHBOARD_STATE_PORT, getPortData } from "./ports";
-import { DashboardController, DashboardState, ServerInfo } from "./dashboardTypes";
+import {
+  DashboardController,
+  DashboardPreferences,
+  DashboardState,
+  ServerInfo,
+} from "./dashboardTypes";
 import { TaskManager } from "./tasks/taskManager";
 import { useLogger } from "./logging/log";
+import { usePreferences } from "./usePreferences";
 
 // The interval that the entire dashboard system refreshes at. This controls
 // sub-behaviors like task management/kickoff, etc.
@@ -65,7 +71,7 @@ function findAllServers(ns: NS, root: string = "home"): ServerInfo[] {
   return result;
 }
 
-function snapshot(ns: NS): DashboardState {
+function snapshot(ns: NS, preferences: DashboardPreferences): DashboardState {
   const data = getPortData<DashboardState>(ns, DASHBOARD_STATE_PORT);
 
   return {
@@ -75,6 +81,7 @@ function snapshot(ns: NS): DashboardState {
     allServers: findAllServers(ns, "home"),
     tasks: data?.tasks || {},
     reallocating: data?.reallocating || false,
+    preferences,
   };
 }
 
@@ -94,8 +101,9 @@ export function DashboardControllerProvider({
 }) {
   const ns = useNs();
   const taskManagerLogger = useLogger("task-manager");
+  const { preferencesRef } = usePreferences();
 
-  const [state, setState] = useState<DashboardState>(() => snapshot(ns));
+  const [state, setState] = useState<DashboardState>(() => snapshot(ns, preferencesRef.current));
 
   const taskManager = useMemo(
     () => new TaskManager(ns, taskManagerLogger),
@@ -104,7 +112,7 @@ export function DashboardControllerProvider({
 
   useEffect(() => {
     const id = setInterval(() => {
-      const newState = snapshot(ns);
+      const newState = snapshot(ns, preferencesRef.current);
       newState.tasks = taskManager.runTick(newState); // note the tick wil be wrong, but we don't use it for task management
       newState.reallocating = taskManager.isReallocating();
 
@@ -115,21 +123,21 @@ export function DashboardControllerProvider({
       });
     }, intervalMs);
     return () => clearInterval(id);
-  }, [ns, intervalMs]);
+  }, [ns, intervalMs, preferencesRef]);
 
   const startTasks = useCallback(
     (taskIds: TaskId[]) => {
       const newTaskState = taskManager.begin(taskIds);
 
       if (newTaskState) {
-        const newState = snapshot(ns);
+        const newState = snapshot(ns, preferencesRef.current);
         newState.tasks = newTaskState;
         newState.reallocating = taskManager.isReallocating();
         newState.tick = state.tick;
         publishSnapshot(ns, newState);
       }
     },
-    [taskManager, state],
+    [taskManager, state, preferencesRef],
   );
 
   const shutdownTask = useCallback(
@@ -137,14 +145,14 @@ export function DashboardControllerProvider({
       const newTaskState = taskManager.shutdown(taskId);
 
       if (newTaskState) {
-        const newState = snapshot(ns);
+        const newState = snapshot(ns, preferencesRef.current);
         newState.tasks = newTaskState;
         newState.reallocating = taskManager.isReallocating();
         newState.tick = state.tick; // no need to have a quick tick
         publishSnapshot(ns, newState);
       }
     },
-    [taskManager, state],
+    [taskManager, state, preferencesRef],
   );
 
   const shouldShowReallocate = useCallback(
@@ -155,14 +163,14 @@ export function DashboardControllerProvider({
   const reallocate = useCallback(() => {
     const newTaskState = taskManager.reallocate();
     if (newTaskState) {
-      const newState = snapshot(ns);
+      const newState = snapshot(ns, preferencesRef.current);
       newState.tasks = newTaskState;
       newState.reallocating = taskManager.isReallocating();
       newState.tick = state.tick;
       publishSnapshot(ns, newState);
       setState(newState);
     }
-  }, [taskManager, state, ns]);
+  }, [taskManager, state, ns, preferencesRef]);
 
   const controller = useMemo(
     () =>

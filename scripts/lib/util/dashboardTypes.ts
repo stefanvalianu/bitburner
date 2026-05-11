@@ -16,6 +16,18 @@ export type ServerInfo = Server & {
   isLastSibling: boolean;
 };
 
+export interface DashboardPreferences {
+  // Money the dashboard will refuse to spend below. Purchasing tasks consult
+  // this threshold; 0 means "spend freely".
+  reservedMoney: number;
+
+  // Whether to auto-purchase servers using the server task.
+  autobuyServers: boolean;
+
+  // Whether to auto-purchase hacknet servers and their upgrades.
+  autobuyHacknet: boolean;
+}
+
 export interface DashboardState {
   // simple incremental tick counter; can easily bind to control re-renders
   tick: number;
@@ -39,8 +51,9 @@ export interface DashboardState {
   // task starts and manual shutdowns are blocked while this is set.
   reallocating: boolean;
 
-  // TODO - user preferences should be here, so player interacting with the
-  // dashboard changes these preferences, and tasks can consume those preferences
+  // User-tunable knobs. Sourced from the PreferencesContext at publish time;
+  // consumed by tasks that need a player-facing setting (e.g. spend limits).
+  preferences: DashboardPreferences;
 }
 
 export interface DashboardController {
@@ -62,3 +75,9 @@ export interface DashboardController {
   // fresh once they've terminated.
   reallocate: () => void;
 }
+
+export const DEFAULT_PREFERENCES: DashboardPreferences = {
+  reservedMoney: 0,
+  autobuyServers: false,
+  autobuyHacknet: false,
+};

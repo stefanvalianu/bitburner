@@ -139,3 +139,91 @@ export function findHackWeakenGrowWeakenSplit(
 
   return undefined;
 }
+
+// Upper bound on the RAM one HWGW batch can usefully consume on a lease
+// with the given cores. Returns 0 when no useful batch is possible.
+// Callers use this to size their lease request rather than greedily
+// grabbing whole hosts.
+export function maxUsefulHwgwRam(
+  ns: NS,
+  target: string,
+  hackRam: number,
+  weakenRam: number,
+  growRam: number,
+  cores: number,
+): number {
+  const hackPctPerThread = ns.hackAnalyze(target);
+  if (hackPctPerThread <= 0) return 0;
+
+  const weakenPerThread = ns.weakenAnalyze(1, cores);
+  if (weakenPerThread <= 0) return 0;
+
+  // Match the cap inside findHackWeakenGrowWeakenSplit. The inner loop
+  // skips hackThreads whose moneyStolenPct >= 0.95, so drop one thread
+  // if floor() lands exactly on the boundary.
+  let hackThreads = Math.floor(0.95 / hackPctPerThread);
+  if (hackPctPerThread * hackThreads >= 0.95) hackThreads -= 1;
+  if (hackThreads < 1) return 0;
+
+  const moneyStolenPct = hackPctPerThread * hackThreads;
+  const growMultiplier = 1 / (1 - moneyStolenPct);
+
+  const growThreads = Math.max(1, Math.ceil(ns.growthAnalyze(target, growMultiplier, cores)));
+
+  const hackSecurityIncrease = ns.hackAnalyzeSecurity(hackThreads, target);
+  const growSecurityIncrease = ns.growthAnalyzeSecurity(growThreads, target, cores);
+
+  const hackWeakenThreads = Math.max(1, Math.ceil(hackSecurityIncrease / weakenPerThread));
+  const growWeakenThreads = Math.max(1, Math.ceil(growSecurityIncrease / weakenPerThread));
+
+  return (
+    hackThreads * hackRam +
+    hackWeakenThreads * weakenRam +
+    growThreads * growRam +
+    growWeakenThreads * weakenRam
+  );
+}
+
+// Upper bound on the RAM one grow/weaken batch needs to close the
+// current money deficit on `target`. Returns 0 when money is already
+// at the cap (caller should stop leasing).
+export function maxUsefulGrowWeakRam(
+  ns: NS,
+  target: string,
+  growRam: number,
+  weakenRam: number,
+  cores: number,
+): number {
+  const currentMoney = Math.max(1, ns.getServerMoneyAvailable(target));
+  const maxMoney = ns.getServerMaxMoney(target);
+  if (currentMoney >= maxMoney) return 0;
+
+  const weakenPerThread = ns.weakenAnalyze(1, cores);
+  if (weakenPerThread <= 0) return 0;
+
+  const growMultiplier = maxMoney / currentMoney;
+  const growThreads = Math.max(1, Math.ceil(ns.growthAnalyze(target, growMultiplier, cores)));
+
+  const growSecurity = ns.growthAnalyzeSecurity(growThreads, target, cores);
+  const weakThreads = Math.max(1, Math.ceil(growSecurity / weakenPerThread));
+
+  return growThreads * growRam + weakThreads * weakenRam;
+}
+
+// Upper bound on the RAM needed to drive security to its minimum on
+// `target`. Returns 0 when security is already at the floor.
+export function maxUsefulWeakenRam(
+  ns: NS,
+  target: string,
+  weakenRam: number,
+  cores: number,
+): number {
+  const excess = ns.getServerSecurityLevel(target) - ns.getServerMinSecurityLevel(target);
+  if (excess <= 0) return 0;
+
+  const weakenPerThread = ns.weakenAnalyze(1, cores);
+  if (weakenPerThread <= 0) return 0;
+
+  const weakThreads = Math.max(1, Math.ceil(excess / weakenPerThread));
+  return weakThreads * weakenRam;
+}

@@ -81,6 +81,16 @@ export class Allocator {
     return result;
   }
 
+  // Inspect the host that `leaseUpTo` would draw from next without
+  // mutating the pool. Useful when the caller wants to size its lease
+  // request based on the host's cores (e.g. weaken/grow efficiency).
+  peekTopHost(): { hostname: string; ram: number; cores: number } | null {
+    const sorted = this.sortedHosts(false);
+    if (sorted.length === 0) return null;
+    if (Math.floor(sorted[0].ram) === 0) return null;
+    return { hostname: sorted[0].hostname, ram: sorted[0].ram, cores: sorted[0].cores };
+  }
+
   // Similar to `lease` but finds the biggest possible contiguous block
   // up to the requested ram. Useful if you're OK to grow script threads
   // irresponsibly large. If `ram` is not provided, will return the biggest

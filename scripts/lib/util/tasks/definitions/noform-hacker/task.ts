@@ -8,7 +8,13 @@ import {
 } from "./info";
 import { performAnalysis } from "./profitAnalysis";
 import { Lease } from "../../allocator";
-import { findGrowWeakSplit, findHackWeakenGrowWeakenSplit } from "./threadCalculations";
+import {
+  findGrowWeakSplit,
+  findHackWeakenGrowWeakenSplit,
+  maxUsefulGrowWeakRam,
+  maxUsefulHwgwRam,
+  maxUsefulWeakenRam,
+} from "./threadCalculations";
 import { BaseSpawnerTask } from "../../baseSpawnerTask";
 import { WEAKEN_SCRIPT, GROW_SCRIPT, HACK_SCRIPT } from "../../../script/constants";
 import { getPortData, HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
@@ -221,11 +227,18 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
     // Per current implementation (naively consuming our whole allocation)
     // for the job-at-hand, we're simply going to spam weaken on all our
     // resources and wait for them to finish
+    const weakenRam = this.ns.getScriptRam(WEAKEN_SCRIPT);
+
     let leases: Lease[] = [];
     let taskLeases: TaskLease[] = [];
-    let lease: Lease | null = null;
 
-    while ((lease = this.allocator.leaseUpTo()) !== null) {
+    while (true) {
+      const top = this.allocator.peekTopHost();
+      if (!top) break;
+      const cap = maxUsefulWeakenRam(this.ns, this.target, weakenRam, top.cores);
+      if (cap <= 0) break;
+      const lease = this.allocator.leaseUpTo(cap);
+      if (!lease) break;
       leases.push(lease);
     }
 
@@ -251,23 +264,28 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
   private async repairMoney(): Promise<void> {
     // Per current implementation we'll consume our entire allocation to run
     // as many pairs of Grow/Weaken as we can.
-    let leases: Lease[] = [];
-    let taskLeases: TaskLease[] = [];
-    let lease: Lease | null = null;
-
-    while ((lease = this.allocator.leaseUpTo()) !== null) {
-      leases.push(lease);
-    }
-
-    const weakTime = this.ns.getWeakenTime(this.target);
-    const growTime = this.ns.getGrowTime(this.target);
-
     const weakenRam = this.ns.getScriptRam(WEAKEN_SCRIPT);
     const growRam = this.ns.getScriptRam(GROW_SCRIPT);
 
     if (weakenRam !== growRam) {
       this.log.error(`weaken script RAM (${weakenRam}) differs from grow script RAM (${growRam}).`);
     }
+
+    let leases: Lease[] = [];
+    let taskLeases: TaskLease[] = [];
+
+    while (true) {
+      const top = this.allocator.peekTopHost();
+      if (!top) break;
+      const cap = maxUsefulGrowWeakRam(this.ns, this.target, growRam, weakenRam, top.cores);
+      if (cap <= 0) break;
+      const lease = this.allocator.leaseUpTo(cap);
+      if (!lease) break;
+      leases.push(lease);
+    }
+
+    const weakTime = this.ns.getWeakenTime(this.target);
+    const growTime = this.ns.getGrowTime(this.target);
 
     // First grow finish must be late enough that both grow and weaken can be delayed
     // to land at their desired finish times.
@@ -340,22 +358,26 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
   }
 
   private async hack(): Promise<void> {
+    const weakenRam = this.ns.getScriptRam(WEAKEN_SCRIPT);
+    const growRam = this.ns.getScriptRam(GROW_SCRIPT);
+    const hackRam = this.ns.getScriptRam(HACK_SCRIPT);
+
     const leases: Lease[] = [];
     const taskLeases: TaskLease[] = [];
 
-    let lease: Lease | null = null;
-
-    while ((lease = this.allocator.leaseUpTo()) !== null) {
+    while (true) {
+      const top = this.allocator.peekTopHost();
+      if (!top) break;
+      const cap = maxUsefulHwgwRam(this.ns, this.target, hackRam, weakenRam, growRam, top.cores);
+      if (cap <= 0) break;
+      const lease = this.allocator.leaseUpTo(cap);
+      if (!lease) break;
       leases.push(lease);
     }
 
     const weakTime = this.ns.getWeakenTime(this.target);
     const growTime = this.ns.getGrowTime(this.target);
     const hackTime = this.ns.getHackTime(this.target);
-
-    const weakenRam = this.ns.getScriptRam(WEAKEN_SCRIPT);
-    const growRam = this.ns.getScriptRam(GROW_SCRIPT);
-    const hackRam = this.ns.getScriptRam(HACK_SCRIPT);
 
     let nextFinishTime =
       Math.max(

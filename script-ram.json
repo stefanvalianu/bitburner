@@ -67,7 +67,7 @@
   "lib/util/tasks/definitions/noform-hacker/panel.js": 3.2,
   "lib/util/tasks/definitions/noform-hacker/profitAnalysis.js": 3.75,
   "lib/util/tasks/definitions/noform-hacker/task.js": 10.25,
-  "lib/util/tasks/definitions/noform-hacker/threadCalculations.js": 6.6,
+  "lib/util/tasks/definitions/noform-hacker/threadCalculations.js": 7,
   "lib/util/tasks/definitions/player-monitor/info.js": 1.6,
   "lib/util/tasks/definitions/player-monitor/task.js": 2.25,
   "lib/util/tasks/definitions/server-buyer/info.js": 1.6,

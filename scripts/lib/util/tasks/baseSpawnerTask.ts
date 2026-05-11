@@ -59,7 +59,10 @@ export abstract class BaseSpawnerTask<
     const pid = this.ns.exec(scriptName, lease.hostname, threads, ...args);
 
     if (pid === 0) {
-      this.log.error(`Failed to spawn script against ${lease.hostname}`);
+      this.log.error(
+        `Failed to spawn script ${scriptName} with ${threads ?? "?"} threads on ${lease.hostname}.`,
+        lease,
+      );
       this.allocator.return(lease.leaseId);
       return undefined;
     }

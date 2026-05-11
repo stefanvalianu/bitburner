@@ -1,5 +1,3 @@
-// NOTE: remember to clear the ports on dashboard starts, to be safe across script re-starts
-
 import { NS } from "@ns";
 
 // used for the logger hook
@@ -47,10 +45,7 @@ export function getPortData<TData>(
 }
 
 // Drains a port of all of its data, returning it
-export function drainPortData<TData>(
-  ns: NS,
-  portNumber: number
-): TData[] | undefined {
+export function drainPortData<TData>(ns: NS, portNumber: number): TData[] | undefined {
   let response: TData[] = [];
   const portHandle = ns.getPortHandle(portNumber);
 

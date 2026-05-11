@@ -134,7 +134,9 @@ function CheckboxRow({ checked, onChange, label, hint }: CheckboxRowProps) {
   const { colors, space } = useTheme();
   return (
     <Col gap={space.xs}>
-      <label style={{ display: "inline-flex", alignItems: "center", gap: space.sm, cursor: "pointer" }}>
+      <label
+        style={{ display: "inline-flex", alignItems: "center", gap: space.sm, cursor: "pointer" }}
+      >
         <input
           type="checkbox"
           checked={checked}

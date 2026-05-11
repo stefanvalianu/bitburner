@@ -1,10 +1,13 @@
 import { NS } from "@ns";
-import { CloudServerInfo, SERVER_BUYER_TASK_ID, ServerBuyerTaskState, ServerPurchaseRequest } from "./info";
+import {
+  CLOUD_SERVER_PREFIX,
+  CloudServerInfo,
+  SERVER_BUYER_TASK_ID,
+  ServerBuyerTaskState,
+  ServerPurchaseRequest,
+} from "./info";
 import { BaseTask } from "../../baseTask";
 import { drainPortData, SERVER_PURCHASE_COMMUNICATION_PORT } from "../../../ports";
-
-// all cloud servers will be named `${CLOUD-SERVER-PREFIX}-#`
-export const CLOUD_SERVER_PREFIX = "cloud";
 
 class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
   private readonly maxCloudServerRam: number;
@@ -19,7 +22,10 @@ class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
 
   protected async run_task(): Promise<void> {
     // send this right away as we may not be dirty for a while
-    this.patchState({ cloudServers: this.getCloudServers(), maxCloudServers: this.maxCloudServers });
+    this.patchState({
+      cloudServers: this.getCloudServers(),
+      maxCloudServers: this.maxCloudServers,
+    });
 
     while (true) {
       if (this.shouldShutdown) {
@@ -33,12 +39,15 @@ class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
       let money = this.getPlayerSpendingMoney();
 
       // check for user requests
-      const userRequests = drainPortData<ServerPurchaseRequest>(this.ns, SERVER_PURCHASE_COMMUNICATION_PORT);
+      const userRequests = drainPortData<ServerPurchaseRequest>(
+        this.ns,
+        SERVER_PURCHASE_COMMUNICATION_PORT,
+      );
       if (userRequests && userRequests.length > 0) {
         for (const request of userRequests) {
           let spendingMoney = this.getPlayerSpendingMoney();
           let budget = request.budget ? Math.max(request.budget, spendingMoney) : spendingMoney;
-          
+
           if (request.preference === "new") {
             if (0 !== this.tryPurchase(false, budget)) dirty = true;
           } else if (request.preference === "upgrade") {
@@ -65,7 +74,10 @@ class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
       }
 
       if (dirty) {
-        this.patchState({ cloudServers: this.getCloudServers(), maxCloudServers: this.maxCloudServers });
+        this.patchState({
+          cloudServers: this.getCloudServers(),
+          maxCloudServers: this.maxCloudServers,
+        });
       }
       await this.ns.asleep(10_000);
     }
@@ -73,14 +85,20 @@ class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
 
   // avoid trying to be tricky and just get the latest
   private getCloudServers(): CloudServerInfo[] {
-    return this.ns.cloud.getServerNames().map((host) => ({
-      hostname: host,
-      maxUpgradeCost: this.ns.cloud.getServerUpgradeCost(host, this.maxCloudServerRam),
-      nextUpgradeCost: this.ns.cloud.getServerUpgradeCost(host, 2 * this.ns.getServerMaxRam(host))
-    } satisfies CloudServerInfo));
+    return this.ns.cloud.getServerNames().map(
+      (host) =>
+        ({
+          hostname: host,
+          maxUpgradeCost: this.ns.cloud.getServerUpgradeCost(host, this.maxCloudServerRam),
+          nextUpgradeCost: this.ns.cloud.getServerUpgradeCost(
+            host,
+            2 * this.ns.getServerMaxRam(host),
+          ),
+        }) satisfies CloudServerInfo,
+    );
   }
 
-  // we need to check player money live instead of relying on 
+  // we need to check player money live instead of relying on
   // cached version to be safe and respect the purchase limits
   // obviously this is not perfect as the resource is not truly
   // locked, but we're not performing rocket surgery here.
@@ -90,7 +108,7 @@ class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
 
   // Returns the max ram that we can afford to upgrade a server given a budget and its cost
   private getMaxAffordableUpgradeAmountRam(hostname: string, budget: number): [number, number] {
-    const currentRam = this.snapshot.allServers.find(s => s.hostname === hostname)?.maxRam ?? 0;
+    const currentRam = this.snapshot.allServers.find((s) => s.hostname === hostname)?.maxRam ?? 0;
     if (currentRam === 0) return [0, 0];
 
     let targetRam = currentRam;
@@ -139,7 +157,7 @@ class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
         budget -= upgradeSpend;
         spent += upgradeSpend;
         continue;
-      } 
+      }
 
       let purchaseSpent = this.tryPurchase(true, budget);
 
@@ -164,7 +182,7 @@ class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
     let spent = 0;
     let serverSuffix = this.getCloudServers().length;
 
-    while (budget > 0 && (this.maxCloudServers - this.getCloudServers().length) > 0) {
+    while (budget > 0 && this.maxCloudServers - this.getCloudServers().length > 0) {
       const [maxRam, cost] = this.getMaxPurchaseableServerSize(budget);
 
       if (maxRam > 0) {
@@ -175,7 +193,9 @@ class ServerBuyerTask extends BaseTask<ServerBuyerTaskState> {
           serverSuffix++;
           if (justOne) return spent;
         } else {
-          this.log.error(`Tried to purchase server with suffix ${serverSuffix} and ${maxRam} but failed?`);
+          this.log.error(
+            `Tried to purchase server with suffix ${serverSuffix} and ${maxRam} but failed?`,
+          );
         }
       } else {
         // we couldn't purchase a server, no point looping

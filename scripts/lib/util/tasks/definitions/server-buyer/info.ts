@@ -1,7 +1,11 @@
 import { SERVER_PURCHASE_COMMUNICATION_PORT } from "../../../ports";
+import { DashboardState } from "../../../dashboardTypes";
 import { TaskDefinition, TaskState } from "../../types";
 
 export const SERVER_BUYER_TASK_ID = "server-buyer";
+
+// all cloud servers will be named `${CLOUD-SERVER-PREFIX}-#`
+export const CLOUD_SERVER_PREFIX = "cloud";
 
 // avoid extending ServerInfo to lower port object size
 export interface CloudServerInfo {
@@ -45,3 +49,8 @@ export const serverBuyerTask: TaskDefinition = {
     priority: "critical",
   },
 };
+
+export function getServerBuyerState(state: DashboardState): ServerBuyerTaskState | undefined {
+  if (!state.tasks) return undefined;
+  return state.tasks[SERVER_BUYER_TASK_ID] as ServerBuyerTaskState | undefined;
+}

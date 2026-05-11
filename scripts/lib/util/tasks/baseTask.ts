@@ -60,7 +60,7 @@ export abstract class BaseTask<TState extends Record<string, unknown> = Record<s
         propagatedVersion: "0",
         reallocating: false,
         preferences: {
-          ...DEFAULT_PREFERENCES
+          ...DEFAULT_PREFERENCES,
         },
       }
     );

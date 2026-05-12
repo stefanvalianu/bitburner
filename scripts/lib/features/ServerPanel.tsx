@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { RefObject } from "react";
 import { useLogger } from "../util/logging/log";
 import { useNs } from "../util/ns";
 import { Button } from "../ui/Button";
@@ -159,6 +160,7 @@ interface ServerTileProps {
 
 function ServerTile({ hostname, cloudInfo, ramGB }: ServerTileProps) {
   const { colors, fonts } = useTheme();
+  const tileRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
   const isHome = hostname === "home";
   const label = isHome ? null : cloudSuffix(hostname);
@@ -170,6 +172,7 @@ function ServerTile({ hostname, cloudInfo, ramGB }: ServerTileProps) {
 
   return (
     <div
+      ref={tileRef}
       title={upgradeable ? undefined : hostname}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -191,26 +194,70 @@ function ServerTile({ hostname, cloudInfo, ramGB }: ServerTileProps) {
     >
       {isHome ? <HomeIcon color={accent} size={TILE_ICON_SIZE} /> : label}
       {upgradeable && hovered && cloudInfo && (
-        <UpgradeTooltip cloudInfo={cloudInfo} ramGB={ramGB} />
+        <UpgradeTooltip cloudInfo={cloudInfo} ramGB={ramGB} triggerRef={tileRef} />
       )}
     </div>
   );
 }
 
-function UpgradeTooltip({ cloudInfo, ramGB }: { cloudInfo: CloudServerInfo; ramGB: number }) {
+// CSS `position: fixed` is contained by the nearest ancestor that creates a
+// containing block for it — `transform`, `perspective`, `filter`, etc. on an
+// ancestor pin it there instead of the viewport. Bitburner's tail-window root
+// has a transform, so fixed elements anchor to the tail window. We need that
+// ancestor's bounds to translate viewport coords (from getBoundingClientRect)
+// into the fixed element's coordinate space.
+function findFixedContainingBlock(el: HTMLElement): HTMLElement | null {
+  const view = el.ownerDocument.defaultView;
+  if (!view) return null;
+  let cur: HTMLElement | null = el.parentElement;
+  while (cur) {
+    const cs = view.getComputedStyle(cur);
+    if (cs.transform !== "none" || cs.perspective !== "none" || cs.filter !== "none") {
+      return cur;
+    }
+    cur = cur.parentElement;
+  }
+  return null;
+}
+
+interface UpgradeTooltipProps {
+  cloudInfo: CloudServerInfo;
+  ramGB: number;
+  triggerRef: RefObject<HTMLDivElement>;
+}
+
+function UpgradeTooltip({ cloudInfo, ramGB, triggerRef }: UpgradeTooltipProps) {
   const { colors, space } = useTheme();
   const ns = useNs();
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  // Position via `getBoundingClientRect` so the tooltip can use
+  // `position: fixed` and escape the dashboard's `overflow: auto` scroll
+  // container. `position: absolute` would be clipped by it.
+  useLayoutEffect(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const anchor = findFixedContainingBlock(trigger);
+    const trigRect = trigger.getBoundingClientRect();
+    const anchorRect = anchor?.getBoundingClientRect() ?? { top: 0, left: 0 };
+    setPos({
+      top: trigRect.top - anchorRect.top - space.xs,
+      left: trigRect.left + trigRect.width / 2 - anchorRect.left,
+    });
+  }, [triggerRef, space.xs]);
+
   const nextCost =
     cloudInfo.nextUpgradeCost !== -1 ? `$${ns.format.number(cloudInfo.nextUpgradeCost, 2)}` : "—";
   const maxCost = `$${ns.format.number(cloudInfo.maxUpgradeCost, 2)}`;
+
+  if (!pos) return null;
   return (
     <div
       style={{
-        position: "absolute",
-        bottom: "100%",
-        left: "50%",
-        transform: "translateX(-50%)",
-        marginBottom: space.xs,
+        position: "fixed",
+        top: pos.top,
+        left: pos.left,
+        transform: "translate(-50%, -100%)",
         background: colors.surface,
         border: `1px solid ${colors.border}`,
         padding: space.sm,

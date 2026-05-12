@@ -77,9 +77,12 @@
   "lib/util/tasks/definitions/server-share/info.js": 1.6,
   "lib/util/tasks/definitions/server-share/task.js": 3.6,
   "lib/util/tasks/definitions/tasks.js": 1.6,
+  "lib/util/tasks/definitions/ultrahacker/info.js": 1.6,
+  "lib/util/tasks/definitions/ultrahacker/task.js": 1.6,
   "lib/util/tasks/taskManager.js": 3.1,
   "lib/util/tasks/types.js": 1.6,
   "lib/util/useDashboardController.js": 5.3,
+  "lib/util/useLivePlayerState.js": 1.6,
   "lib/util/usePreferences.js": 1.6,
   "lib/util/usePropagate.js": 4.9
 }

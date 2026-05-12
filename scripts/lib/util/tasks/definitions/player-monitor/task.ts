@@ -1,6 +1,11 @@
 import { NS, Player } from "@ns";
 import { BaseTask } from "../../baseTask";
-import { PLAYER_MONITOR_TASK_ID, PlayerMonitorTaskState } from "./info";
+import {
+  PLAYER_MONITOR_FAST_REFRESH_FREQUENCY_MS,
+  PLAYER_MONITOR_TASK_ID,
+  PlayerMonitorTaskState,
+} from "./info";
+import { PLAYER_STATE_PORT } from "../../../ports";
 
 const PORT_OPENER_KEYS = ["bruteSsh", "ftpCrack", "relaySmtp", "httpWorm", "sqlInject"] as const;
 
@@ -23,10 +28,11 @@ class PlayerMonitorTask extends BaseTask<PlayerMonitorTaskState> {
         name,
         owned: this.ns.fileExists(name, "home"),
       }));
+      const hasFormulas = this.ns.fileExists(PN.formulas, "home");
 
-      this.patchState({
+      const state = {
         inventory: {
-          hasFormulas: this.ns.fileExists(PN.formulas, "home"),
+          hasFormulas,
           programs: allPrograms.filter(
             (p) => !portOpenerNames.has(p.name) && p.name !== PN.formulas,
           ),
@@ -34,9 +40,15 @@ class PlayerMonitorTask extends BaseTask<PlayerMonitorTaskState> {
           hasRouter: this.ns.hasTorRouter(),
         },
         player: this.player,
-      });
+      };
 
-      await this.ns.asleep(10_000);
+      this.patchState(state);
+
+      // also push this to the player port that useLivePlayerState() consumes
+      this.ns.clearPort(PLAYER_STATE_PORT);
+      this.ns.writePort(PLAYER_STATE_PORT, JSON.stringify(state));
+
+      await this.ns.asleep(PLAYER_MONITOR_FAST_REFRESH_FREQUENCY_MS);
     }
   }
 }

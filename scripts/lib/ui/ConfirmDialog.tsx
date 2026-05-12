@@ -7,6 +7,11 @@ import { Row } from "./Row";
 import { ScrollScope } from "./ScrollScope";
 import { useTheme } from "./theme";
 
+// One higher than MODAL_Z_INDEX in Modal.tsx so confirm dialogs always sit
+// above any modal that opened them. See the comment there for the rationale
+// behind the near-max value.
+const CONFIRM_DIALOG_Z_INDEX = 2147483641;
+
 interface ConfirmDialogProps {
   open: boolean;
   onConfirm: () => void;
@@ -61,7 +66,7 @@ export function ConfirmDialog({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                zIndex: 10000,
+                zIndex: CONFIRM_DIALOG_Z_INDEX,
               }}
             >
               <div onClick={(e) => e.stopPropagation()}>

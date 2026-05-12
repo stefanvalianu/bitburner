@@ -54,7 +54,21 @@ export abstract class BaseSpawnerTask<
     threads?: number,
     ...args: (string | number | boolean)[]
   ): number | undefined {
-    threads = threads ?? Math.floor(lease.ram / this.ns.getScriptRam(scriptName));
+    const scriptRam = this.ns.getScriptRam(scriptName);
+    threads = threads ?? Math.floor(lease.ram / scriptRam);
+
+    // `ns.exec` throws on `threads <= 0` rather than returning 0, so guard
+    // explicitly. Hits when `leaseUpTo` hands back a sliver smaller than one
+    // thread's worth of RAM (e.g. a 1 GB lease for a 1.75 GB-per-thread
+    // weaken — common after fragmentation drains the pool down to remnants).
+    if (threads <= 0) {
+      this.log.warn(
+        `Lease too small for ${scriptName} on ${lease.hostname}: got ${lease.ram} GB, need ≥${scriptRam} GB per thread. Returning lease.`,
+        lease,
+      );
+      this.allocator.return(lease.leaseId);
+      return undefined;
+    }
 
     const pid = this.ns.exec(scriptName, lease.hostname, threads, ...args);
 

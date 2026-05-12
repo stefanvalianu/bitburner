@@ -13,11 +13,13 @@ import { useTheme } from "../ui/theme";
 import { useNs } from "../util/ns";
 import {
   getPlayerMonitorState,
+  PlayerMonitorTaskState,
   type Inventory,
 } from "../util/tasks/definitions/player-monitor/info";
 import { useDashboardController } from "../util/useDashboardController";
 import { usePreferences } from "../util/usePreferences";
 import { ProgramsDialog } from "./ProgramsDialog";
+import { useLivePlayerState } from "../util/useLivePlayerState";
 
 // Skills the player can train via game actions. Intelligence is excluded — the
 // game grants it as a side-effect of other actions and there's no dedicated
@@ -76,10 +78,7 @@ export function PlayerPanel() {
           <Spinner active label="Player state not generated yet..." />
         ) : (
           <Row gap={space.lg} style={{ alignItems: "flex-start" }}>
-            <PlayerStats
-              player={playerState.player}
-              hasFormulas={playerState.inventory.hasFormulas}
-            />
+            <PlayerStats dashboardPlayerTaskState={playerState} />
             <Col gap={space.md} style={{ flex: 1, minWidth: 0 }}>
               <Location city={playerState.player.city} />
               <CrimeSection player={playerState.player} />
@@ -96,58 +95,53 @@ export function PlayerPanel() {
 }
 
 interface PlayerStatsProps {
-  player: Player;
-  hasFormulas: boolean;
+  dashboardPlayerTaskState: PlayerMonitorTaskState;
 }
 
-function PlayerStats({ player, hasFormulas }: PlayerStatsProps) {
+function PlayerStats(props: PlayerStatsProps) {
   const { colors, space } = useTheme();
   const ns = useNs();
-  const fmtInt = (n: number) => ns.format.number(n, 0);
-  const pct = (s: TrainableSkill) => skillProgressPct(ns, player, s, hasFormulas);
+  const { player, inventory } = useLivePlayerState(props.dashboardPlayerTaskState);
+  const pct = (s: TrainableSkill) => skillProgressPct(ns, player, s, inventory.hasFormulas);
   return (
     <Col gap={space.xs} style={{ minWidth: 120, maxWidth: 160, flexShrink: 0 }}>
       <SectionHeading>Stats</SectionHeading>
-      <StatRow
-        label="HP"
-        value={`${fmtInt(player.hp.current)}/${fmtInt(player.hp.max)}`}
-        valueColor={colors.hp}
-      />
+      <StatRow label="HP" value={`${player.hp.current}/${player.hp.max}`} valueColor={colors.hp} />
       <StatRow label="$" value={ns.format.number(player.money, 2)} valueColor={colors.money} />
       <div style={{ borderTop: `1px solid ${colors.fgDim}`, margin: `${space.xs}px 0` }} />
       <SkillRow
         label="hck"
-        value={fmtInt(player.skills.hacking)}
+        value={`${player.skills.hacking}`}
         valueColor={colors.hack}
         progress={pct("hacking")}
       />
       <SkillRow
         label="str"
-        value={fmtInt(player.skills.strength)}
+        value={`${player.skills.strength}`}
         valueColor={colors.white}
         progress={pct("strength")}
       />
       <SkillRow
         label="def"
-        value={fmtInt(player.skills.defense)}
+        value={`${player.skills.defense}`}
         valueColor={colors.white}
         progress={pct("defense")}
       />
       <SkillRow
         label="dex"
-        value={fmtInt(player.skills.dexterity)}
+        value={`${player.skills.dexterity}`}
         valueColor={colors.white}
         progress={pct("dexterity")}
       />
       <SkillRow
         label="agi"
-        value={fmtInt(player.skills.agility)}
+        value={`${player.skills.agility}`}
         valueColor={colors.white}
         progress={pct("agility")}
       />
       <SkillRow
         label="cha"
-        value={fmtInt(player.skills.charisma)}
+        value={`${player.skills.charisma}`}
         valueColor={colors.cha}
         progress={pct("charisma")}
       />

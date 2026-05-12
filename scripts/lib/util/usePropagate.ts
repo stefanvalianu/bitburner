@@ -28,9 +28,7 @@ export function usePropagate(): void {
   useEffect(() => {
     if (!state.currentVersion) return;
 
-    const eligible = state.allServers.filter(
-      (s) => s.hostname !== "home" && s.hasAdminRights,
-    );
+    const eligible = state.allServers.filter((s) => s.hostname !== "home" && s.hasAdminRights);
     const versionChanged = state.currentVersion !== state.propagatedVersion;
 
     // On the very first tick, trust .state/version.txt: if disk says we're

@@ -46,7 +46,7 @@ export interface HackWeakGrowWeakSplit {
     // rounding errors might pose an actual challenge lol
     this.ns.formulas.hacking.weakenEffect();
     */
-   
+
 // Attempts to find a Grow/Weak split of threads given the constraints.
 // Does NOT modify the original player/server objects.
 // Returns undefined on failure
@@ -56,7 +56,7 @@ export function tryFindGrowWeakSplit(
   cores: number,
   originalPlayer: Player,
   originalTarget: Server,
-  ): GrowWeakSplit | undefined {
+): GrowWeakSplit | undefined {
   return undefined;
 }
 
@@ -69,7 +69,7 @@ export function tryFindHackWeakGrowWeakSplit(
   cores: number,
   originalPlayer: Player,
   originalTarget: Server,
-  ): HackWeakGrowWeakSplit | undefined {
+): HackWeakGrowWeakSplit | undefined {
   return undefined;
 }
 

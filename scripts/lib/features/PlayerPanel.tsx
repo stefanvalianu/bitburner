@@ -22,10 +22,8 @@ import { usePreferences } from "../util/usePreferences";
 import { ProgramsDialog } from "./ProgramsDialog";
 import { useLivePlayerState } from "../util/useLivePlayerState";
 
-// Skills the player can train via game actions. Intelligence is excluded — the
-// game grants it as a side-effect of other actions and there's no dedicated
-// training loop, so a progress bar would be misleading.
-type TrainableSkill = "hacking" | "strength" | "defense" | "dexterity" | "agility" | "charisma";
+// Skills the player can train via game actions. 
+type TrainableSkill = "hacking" | "strength" | "defense" | "dexterity" | "agility" | "charisma" | "intelligence";
 
 // Fraction of the way toward the next level for `skill`, in [0, 1]. Returns 0
 // when Formulas.exe isn't owned — `ns.formulas.skills.calculateExp` throws at
@@ -39,7 +37,7 @@ function skillProgressPct(
   if (!hasFormulas) return 0;
   const currentLevel = player.skills[skill];
   const currentExp = player.exp[skill];
-  const skillMult = player.mults[skill];
+  const skillMult = skill === "intelligence" ? 1 : player.mults[skill];
   const currentLevelExp = ns.formulas.skills.calculateExp(currentLevel, skillMult);
   const nextLevelExp = ns.formulas.skills.calculateExp(currentLevel + 1, skillMult);
   const progress = (currentExp - currentLevelExp) / (nextLevelExp - currentLevelExp);
@@ -146,6 +144,14 @@ function PlayerStats(props: PlayerStatsProps) {
         valueColor={colors.cha}
         progress={pct("charisma")}
       />
+      { (player.exp.intelligence > 0 || player.skills.intelligence > 1) &&
+        <SkillRow
+          label="int"
+          value={`${player.skills.intelligence}`}
+          valueColor={colors.int}
+          progress={pct("intelligence")}
+        />
+      }
     </Col>
   );
 }

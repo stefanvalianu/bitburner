@@ -302,7 +302,13 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       // Get rich. In this phase, we apply frame.hack, then frame.weak1, then frame.grow, then frame.weak2
       case "HWGW":
         {
-          const split = tryFindHackWeakGrowWeakSplit(this.ns, hostMaxRam, hostCores, player, target);
+          const split = tryFindHackWeakGrowWeakSplit(
+            this.ns,
+            hostMaxRam,
+            hostCores,
+            player,
+            target,
+          );
           if (!split) return undefined;
 
           // first we hack
@@ -361,9 +367,9 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   // Returns how much ram the batch frame actually uses
   private calculateBatchFrameRam(batch: BatchFrame): number {
     let usedRam = this.weakRam * batch.weakThreads1;
-    if (batch.growThreads) usedRam += (batch.growThreads * this.growRam);
-    if (batch.hackThreads) usedRam += (batch.hackThreads * this.hackRam);
-    if (batch.weakThreads2) usedRam += (batch.weakThreads2 * this.weakRam);
+    if (batch.growThreads) usedRam += batch.growThreads * this.growRam;
+    if (batch.hackThreads) usedRam += batch.hackThreads * this.hackRam;
+    if (batch.weakThreads2) usedRam += batch.weakThreads2 * this.weakRam;
     return usedRam;
   }
 }

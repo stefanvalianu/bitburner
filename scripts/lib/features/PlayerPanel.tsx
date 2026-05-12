@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { NS, Player } from "@ns";
 import { Button } from "../ui/Button";
 import { Col } from "../ui/Col";
@@ -13,6 +13,7 @@ import { useTheme } from "../ui/theme";
 import { useNs } from "../util/ns";
 import {
   getPlayerMonitorState,
+  PLAYER_MONITOR_FAST_REFRESH_FREQUENCY_MS,
   PlayerMonitorTaskState,
   type Inventory,
 } from "../util/tasks/definitions/player-monitor/info";
@@ -175,6 +176,11 @@ const BAR_HEIGHT = 2;
 function ProgressBar({ value, color }: { value: number; color: string }) {
   const { colors } = useTheme();
   const pct = Math.max(0, Math.min(1, value)) * 100;
+  // Suppress the transition when pct drops (level-up resets progress to ~0) so
+  // the bar snaps instead of visibly draining backwards.
+  const prevPct = useRef(pct);
+  const animate = pct >= prevPct.current;
+  prevPct.current = pct;
   return (
     <div
       style={{
@@ -184,7 +190,14 @@ function ProgressBar({ value, color }: { value: number; color: string }) {
         overflow: "hidden",
       }}
     >
-      <div style={{ width: `${pct}%`, height: BAR_HEIGHT, background: color }} />
+      <div
+        style={{
+          width: `${pct}%`,
+          height: BAR_HEIGHT,
+          background: color,
+          transition: animate ? `width ${PLAYER_MONITOR_FAST_REFRESH_FREQUENCY_MS}ms linear` : "none",
+        }}
+      />
     </div>
   );
 }

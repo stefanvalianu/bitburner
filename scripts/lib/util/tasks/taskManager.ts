@@ -13,6 +13,7 @@ import { Logger } from "../logging/log";
 import { TASK_EVENTS_PORT } from "../ports";
 import { ALL_TASKS, TASK_BY_ID } from "./definitions/tasks";
 import { allocateAllTasks } from "./allocator";
+import { getScriptPath } from "./baseSpawnerTask";
 
 // RAM held back from the allocator on `home` for the dashboard process and
 // any ad-hoc scripts the player launches outside the task manager. The pool
@@ -401,6 +402,7 @@ export class TaskManager {
   }
 }
 
+// TODO - be careful for added script ram here, remove after validating next deploy
 export function getTaskScriptPath(task: TaskDefinition): string {
-  return `lib/util/tasks/definitions/${task.id}/task.js`;
+  return getScriptPath(task.id);
 }

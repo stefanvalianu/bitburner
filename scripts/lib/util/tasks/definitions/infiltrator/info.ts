@@ -14,7 +14,6 @@ export const infiltratorTask: TaskDefinition = {
   icon: "🕵️",
   autostart: false,
   demand: {
-    priority: "normal",
-    unbounded: true,
+    priority: "normal"
   },
 };

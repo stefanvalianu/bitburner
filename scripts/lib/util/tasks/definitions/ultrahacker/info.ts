@@ -45,7 +45,7 @@ export interface UserCommunicationRequest {
 
 export const ultrahackerTask: TaskDefinition = {
   id: ULTRAHACKER_TASK_ID,
-  description: "Hacking controller to use in endgame (requires Formulas.exe)",
+  description: "Hacking controller to use in endgame.",
   category: "hacking",
   icon: "🏅",
   autostart: false,

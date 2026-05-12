@@ -11,6 +11,11 @@ export const DASHBOARD_STATE_PORT = 2;
 // tick and applies events to its in-memory snapshot.
 export const TASK_EVENTS_PORT = 3;
 
+// Latest-snapshot side-channel for player data (like DASHBOARD_STATE_PORT —
+// clear+write each iteration). Lets the PlayerStats panel poll fresh stats
+// without waiting for the 5s dashboard tick.
+export const PLAYER_STATE_PORT = 4;
+
 // Used by one of the various hacking system tasks.
 export const HACKING_SYSTEM_COMMUNICATION_PORT = 10;
 
@@ -22,6 +27,7 @@ export function clearPorts(ns: NS) {
   ns.clearPort(LOG_PORT);
   ns.clearPort(DASHBOARD_STATE_PORT);
   ns.clearPort(TASK_EVENTS_PORT);
+  ns.clearPort(PLAYER_STATE_PORT);
 
   // clear the task-specific ports too
   ns.clearPort(HACKING_SYSTEM_COMMUNICATION_PORT);

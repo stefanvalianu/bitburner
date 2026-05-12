@@ -13,11 +13,13 @@ import { useTheme } from "../ui/theme";
 import { useNs } from "../util/ns";
 import {
   getPlayerMonitorState,
+  PlayerMonitorTaskState,
   type Inventory,
 } from "../util/tasks/definitions/player-monitor/info";
 import { useDashboardController } from "../util/useDashboardController";
 import { usePreferences } from "../util/usePreferences";
 import { ProgramsDialog } from "./ProgramsDialog";
+import { useLivePlayerState } from "../util/useLivePlayerState";
 
 // Skills the player can train via game actions. Intelligence is excluded — the
 // game grants it as a side-effect of other actions and there's no dedicated
@@ -76,10 +78,7 @@ export function PlayerPanel() {
           <Spinner active label="Player state not generated yet..." />
         ) : (
           <Row gap={space.lg} style={{ alignItems: "flex-start" }}>
-            <PlayerStats
-              player={playerState.player}
-              hasFormulas={playerState.inventory.hasFormulas}
-            />
+            <PlayerStats dashboardPlayerTaskState={playerState} />
             <Col gap={space.md} style={{ flex: 1, minWidth: 0 }}>
               <Location city={playerState.player.city} />
               <CrimeSection player={playerState.player} />
@@ -96,14 +95,14 @@ export function PlayerPanel() {
 }
 
 interface PlayerStatsProps {
-  player: Player;
-  hasFormulas: boolean;
+  dashboardPlayerTaskState: PlayerMonitorTaskState
 }
 
-function PlayerStats({ player, hasFormulas }: PlayerStatsProps) {
+function PlayerStats(props: PlayerStatsProps) {
   const { colors, space } = useTheme();
   const ns = useNs();
-  const pct = (s: TrainableSkill) => skillProgressPct(ns, player, s, hasFormulas);
+  const { player, inventory } = useLivePlayerState(props.dashboardPlayerTaskState);
+  const pct = (s: TrainableSkill) => skillProgressPct(ns, player, s, inventory.hasFormulas);
   return (
     <Col gap={space.xs} style={{ minWidth: 120, maxWidth: 160, flexShrink: 0 }}>
       <SectionHeading>Stats</SectionHeading>

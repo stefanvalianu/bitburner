@@ -1,3 +1,5 @@
+import { DashboardState } from "../dashboardTypes";
+
 export type TaskId = string;
 
 export interface ServerSlice {
@@ -81,4 +83,8 @@ export interface TaskDefinition {
   // mutually exclusive — TaskPanel blocks starting one while another with
   // the same port is already running.
   communicationPort?: number;
+
+  // Optional function to check requirements for this task to be ran.
+  // Useful for doing things like checking for Formulas.exe, etc
+  checkRequirements?: (state: DashboardState) => boolean;
 }

@@ -16,5 +16,5 @@ export const infiltratorTask: TaskDefinition = {
   demand: {
     priority: "normal",
     unbounded: true,
-  }
+  },
 };

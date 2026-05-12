@@ -2,11 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import type { NS } from "@ns";
 import { Col } from "../../../../ui/Col";
-import {
-  ChevronDownIcon,
-  ChevronUpDownIcon,
-  ChevronUpIcon,
-} from "../../../../ui/Icons";
+import { ChevronDownIcon, ChevronUpDownIcon, ChevronUpIcon } from "../../../../ui/Icons";
 import { Row } from "../../../../ui/Row";
 import { useTheme } from "../../../../ui/theme";
 import { useNs } from "../../../ns";
@@ -33,7 +29,11 @@ type Column = {
   align: "left" | "right";
   flex: number;
   accessor: (row: InfiltrationLocation) => string | number;
-  format: (row: InfiltrationLocation, ns: NS, colors: ReturnType<typeof useTheme>["colors"]) => ReactNode;
+  format: (
+    row: InfiltrationLocation,
+    ns: NS,
+    colors: ReturnType<typeof useTheme>["colors"],
+  ) => ReactNode;
 };
 
 const COLUMNS: Column[] = [
@@ -43,9 +43,7 @@ const COLUMNS: Column[] = [
     align: "left",
     flex: 2,
     accessor: (r) => r.location.name,
-    format: (r, _ns, colors) => (
-      <span style={{ color: colors.fg }}>{r.location.name}</span>
-    ),
+    format: (r, _ns, colors) => <span style={{ color: colors.fg }}>{r.location.name}</span>,
   },
   {
     key: "city",
@@ -53,9 +51,7 @@ const COLUMNS: Column[] = [
     align: "left",
     flex: 1,
     accessor: (r) => r.location.city,
-    format: (r, _ns, colors) => (
-      <span style={{ color: colors.fg }}>{r.location.city}</span>
-    ),
+    format: (r, _ns, colors) => <span style={{ color: colors.fg }}>{r.location.city}</span>,
   },
   {
     key: "difficulty",
@@ -125,9 +121,7 @@ export const InfiltratorPanel: TaskCustomPanel = () => {
   const { state } = useDashboardController();
   const [sort, setSort] = useState<SortState>({ column: "difficulty", direction: "asc" });
 
-  const taskState = state.tasks[INFILTRATOR_TASK_ID] as unknown as
-    | InfiltratorTaskState
-    | undefined;
+  const taskState = state.tasks[INFILTRATOR_TASK_ID] as unknown as InfiltratorTaskState | undefined;
   const infiltrations = taskState?.infiltrations ?? [];
 
   if (infiltrations.length === 0) {

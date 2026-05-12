@@ -12,7 +12,9 @@ class InfiltratorTask extends BaseTask<InfiltratorTaskState> {
   protected async run_task(): Promise<void> {
     while (true) {
       this.patchState({
-        infiltrations: this.ns.infiltration.getPossibleLocations().map(location => this.ns.infiltration.getInfiltration(location.name)),
+        infiltrations: this.ns.infiltration
+          .getPossibleLocations()
+          .map((location) => this.ns.infiltration.getInfiltration(location.name)),
       });
 
       await this.ns.asleep(REFRESH_INTERVAL);

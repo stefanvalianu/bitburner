@@ -1,5 +1,4 @@
 import { useState } from "react";
-import type { TaskCustomPanel } from "../../../../features/taskCustomPanels";
 import { Button } from "../../../../ui/Button";
 import { Col } from "../../../../ui/Col";
 import {
@@ -23,6 +22,7 @@ import {
 } from "./info";
 import { HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 import { formatDuration } from "../../../formatting";
+import { TaskCustomPanel } from "../tasks";
 
 type SortColumn = "hostname" | "hackChance" | "maxMoney" | "maxTime" | "profitScore";
 type SortDirection = "asc" | "desc";

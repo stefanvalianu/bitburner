@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import type { NS } from "@ns";
-import type { TaskCustomPanel } from "../../../../features/taskCustomPanels";
 import { Col } from "../../../../ui/Col";
 import {
   ChevronDownIcon,
@@ -14,6 +13,7 @@ import { useNs } from "../../../ns";
 import { useDashboardController } from "../../../useDashboardController";
 import { INFILTRATOR_TASK_ID, type InfiltratorTaskState } from "./info";
 import type { InfiltrationLocation } from "@ns";
+import { TaskCustomPanel } from "../tasks";
 
 type SortColumn =
   | "location"

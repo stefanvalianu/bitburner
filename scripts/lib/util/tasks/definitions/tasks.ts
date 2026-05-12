@@ -10,11 +10,13 @@ import { serverBuyerTask } from "./server-buyer/info";
 import { serverDevourerTask } from "./server-devourer/info";
 import { serverShareTask } from "./server-share/info";
 import { ultrahackerTask } from "./ultrahacker/info";
+import { stockTraderTask } from "./stock-trader/info";
 
 // highest in list = shows first in 'new task' UX per category
 export const ALL_TASKS: TaskDefinition[] = [
   contractSolverTask,
   infiltratorTask,
+  stockTraderTask,
   playerMonitorTask,
   serverBuyerTask,
   ultrahackerTask,

@@ -39,8 +39,12 @@ class PlayerMonitorTask extends BaseTask<PlayerMonitorTaskState> {
           portOpeners: allPrograms.filter((p) => portOpenerNames.has(p.name)),
           hasRouter: this.ns.hasTorRouter(),
         },
+        trading: {
+          hasTixApi: this.ns.stock.hasTixApiAccess(),
+          has4SApi: this.ns.stock.has4SDataTixApi(),
+        },
         player: this.player,
-      };
+      } satisfies Partial<PlayerMonitorTaskState>;
 
       this.patchState(state);
 

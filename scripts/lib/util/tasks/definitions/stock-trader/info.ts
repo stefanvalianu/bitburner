@@ -13,6 +13,6 @@ export const stockTraderTask: TaskDefinition = {
   icon: "💵",
   autostart: false,
   demand: {
-    priority: "normal"
+    priority: "normal",
   },
 };

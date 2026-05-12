@@ -20,7 +20,9 @@ export interface WaitAndFreeTaskLeaseOptions {
   forceKillOnExit?: boolean;
 }
 
-export function getScriptPath(taskId: TaskId) { 
+// THIS FUNCTION IS DUPLICATED at taskManager.ts We don't add a
+// dependency to reduce script RAM usage.
+export function getScriptPath(taskId: TaskId) {
   return `lib/util/tasks/definitions/${taskId}/task.js`;
 }
 

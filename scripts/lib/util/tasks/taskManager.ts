@@ -402,7 +402,8 @@ export class TaskManager {
   }
 }
 
-// TODO - be careful for added script ram here, remove after validating next deploy
+// THIS FUNCTION IS DUPLICATED AT baseSpawnerTask. We don't add a dependency to reduce
+// overall RAM usage.
 export function getTaskScriptPath(task: TaskDefinition): string {
-  return getScriptPath(task.id);
+  return `lib/util/tasks/definitions/${task.id}/task.js`;
 }

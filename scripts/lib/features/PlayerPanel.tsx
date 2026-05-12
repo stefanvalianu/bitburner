@@ -195,7 +195,9 @@ function ProgressBar({ value, color }: { value: number; color: string }) {
           width: `${pct}%`,
           height: BAR_HEIGHT,
           background: color,
-          transition: animate ? `width ${PLAYER_MONITOR_FAST_REFRESH_FREQUENCY_MS}ms linear` : "none",
+          transition: animate
+            ? `width ${PLAYER_MONITOR_FAST_REFRESH_FREQUENCY_MS}ms linear`
+            : "none",
         }}
       />
     </div>

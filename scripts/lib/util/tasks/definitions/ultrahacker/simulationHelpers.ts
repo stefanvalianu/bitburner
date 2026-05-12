@@ -1,24 +1,5 @@
 import { NS, Player, Server } from "@ns";
 
-function clonePlayer(ns: NS, originalPlayer: Player): Player {
-  // starting from the real player and applying necessary
-  // transforms on the odd chance we miss some important property
-  let newPlayer = ns.getPlayer();
-  // only the hacking skill should be relevant here (augments, mults,
-  // etc) won't be changing during these calculations.
-  newPlayer.skills.hacking = originalPlayer.skills.hacking;
-  newPlayer.exp.hacking = originalPlayer.exp.hacking;
-  return newPlayer;
-}
-
-function cloneServer(ns: NS, originalServer: Server): Server {
-  let newServer = ns.getServer(originalServer.hostname) as Server;
-  // only these properties should be changing as part of our calculations
-  newServer.hackDifficulty = originalServer.hackDifficulty;
-  newServer.moneyAvailable = originalServer.moneyAvailable;
-  return newServer;
-}
-
 export function applyWeak(
   ns: NS,
   server: Server,

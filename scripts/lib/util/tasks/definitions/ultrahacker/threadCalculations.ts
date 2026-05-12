@@ -1,5 +1,6 @@
 import { NS, Player, Server } from "@ns";
 import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "../../../script/constants";
+import { applyGrow, applyHack, applyHackingExp, applyWeak } from "./simulationHelpers";
 
 export interface GrowWeakSplit {
   growThreads: number;
@@ -80,16 +81,92 @@ export function tryFindHackWeakGrowWeakSplit(
   // - split needs to guarantee that after the operations, server will remain at min security and max money
 
   const weakSecurityChangePerThread = ns.formulas.hacking.weakenEffect(1, cores);
+  const hackPercentagePerThread = ns.formulas.hacking.hackPercent(originalTarget, originalPlayer);
+  // this is an estimate because in reality, by the time we grow() the player will have gained some XP and would be better
+  const estimatedGrowPercentagePerThread = ns.formulas.hacking.growPercent(originalTarget, 1, originalPlayer, cores);
 
   // HYPOTHESIS: the optimal amount to threads to use for hacking a server is either:
   // - 1 thread, if it would take multiple grow threads to recover the money
   // - however many threads it takes to bring the server to a money level that can be recovered in 1 grow
-  const x = ns.formulas.hacking.hackPercent()
+  let proposal: HackWeakGrowWeakSplit = { hackThreads: 0, weak1Threads: 0, growThreads: 0, weak2Threads: 0 };
+
+  if (hackPercentagePerThread > estimatedGrowPercentagePerThread) {
+    // 1 hack will require multiple grows to repair
+    // let's simulate it on a server
+    proposal = simulateHWGW(ns, 1, cores, originalTarget, originalPlayer);
+  } else {
+    // 1 grow can recover the amount of money drained by many hacks
+    // since we can't easily predict the state of the grow AFTER the
+    // xp gains from hack and weaken, let's try for a safe assumption 
+    // that grow will only get better, so whatever we can compute for
+    // current grow is valid.
+    proposal = simulateHWGW(ns, Math.max(1, Math.floor(estimatedGrowPercentagePerThread / hackPercentagePerThread)), cores, originalTarget, originalPlayer);
+  }
+
+  // TODO - switch this to binary search for finding optimal slot
+  while (proposal.hackThreads > 1) {
+    if (((proposal.hackThreads * hackRam) + (proposal.growThreads * growRam) + ((proposal.weak1Threads + proposal.weak2Threads) * weakRam)) <= maxRam) {
+      // great, we found a batch that works to grow the server to SOME amount while maintaining min security
+      return proposal;
+    }
+
+    // we'll keep going, decreasing the number of hack threads by 1 as we try to find the maximum amount we can use while undoing security increase
+    proposal = simulateHWGW(ns, proposal.hackThreads - 1, cores, originalTarget, originalPlayer);
+  }
 
   // guess we failed
   return undefined;
 }
 
-function hackOrGrowDominant(ns: NS, originalTarget: Server, originalPlayer: Player, cores: number): "hack" | "grow" {
-  return "hack";
+// This function simply simulates the required operations needed given a # of hacks to
+// bring the server back to pristine conditions. Purely driven by the hack thread count
+function simulateHWGW(ns: NS, hackThreads: number, cores: number, originalTarget: Server, originalPlayer: Player): HackWeakGrowWeakSplit {
+  const target = cloneServer(ns, originalTarget);
+  const player = clonePlayer(ns, originalPlayer);
+
+  const weakSecurityChangePerThread = ns.formulas.hacking.weakenEffect(1, cores);
+
+  // simulate the hack
+  applyHack(ns, target, hackThreads);
+  applyHackingExp(ns, target, player, hackThreads);
+
+  // simulate the weak1
+  const weak1Threads = Math.ceil((target.hackDifficulty! - target.minDifficulty!) / weakSecurityChangePerThread);
+  applyWeak(ns, target, weak1Threads, cores);
+  applyHackingExp(ns, target, player, hackThreads);
+
+  // simulate the grow
+  const growThreads = ns.formulas.hacking.growThreads(target, player, target.moneyMax!, cores);
+  applyGrow(ns, target, player, growThreads, cores, true);
+  applyHackingExp(ns, target, player, hackThreads);
+
+  // and now the last weak2
+  const weak2Threads = Math.ceil(ns.growthAnalyzeSecurity(growThreads, target.hostname, cores) / weakSecurityChangePerThread);
+  
+  // state doesn't matter anymore, this is what we need (target/player is a cloned object)
+  return {
+    hackThreads: hackThreads,
+    weak1Threads: weak1Threads,
+    growThreads: growThreads,
+    weak2Threads: weak2Threads,
+  };
+}
+
+function clonePlayer(ns: NS, originalPlayer: Player): Player {
+  // starting from the real player and applying necessary
+  // transforms on the odd chance we miss some important property
+  let newPlayer = ns.getPlayer();
+  // only the hacking skill should be relevant here (augments, mults,
+  // etc) won't be changing during these calculations.
+  newPlayer.skills.hacking = originalPlayer.skills.hacking;
+  newPlayer.exp.hacking = originalPlayer.exp.hacking;
+  return newPlayer;
+}
+
+function cloneServer(ns: NS, originalServer: Server): Server {
+  let newServer = ns.getServer(originalServer.hostname) as Server;
+  // only these properties should be changing as part of our calculations
+  newServer.hackDifficulty = originalServer.hackDifficulty;
+  newServer.moneyAvailable = originalServer.moneyAvailable;
+  return newServer;
 }

@@ -1,0 +1,85 @@
+import { NS, Player, Server } from "@ns";
+
+function clonePlayer(ns: NS, originalPlayer: Player): Player {
+  // starting from the real player and applying necessary
+  // transforms on the odd chance we miss some important property
+  let newPlayer = ns.getPlayer();
+  // only the hacking skill should be relevant here (augments, mults,
+  // etc) won't be changing during these calculations.
+  newPlayer.skills.hacking = originalPlayer.skills.hacking;
+  newPlayer.exp.hacking = originalPlayer.exp.hacking;
+  return newPlayer;
+}
+
+function cloneServer(ns: NS, originalServer: Server): Server {
+  let newServer = ns.getServer(originalServer.hostname) as Server;
+  // only these properties should be changing as part of our calculations
+  newServer.hackDifficulty = originalServer.hackDifficulty;
+  newServer.moneyAvailable = originalServer.moneyAvailable;
+  return newServer;
+}
+
+export function applyWeak(
+  ns: NS,
+  server: Server,
+  threads: number,
+  cores: number
+) {
+  server.hackDifficulty! -= ns.formulas.hacking.weakenEffect(
+    threads,
+    cores,
+  );
+}
+
+export function applyHack(
+  ns: NS,
+  server: Server,
+  threads: number,
+) {
+  server.hackDifficulty! += ns.hackAnalyzeSecurity(
+    threads,
+    server.hostname
+  );
+}
+
+export function applyGrow(
+  ns: NS,
+  server: Server,
+  player: Player,
+  threads: number,
+  cores: number,
+  changeMoney: boolean
+) {
+  if (changeMoney) {
+    server.moneyAvailable = Math.min(
+      server.moneyMax!,
+      ns.formulas.hacking.growAmount(
+        server,
+        player,
+        threads,
+        cores,
+      )
+    );
+  }
+
+  server.hackDifficulty! += ns.growthAnalyzeSecurity(
+    threads,
+    server.hostname,
+    cores,
+  );
+}
+
+export function applyHackingExp(
+  ns: NS,
+  server: Server,
+  player: Player,
+  threads: number,
+): void {
+  const expGain = ns.formulas.hacking.hackExp(server, player) * threads;
+
+  player.exp.hacking += expGain;
+  player.skills.hacking = ns.formulas.skills.calculateSkill(
+    player.exp.hacking,
+    player.mults.hacking,
+  );
+}

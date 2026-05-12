@@ -1,4 +1,5 @@
 import { NS, Player, Server } from "@ns";
+import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "../../../script/constants";
 
 export interface GrowWeakSplit {
   growThreads: number;
@@ -12,41 +13,6 @@ export interface HackWeakGrowWeakSplit {
   weak2Threads: number;
 }
 
-/*
-
-
-    if (frame.purpose === "GW") {
-    }
-
-    this.ns.formulas.hacking.hackExp;
-    // how many threads we need to grow server from some start state to max money
-    this.ns.formulas.hacking.growThreads();
-
-    // how long it would take to weaken a server
-    this.ns.formulas.hacking.weakenTime();
-
-    // how long it would take to grow a server
-    this.ns.formulas.hacking.growTime();
-
-    // how long it would take to hack a server
-    this.ns.formulas.hacking.hackTime();
-
-    // how much xp we'll get from a hack; use this to keep the player object updated so we appropriately simulate times/etc in frame calculations
-    this.ns.formulas.hacking.hackExp();
-
-    // what % of the server's money we will steal with one hack thread.
-    // this will be useful in prioritizing targets (if we steal a large % with one thread, probably not great) but also
-    // in understanding the state we will leave our server in after a hack operation.
-    this.ns.formulas.hacking.hackPercent();
-
-    // amount of security decrease from running weaken.
-    // from testing, this appears purely linear, so we
-    // can compute for a single thread and extrapolate
-    // how many threads we need. Note that floating point
-    // rounding errors might pose an actual challenge lol
-    this.ns.formulas.hacking.weakenEffect();
-    */
-
 // Attempts to find a Grow/Weak split of threads given the constraints.
 // Does NOT modify the original player/server objects.
 // Returns undefined on failure
@@ -57,6 +23,39 @@ export function tryFindGrowWeakSplit(
   originalPlayer: Player,
   originalTarget: Server,
 ): GrowWeakSplit | undefined {
+  const growRam = ns.getScriptRam(GROW_SCRIPT);
+  const weakRam = ns.getScriptRam(WEAKEN_SCRIPT);
+  // rules:
+  // - need at least 1 grow thread and 1 weak thread. 
+  // - when in doubt, use more weak threads
+  // - split needs to guarantee that after the operations, server will remain at min security
+  if (growRam + weakRam < maxRam) return undefined;
+
+  const maxGrowThreadsNeeded = ns.formulas.hacking.growThreads(originalTarget, originalPlayer, originalTarget.moneyMax!, cores);
+  const weakSecurityChangePerThread = ns.formulas.hacking.weakenEffect(1, cores);
+
+  // let's start on the assumption that we will have 1 weak thread, and UP TO as many grow threads as we can fit in the ram allotment
+  let proposedGrowThreads = Math.min(maxGrowThreadsNeeded, (maxRam - weakRam) / growRam);
+  let proposedGrowSecurityIncrease = ns.growthAnalyzeSecurity(proposedGrowThreads, originalTarget.hostname, cores);
+  let proposedWeakThreads = Math.ceil(proposedGrowSecurityIncrease / weakSecurityChangePerThread);
+
+  // TODO - switch this to binary search for finding optimal slot
+  while (proposedGrowThreads > 1) {
+    if (((proposedGrowThreads * growRam) + (proposedWeakThreads * weakRam)) <= maxRam) {
+      // great, we found a batch that works to grow the server to SOME amount while maintaining min security
+      return {
+        growThreads: proposedGrowThreads,
+        weakThreads: proposedWeakThreads
+      }
+    }
+
+    // we'll keep going, decreasing the number of grow threads by 1 as we try to find the maximum amount we can use while undoing security increase
+    proposedGrowThreads--;
+    proposedGrowSecurityIncrease = ns.growthAnalyzeSecurity(proposedGrowThreads, originalTarget.hostname, cores);
+    proposedWeakThreads = Math.ceil(proposedGrowSecurityIncrease / weakSecurityChangePerThread);
+  }
+
+  // guess we failed
   return undefined;
 }
 
@@ -70,23 +69,27 @@ export function tryFindHackWeakGrowWeakSplit(
   originalPlayer: Player,
   originalTarget: Server,
 ): HackWeakGrowWeakSplit | undefined {
+  const growRam = ns.getScriptRam(GROW_SCRIPT);
+  const weakRam = ns.getScriptRam(WEAKEN_SCRIPT);
+  const hackRam = ns.getScriptRam(HACK_SCRIPT);
+  // rules: 
+  // - need at least 1 of each thread. 
+  // - if 1 hack thread would drain the server completely, return undefined.
+  // - aim to prevent the hack operation from draining more than HACK_MINIMUM_MONEY_PCT of a server
+  // - when in doubt, use more weak threads
+  // - split needs to guarantee that after the operations, server will remain at min security and max money
+
+  const weakSecurityChangePerThread = ns.formulas.hacking.weakenEffect(1, cores);
+
+  // HYPOTHESIS: the optimal amount to threads to use for hacking a server is either:
+  // - 1 thread, if it would take multiple grow threads to recover the money
+  // - however many threads it takes to bring the server to a money level that can be recovered in 1 grow
+  const x = ns.formulas.hacking.hackPercent()
+
+  // guess we failed
   return undefined;
 }
 
-function clonePlayer(ns: NS, originalPlayer: Player): Player {
-  // starting from the real player and applying necessary
-  // transforms on the odd chance we miss some important property
-  let newPlayer = ns.getPlayer();
-  // only the hacking skill should be relevant here (augments, mults,
-  // etc) won't be changing during these calculations.
-  newPlayer.skills.hacking = originalPlayer.skills.hacking;
-  return newPlayer;
-}
-
-function cloneServer(ns: NS, originalServer: Server): Server {
-  let newServer = ns.getServer(originalServer.hostname) as Server;
-  // only these properties should be changing as part of our calculations
-  newServer.hackDifficulty = originalServer.hackDifficulty;
-  newServer.moneyAvailable = originalServer.moneyAvailable;
-  return newServer;
+function hackOrGrowDominant(ns: NS, originalTarget: Server, originalPlayer: Player, cores: number): "hack" | "grow" {
+  return "hack";
 }

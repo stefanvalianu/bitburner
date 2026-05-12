@@ -5,6 +5,7 @@ import { findOptimalTarget } from "./findOptimalTarget";
 import { Lease } from "../../allocator";
 import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "../../../script/constants";
 import { tryFindGrowWeakSplit, tryFindHackWeakGrowWeakSplit } from "./threadCalculations";
+import { applyGrow, applyHack, applyHackingExp, applyWeak } from "./simulationHelpers";
 
 // number of miliseconds to aim for between batched operations
 const BATCH_FRAME_OFFSET_MS = 50;
@@ -14,7 +15,7 @@ const BATCH_FRAME_OFFSET_MS = 50;
 // high levels, etc) but this is aspirationally the ideal amount.
 // the absolute MINIMUM number of hack threads has to be 1, and it
 // might be possible that 1 thread goes below this percentage.
-const HACK_MINIMUM_MONEY_PCT = 0.25;
+export const HACK_MINIMUM_MONEY_PCT = 0.66;
 
 type FramePurpose = "W" | "GW" | "HWGW";
 
@@ -78,7 +79,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         return;
       }
 
-      const targetServer = this.ns.getServer(findOptimalTarget(this.ns)) as Server;
+      const targetServer = this.ns.getServer(findOptimalTarget(this.ns, this.snapshot.allServers)) as Server;
 
       // For a single run of this hacker, we will fill up all available allocated slots
       // with batch frames. We will not re-calculate new batches until all of these
@@ -169,13 +170,182 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   private scheduleBatches(batches: BatchLease[], targetHostname: string): BatchSchedule {
     let taskLeases: TaskLease[] = [];
 
-    // these objects will be modified as necessary to improve accuracy
-    // of calculations
-    let player = this.ns.getPlayer();
+    let lastFinishTime = 0;
+    let nextFinishTime = 0;
+
+    // figure out when the first batch finishes
+    switch (batches[0].batch.purpose) {
+      case "W": {
+        nextFinishTime = Math.max(
+          batches[0].batch.weakTime1,
+        ) + BATCH_FRAME_OFFSET_MS;
+      } break;
+
+      case "GW": {
+        nextFinishTime = Math.max(
+          batches[0].batch.growTime,
+          batches[0].batch.weakTime1 - BATCH_FRAME_OFFSET_MS,
+        ) + BATCH_FRAME_OFFSET_MS;
+      } break;
+
+      case "HWGW": {
+        nextFinishTime = Math.max(
+          batches[0].batch.hackTime,
+          batches[0].batch.weakTime1 - BATCH_FRAME_OFFSET_MS,
+          batches[0].batch.growTime - 2 * BATCH_FRAME_OFFSET_MS,
+          batches[0].batch.weakTime2 - 3 * BATCH_FRAME_OFFSET_MS,
+        ) + BATCH_FRAME_OFFSET_MS;
+      } break;
+    }
+
+    for (const batch of batches) {
+      switch (batch.batch.purpose) {
+        case "W": {
+          const targetWeakFinishTime = nextFinishTime;
+
+          const weakDelay = Math.max(0, targetWeakFinishTime - batch.batch.weakTime1);
+
+          const pidWeak = this.runScript(
+            WEAKEN_SCRIPT,
+            batch.lease,
+            batch.batch.weakThreads1,
+            targetHostname,
+            weakDelay,
+          );
+
+          if (!pidWeak) {
+            this.log.error(`Catastrophic failure; unable to run weak script in batch.`, batch);
+            continue;
+          }
+
+          taskLeases.push({
+            lease: batch.lease,
+            pids: [pidWeak]
+          });
+
+          lastFinishTime = targetWeakFinishTime;
+          nextFinishTime += BATCH_FRAME_OFFSET_MS;
+        } break;
+
+        case "GW": {
+          const targetGrowFinishTime = nextFinishTime;
+          const targetWeakFinishTime = nextFinishTime + BATCH_FRAME_OFFSET_MS;
+
+          const growDelay = Math.max(0, targetGrowFinishTime - batch.batch.growTime);
+          const weakDelay = Math.max(0, targetWeakFinishTime - batch.batch.weakTime1);
+
+          const pidGrow = this.runScript(
+            GROW_SCRIPT,
+            batch.lease,
+            batch.batch.growThreads,
+            targetHostname,
+            growDelay,
+          );
+
+          if (!pidGrow) {
+            this.log.error(`Catastrophic failure; unable to run grow script in batch.`, batch);
+            continue;
+          }
+
+          const pidWeak = this.runScript(
+            WEAKEN_SCRIPT,
+            batch.lease,
+            batch.batch.weakThreads1,
+            targetHostname,
+            weakDelay,
+          );
+
+          if (!pidWeak) {
+            this.log.error(`Catastrophic failure; unable to run weak script in batch.`, batch);
+            continue;
+          }
+
+          taskLeases.push({
+            lease: batch.lease,
+            pids: [pidGrow, pidWeak]
+          });
+
+          lastFinishTime = targetWeakFinishTime;
+          nextFinishTime += (2 * BATCH_FRAME_OFFSET_MS);
+        } break;
+
+        case "HWGW": {
+          const targetHackFinishTime = nextFinishTime;
+          const targetWeak1FinishTime = nextFinishTime + BATCH_FRAME_OFFSET_MS;
+          const targetGrowFinishTime = nextFinishTime + 2 * BATCH_FRAME_OFFSET_MS;
+          const targetWeak2FinishTime = nextFinishTime + 3 * BATCH_FRAME_OFFSET_MS;
+
+          const hackDelay = Math.max(0, targetHackFinishTime - batch.batch.hackTime);
+          const weak1Delay = Math.max(0, targetWeak1FinishTime - batch.batch.weakTime1);
+          const growDelay = Math.max(0, targetGrowFinishTime - batch.batch.growTime);
+          const weak2Delay = Math.max(0, targetWeak2FinishTime - batch.batch.weakTime2);
+
+          const pidHack = this.runScript(
+            HACK_SCRIPT,
+            batch.lease,
+            batch.batch.hackThreads,
+            targetHostname,
+            growDelay,
+          );
+
+          if (!pidHack) {
+            this.log.error(`Catastrophic failure; unable to run hack script in batch.`, batch);
+            continue;
+          }
+
+          const pidWeak1 = this.runScript(
+            WEAKEN_SCRIPT,
+            batch.lease,
+            batch.batch.weakThreads1,
+            targetHostname,
+            weak1Delay,
+          );
+
+          if (!pidWeak1) {
+            this.log.error(`Catastrophic failure; unable to run weak 1 script in batch.`, batch);
+            continue;
+          }
+
+          const pidGrow = this.runScript(
+            GROW_SCRIPT,
+            batch.lease,
+            batch.batch.growThreads,
+            targetHostname,
+            growDelay,
+          );
+
+          if (!pidGrow) {
+            this.log.error(`Catastrophic failure; unable to run grow script in batch.`, batch);
+            continue;
+          }
+
+          const pidWeak2 = this.runScript(
+            WEAKEN_SCRIPT,
+            batch.lease,
+            batch.batch.weakThreads2,
+            targetHostname,
+            weak2Delay,
+          );
+
+          if (!pidWeak2) {
+            this.log.error(`Catastrophic failure; unable to run weak 2 script in batch.`, batch);
+            continue;
+          }
+
+          taskLeases.push({
+            lease: batch.lease,
+            pids: [pidHack, pidWeak1, pidGrow, pidWeak2]
+          });
+
+          lastFinishTime = targetWeak2FinishTime;
+          nextFinishTime += (4 * BATCH_FRAME_OFFSET_MS);
+        } break;
+      }
+    }
 
     return {
-      taskLeases: [],
-      estimatedTime: Date.now() + 1000000000000,
+      taskLeases: taskLeases,
+      estimatedTime: lastFinishTime,
     };
   }
 
@@ -212,9 +382,6 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       frame.purpose = "GW";
     }
 
-    // how much XP do we get per thread
-    const xpPerThread = this.ns.formulas.hacking.hackExp(target, player);
-
     // how much does 1 thread of weak() reduce security
     const weakSecurityDecreasePerThread = this.ns.formulas.hacking.weakenEffect(1, hostCores);
 
@@ -243,15 +410,12 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
           frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
 
           // update the player with their new xp after the frame finishes
-          player.skills.hacking += xpPerThread * frame.weakThreads1;
+          applyHackingExp(this.ns, target, player, frame.weakThreads1);
 
           // update the server's security in weaken phase, so the next frame calculation has
           // the right security level of the server. HWGW is exempt from these modifications since
           // the frames start/end with the server in a pristine state.
-          target.hackDifficulty! -= this.ns.formulas.hacking.weakenEffect(
-            frame.weakThreads1,
-            hostCores,
-          );
+          applyWeak(this.ns, target, frame.weakThreads1, hostCores);
         }
         break;
 
@@ -270,31 +434,19 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
           // gets any XP from other operations, to undercut our estimate of where the server
           // will be after GW. Note we don't need to worry about modifying server security
           // since the GW frame is supposed to guarantee no change to security.
-          target.moneyAvailable! += this.ns.formulas.hacking.growAmount(
-            target,
-            player,
-            frame.growThreads,
-            hostCores,
-          );
-
-          // growing also increased the security of the server
-          target.hackDifficulty! += this.ns.growthAnalyzeSecurity(
-            frame.hackThreads,
-            target.hostname,
-            hostCores,
-          );
+          applyGrow(this.ns, target, player, frame.growThreads, hostCores, true);
 
           // update the player with their new xp after the grow finishes
-          player.skills.hacking += xpPerThread * frame.growThreads;
+          applyHackingExp(this.ns, target, player, frame.growThreads);
 
           // then, we weaken
           frame.weakThreads1 = split.weakThreads;
           frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
 
           // update the player with their new xp after weak finishes
-          player.skills.hacking += xpPerThread * frame.growThreads;
+          applyHackingExp(this.ns, target, player, frame.weakThreads1);
 
-          // ASSUMPTION: server is back in min security state
+          // ASSUMPTION: server is back in min security state (no applyWeak)
           target.hackDifficulty = target.minDifficulty;
         }
         break;
@@ -316,19 +468,19 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
           frame.hackTime = this.ns.formulas.hacking.hackTime(target, player);
 
           // update player xp
-          player.skills.hacking += xpPerThread * frame.hackThreads;
+          applyHackingExp(this.ns, target, player, frame.hackThreads);
 
           // ASSUMPTION: changing the server money avilable does NOT impact grow time.
           // the docs indicate this, but calling this out as an assumption.
           // server security increased from the hack
-          target.hackDifficulty! += this.ns.hackAnalyzeSecurity(frame.hackThreads, target.hostname);
+          applyHack(this.ns, target, frame.hackThreads);
 
           // now we weaken
           frame.weakThreads1 = split.weak1Threads;
           frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
 
           // player got some XP
-          player.skills.hacking += xpPerThread * frame.weakThreads1;
+          applyHackingExp(this.ns, target, player, frame.weakThreads1);
 
           // ASSUMPTION: server is back in min security state
           target.hackDifficulty = target.minDifficulty;
@@ -338,23 +490,19 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
           frame.growTime = this.ns.formulas.hacking.growTime(target, player);
 
           // grow increased security
-          target.hackDifficulty! += this.ns.growthAnalyzeSecurity(
-            frame.hackThreads,
-            target.hostname,
-            hostCores,
-          );
+          applyGrow(this.ns, target, player, frame.growThreads, hostCores, false);
 
           // player got some XP
-          player.skills.hacking += xpPerThread * frame.growThreads;
+          applyHackingExp(this.ns, target, player, frame.growThreads);
 
           // now, our last weaken
           frame.weakThreads2 = split.weak2Threads;
           frame.weakTime2 = this.ns.formulas.hacking.weakenTime(target, player);
 
           // player got some XP
-          player.skills.hacking += xpPerThread * frame.weakThreads2;
+          applyHackingExp(this.ns, target, player, frame.weakThreads2);
 
-          // ASSUMPTION: server is back to max money and min security
+          // ASSUMPTION: server is back to max money and min security (no applyWeak, and no changeMoney on applyGrow)
           target.hackDifficulty = target.minDifficulty;
           target.moneyAvailable = target.moneyMax;
         }

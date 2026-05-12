@@ -8,12 +8,11 @@ import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
-import { ALL_TASKS, TASK_BY_ID } from "../util/tasks/definitions/tasks";
+import { ALL_TASKS, hasCustomPanel, TASK_BY_ID, TASK_CUSTOM_PANELS } from "../util/tasks/definitions/tasks";
 import { HOME_RESERVED_RAM_GB, getTaskScriptPath } from "../util/tasks/taskManager";
 import type { TaskDefinition, TaskState } from "../util/tasks/types";
 import { Spinner } from "../ui/Spinner";
 import { useNs } from "../util/ns";
-import { TASK_CUSTOM_PANELS, hasCustomPanel } from "./taskCustomPanels";
 
 export function TaskPanel() {
   const { colors, space } = useTheme();

@@ -1,8 +1,10 @@
-// A simple array of all tasks
-
-import { TaskDefinition, TaskId } from "../types";
+import { ReactNode } from "react";
+import { TaskDefinition, TaskId, TaskState } from "../types";
 import { contractSolverTask } from "./contract-solver/info";
-import { noformHackerTask } from "./noform-hacker/info";
+import { INFILTRATOR_TASK_ID, infiltratorTask } from "./infiltrator/info";
+import { InfiltratorPanel } from "./infiltrator/panel";
+import { NOFORM_HACKER_TASK_ID, noformHackerTask } from "./noform-hacker/info";
+import { NoformHackerPanel } from "./noform-hacker/panel";
 import { playerMonitorTask } from "./player-monitor/info";
 import { serverBuyerTask } from "./server-buyer/info";
 import { serverDevourerTask } from "./server-devourer/info";
@@ -12,6 +14,7 @@ import { ultrahackerTask } from "./ultrahacker/info";
 // highest in list = shows first in 'new task' UX per category
 export const ALL_TASKS: TaskDefinition[] = [
   contractSolverTask,
+  infiltratorTask,
   playerMonitorTask,
   serverBuyerTask,
   ultrahackerTask,
@@ -23,3 +26,20 @@ export const ALL_TASKS: TaskDefinition[] = [
 export const TASK_BY_ID: ReadonlyMap<TaskId, TaskDefinition> = new Map(
   ALL_TASKS.map((t) => [t.id, t]),
 );
+
+// -------------------NOTE-----------------------
+// Do not use netscript functions that have a
+// ram cost in these panels! That will increase
+// the ram cost of the root dashboard script,
+// which we ABSOLUTELY DO NOT WANT!
+// ----------------------------------------------
+export type TaskCustomPanel = (props: { id: string; slot: TaskState }) => ReactNode;
+
+export const TASK_CUSTOM_PANELS: Record<string, TaskCustomPanel> = {
+  [NOFORM_HACKER_TASK_ID]: NoformHackerPanel,
+  [INFILTRATOR_TASK_ID]: InfiltratorPanel,
+};
+
+export function hasCustomPanel(id: string): boolean {
+  return TASK_CUSTOM_PANELS[id] != null;
+}

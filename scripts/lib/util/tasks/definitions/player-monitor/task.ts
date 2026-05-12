@@ -1,6 +1,10 @@
 import { NS, Player } from "@ns";
 import { BaseTask } from "../../baseTask";
-import { PLAYER_MONITOR_FAST_REFRESH_FREQUENCY_MS, PLAYER_MONITOR_TASK_ID, PlayerMonitorTaskState } from "./info";
+import {
+  PLAYER_MONITOR_FAST_REFRESH_FREQUENCY_MS,
+  PLAYER_MONITOR_TASK_ID,
+  PlayerMonitorTaskState,
+} from "./info";
 import { PLAYER_STATE_PORT } from "../../../ports";
 
 const PORT_OPENER_KEYS = ["bruteSsh", "ftpCrack", "relaySmtp", "httpWorm", "sqlInject"] as const;

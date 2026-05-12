@@ -8,14 +8,12 @@ import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
-import { ALL_TASKS } from "../util/tasks/definitions/tasks";
+import { ALL_TASKS, TASK_BY_ID } from "../util/tasks/definitions/tasks";
 import { HOME_RESERVED_RAM_GB, getTaskScriptPath } from "../util/tasks/taskManager";
 import type { TaskDefinition, TaskState } from "../util/tasks/types";
 import { Spinner } from "../ui/Spinner";
 import { useNs } from "../util/ns";
 import { TASK_CUSTOM_PANELS, hasCustomPanel } from "./taskCustomPanels";
-
-const TASK_BY_ID = new Map<string, TaskDefinition>(ALL_TASKS.map((t) => [t.id, t]));
 
 export function TaskPanel() {
   const { colors, space } = useTheme();
@@ -29,7 +27,13 @@ export function TaskPanel() {
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => new Set());
 
   const taskEntries = Object.entries(state.tasks);
-  const startable = ALL_TASKS.filter((def) => state.tasks[def.id] === undefined);
+  const startable = ALL_TASKS.filter((def) => {
+    if (state.tasks[def.id] !== undefined) return false;
+    if (def.checkRequirements) {
+      return def.checkRequirements(state);
+    }
+    return true;
+  });
 
   // Drop pinned ids whose tasks have disappeared (e.g. stopped while pinned).
   useEffect(() => {

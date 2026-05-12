@@ -11,10 +11,8 @@ import {
 import { DashboardState } from "../dashboardTypes";
 import { Logger } from "../logging/log";
 import { TASK_EVENTS_PORT } from "../ports";
-import { ALL_TASKS } from "./definitions/tasks";
+import { ALL_TASKS, TASK_BY_ID } from "./definitions/tasks";
 import { allocateAllTasks } from "./allocator";
-
-const TASK_BY_ID: ReadonlyMap<TaskId, TaskDefinition> = new Map(ALL_TASKS.map((t) => [t.id, t]));
 
 // RAM held back from the allocator on `home` for the dashboard process and
 // any ad-hoc scripts the player launches outside the task manager. The pool
@@ -69,6 +67,17 @@ export class TaskManager {
       if (slot) {
         this.logger.warn(
           `Attempting to start task ${taskId} but it's already running or already requested. Ignoring`,
+        );
+        continue;
+      }
+
+      const def = TASK_BY_ID.get(taskId);
+      if (
+        def?.checkRequirements &&
+        (this.state === undefined || def.checkRequirements(this.state) === false)
+      ) {
+        this.logger.error(
+          `Attempting to start task ${taskId} but its requirements are unmet. Should be blocked in UX, ignoring.`,
         );
         continue;
       }

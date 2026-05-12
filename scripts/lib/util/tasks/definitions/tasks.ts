@@ -1,6 +1,6 @@
 // A simple array of all tasks
 
-import { TaskDefinition } from "../types";
+import { TaskDefinition, TaskId } from "../types";
 import { contractSolverTask } from "./contract-solver/info";
 import { noformHackerTask } from "./noform-hacker/info";
 import { playerMonitorTask } from "./player-monitor/info";
@@ -19,3 +19,7 @@ export const ALL_TASKS: TaskDefinition[] = [
   serverDevourerTask,
   serverShareTask,
 ];
+
+export const TASK_BY_ID: ReadonlyMap<TaskId, TaskDefinition> = new Map(
+  ALL_TASKS.map((t) => [t.id, t]),
+);

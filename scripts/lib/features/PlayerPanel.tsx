@@ -103,51 +103,50 @@ interface PlayerStatsProps {
 function PlayerStats({ player, hasFormulas }: PlayerStatsProps) {
   const { colors, space } = useTheme();
   const ns = useNs();
-  const fmtInt = (n: number) => ns.format.number(n, 0);
   const pct = (s: TrainableSkill) => skillProgressPct(ns, player, s, hasFormulas);
   return (
     <Col gap={space.xs} style={{ minWidth: 120, maxWidth: 160, flexShrink: 0 }}>
       <SectionHeading>Stats</SectionHeading>
       <StatRow
         label="HP"
-        value={`${fmtInt(player.hp.current)}/${fmtInt(player.hp.max)}`}
+        value={`${player.hp.current}/${player.hp.max}`}
         valueColor={colors.hp}
       />
       <StatRow label="$" value={ns.format.number(player.money, 2)} valueColor={colors.money} />
       <div style={{ borderTop: `1px solid ${colors.fgDim}`, margin: `${space.xs}px 0` }} />
       <SkillRow
         label="hck"
-        value={fmtInt(player.skills.hacking)}
+        value={`${player.skills.hacking}`}
         valueColor={colors.hack}
         progress={pct("hacking")}
       />
       <SkillRow
         label="str"
-        value={fmtInt(player.skills.strength)}
+        value={`${player.skills.strength}`}
         valueColor={colors.white}
         progress={pct("strength")}
       />
       <SkillRow
         label="def"
-        value={fmtInt(player.skills.defense)}
+        value={`${player.skills.defense}`}
         valueColor={colors.white}
         progress={pct("defense")}
       />
       <SkillRow
         label="dex"
-        value={fmtInt(player.skills.dexterity)}
+        value={`${player.skills.dexterity}`}
         valueColor={colors.white}
         progress={pct("dexterity")}
       />
       <SkillRow
         label="agi"
-        value={fmtInt(player.skills.agility)}
+        value={`${player.skills.agility}`}
         valueColor={colors.white}
         progress={pct("agility")}
       />
       <SkillRow
         label="cha"
-        value={fmtInt(player.skills.charisma)}
+        value={`${player.skills.charisma}`}
         valueColor={colors.cha}
         progress={pct("charisma")}
       />

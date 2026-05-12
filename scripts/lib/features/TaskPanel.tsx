@@ -33,9 +33,6 @@ export function TaskPanel() {
   const taskEntries = Object.entries(state.tasks);
   const startable = ALL_TASKS.filter((def) => {
     if (state.tasks[def.id] !== undefined) return false;
-    if (def.checkRequirements) {
-      return def.checkRequirements(state);
-    }
     return true;
   });
 
@@ -262,7 +259,11 @@ export function TaskPanel() {
                   <div style={{ display: "flex", flexWrap: "wrap", gap: space.md }}>
                     {inCategory.map((def) => {
                       const checked = selectedIds.has(def.id);
-                      const blocked = isPortBlocked(def);
+                      let requirementsNotMetReason: string | undefined = undefined;
+                      if (def.checkRequirements)
+                        requirementsNotMetReason = def.checkRequirements(state);
+
+                      const blocked = isPortBlocked(def) || requirementsNotMetReason !== undefined;
                       return (
                         <label
                           key={def.id}
@@ -333,7 +334,7 @@ export function TaskPanel() {
                           </span>
                           {blocked && (
                             <span style={{ color: colors.warn, fontSize: "0.85em" }}>
-                              conflicts with other task
+                              {requirementsNotMetReason || "conflicts with other task"}
                             </span>
                           )}
                         </label>

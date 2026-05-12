@@ -74,7 +74,7 @@ export class TaskManager {
       const def = TASK_BY_ID.get(taskId);
       if (
         def?.checkRequirements &&
-        (this.state === undefined || def.checkRequirements(this.state) === false)
+        (this.state === undefined || def.checkRequirements(this.state) !== undefined)
       ) {
         this.logger.error(
           `Attempting to start task ${taskId} but its requirements are unmet. Should be blocked in UX, ignoring.`,

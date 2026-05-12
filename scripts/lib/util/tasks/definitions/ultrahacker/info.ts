@@ -56,6 +56,9 @@ export const ultrahackerTask: TaskDefinition = {
   },
   checkRequirements: (state: DashboardState) => {
     const playerState = getPlayerMonitorState(state);
-    return playerState?.inventory?.hasFormulas ?? false;
+    if (playerState === undefined || playerState.inventory === undefined) return "Just a sec...";
+    if (!playerState.inventory.hasFormulas) return "Missing Formulas.exe";
+
+    return undefined;
   },
 };

@@ -22,7 +22,9 @@ class StockTraderTask extends BaseTask<StockTraderTaskState> {
       const hasTixApi = this.ns.stock.purchaseTixApi();
 
       if (!hasTixApi) {
-        this.log.warn(`Cannot properly execute Stock Trader without the tix api, will try again later.`);
+        this.log.warn(
+          `Cannot properly execute Stock Trader without the tix api, will try again later.`,
+        );
         this.ns.sleep(30_000);
         continue;
       }
@@ -40,7 +42,6 @@ class StockTraderTask extends BaseTask<StockTraderTaskState> {
       // requires 4s api
       this.ns.stock.getVolatility("a");
       this.ns.stock.getForecast("a");
-
 
       // waits until the next stock tick. the timing is variable
       this.ns.stock.nextUpdate();

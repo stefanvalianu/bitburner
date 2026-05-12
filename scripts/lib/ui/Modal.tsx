@@ -7,6 +7,13 @@ import { Row } from "./Row";
 import { ScrollScope } from "./ScrollScope";
 import { useTheme } from "./theme";
 
+// Near the CSS-spec max for a 32-bit z-index (2^31 - 1 = 2147483647). We need
+// to beat Bitburner's tail-window stacking, which bumps a window's z-index on
+// focus and can grow well past typical MUI ranges (~1300-1500). The portal
+// drops the backdrop directly under `<body>`, so it competes with every tail
+// window for ordering. Ten units of headroom for siblings like ConfirmDialog.
+const MODAL_Z_INDEX = 2147483640;
+
 interface ModalProps {
   open: boolean;
   onClose: () => void;
@@ -38,7 +45,9 @@ export function Modal({ open, onClose, title, children, style, actions }: ModalP
 
   // Reach the document body via a mounted sentinel's `ownerDocument` rather
   // than naming the `document` global directly — the latter trips Bitburner's
-  // static RAM analyzer for an extra 25GB charge per script.
+  // static RAM analyzer for an extra 25GB charge per script. `body` is the
+  // portal target so the backdrop can cover the whole game (escaping the
+  // tail-window's transformed containing block) and also the keydown target.
   useEffect(() => {
     const owner = sentinelRef.current?.ownerDocument;
     if (owner) setBody(owner.body);
@@ -76,7 +85,7 @@ export function Modal({ open, onClose, title, children, style, actions }: ModalP
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                zIndex: 9999,
+                zIndex: MODAL_Z_INDEX,
               }}
             >
               <div
@@ -96,11 +105,10 @@ export function Modal({ open, onClose, title, children, style, actions }: ModalP
 
                   // Bitburner installs a document-level keydown listener for
                   // its global hotkeys and preventDefaults modifier-key
-                  // combos, which breaks browser shortcuts in inputs that
-                  // live inside our portaled modals. Stop the native event
-                  // here so it never reaches the game's listener. Escape is
-                  // allowed through so the body listener below can still
-                  // close the modal.
+                  // combos, which breaks browser shortcuts in inputs. Stop the
+                  // native event here so it never reaches the game's listener.
+                  // Escape is allowed through so the body listener below can
+                  // still close the modal.
                   if (e.key === "Escape") return;
                   const t = e.target as HTMLElement | null;
                   if (!t) return;

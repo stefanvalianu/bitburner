@@ -79,7 +79,9 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         return;
       }
 
-      const targetServer = this.ns.getServer(findOptimalTarget(this.ns, this.snapshot.allServers)) as Server;
+      const targetServer = this.ns.getServer(
+        findOptimalTarget(this.ns, this.snapshot.allServers),
+      ) as Server;
 
       // For a single run of this hacker, we will fill up all available allocated slots
       // with batch frames. We will not re-calculate new batches until all of these
@@ -175,171 +177,183 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
 
     // figure out when the first batch finishes
     switch (batches[0].batch.purpose) {
-      case "W": {
-        nextFinishTime = Math.max(
-          batches[0].batch.weakTime1,
-        ) + BATCH_FRAME_OFFSET_MS;
-      } break;
+      case "W":
+        {
+          nextFinishTime = Math.max(batches[0].batch.weakTime1) + BATCH_FRAME_OFFSET_MS;
+        }
+        break;
 
-      case "GW": {
-        nextFinishTime = Math.max(
-          batches[0].batch.growTime,
-          batches[0].batch.weakTime1 - BATCH_FRAME_OFFSET_MS,
-        ) + BATCH_FRAME_OFFSET_MS;
-      } break;
+      case "GW":
+        {
+          nextFinishTime =
+            Math.max(
+              batches[0].batch.growTime,
+              batches[0].batch.weakTime1 - BATCH_FRAME_OFFSET_MS,
+            ) + BATCH_FRAME_OFFSET_MS;
+        }
+        break;
 
-      case "HWGW": {
-        nextFinishTime = Math.max(
-          batches[0].batch.hackTime,
-          batches[0].batch.weakTime1 - BATCH_FRAME_OFFSET_MS,
-          batches[0].batch.growTime - 2 * BATCH_FRAME_OFFSET_MS,
-          batches[0].batch.weakTime2 - 3 * BATCH_FRAME_OFFSET_MS,
-        ) + BATCH_FRAME_OFFSET_MS;
-      } break;
+      case "HWGW":
+        {
+          nextFinishTime =
+            Math.max(
+              batches[0].batch.hackTime,
+              batches[0].batch.weakTime1 - BATCH_FRAME_OFFSET_MS,
+              batches[0].batch.growTime - 2 * BATCH_FRAME_OFFSET_MS,
+              batches[0].batch.weakTime2 - 3 * BATCH_FRAME_OFFSET_MS,
+            ) + BATCH_FRAME_OFFSET_MS;
+        }
+        break;
     }
 
     for (const batch of batches) {
       switch (batch.batch.purpose) {
-        case "W": {
-          const targetWeakFinishTime = nextFinishTime;
+        case "W":
+          {
+            const targetWeakFinishTime = nextFinishTime;
 
-          const weakDelay = Math.max(0, targetWeakFinishTime - batch.batch.weakTime1);
+            const weakDelay = Math.max(0, targetWeakFinishTime - batch.batch.weakTime1);
 
-          const pidWeak = this.runScript(
-            WEAKEN_SCRIPT,
-            batch.lease,
-            batch.batch.weakThreads1,
-            targetHostname,
-            weakDelay,
-          );
+            const pidWeak = this.runScript(
+              WEAKEN_SCRIPT,
+              batch.lease,
+              batch.batch.weakThreads1,
+              targetHostname,
+              weakDelay,
+            );
 
-          if (!pidWeak) {
-            this.log.error(`Catastrophic failure; unable to run weak script in batch.`, batch);
-            continue;
+            if (!pidWeak) {
+              this.log.error(`Catastrophic failure; unable to run weak script in batch.`, batch);
+              continue;
+            }
+
+            taskLeases.push({
+              lease: batch.lease,
+              pids: [pidWeak],
+            });
+
+            lastFinishTime = targetWeakFinishTime;
+            nextFinishTime += BATCH_FRAME_OFFSET_MS;
           }
+          break;
 
-          taskLeases.push({
-            lease: batch.lease,
-            pids: [pidWeak]
-          });
+        case "GW":
+          {
+            const targetGrowFinishTime = nextFinishTime;
+            const targetWeakFinishTime = nextFinishTime + BATCH_FRAME_OFFSET_MS;
 
-          lastFinishTime = targetWeakFinishTime;
-          nextFinishTime += BATCH_FRAME_OFFSET_MS;
-        } break;
+            const growDelay = Math.max(0, targetGrowFinishTime - batch.batch.growTime);
+            const weakDelay = Math.max(0, targetWeakFinishTime - batch.batch.weakTime1);
 
-        case "GW": {
-          const targetGrowFinishTime = nextFinishTime;
-          const targetWeakFinishTime = nextFinishTime + BATCH_FRAME_OFFSET_MS;
+            const pidGrow = this.runScript(
+              GROW_SCRIPT,
+              batch.lease,
+              batch.batch.growThreads,
+              targetHostname,
+              growDelay,
+            );
 
-          const growDelay = Math.max(0, targetGrowFinishTime - batch.batch.growTime);
-          const weakDelay = Math.max(0, targetWeakFinishTime - batch.batch.weakTime1);
+            if (!pidGrow) {
+              this.log.error(`Catastrophic failure; unable to run grow script in batch.`, batch);
+              continue;
+            }
 
-          const pidGrow = this.runScript(
-            GROW_SCRIPT,
-            batch.lease,
-            batch.batch.growThreads,
-            targetHostname,
-            growDelay,
-          );
+            const pidWeak = this.runScript(
+              WEAKEN_SCRIPT,
+              batch.lease,
+              batch.batch.weakThreads1,
+              targetHostname,
+              weakDelay,
+            );
 
-          if (!pidGrow) {
-            this.log.error(`Catastrophic failure; unable to run grow script in batch.`, batch);
-            continue;
+            if (!pidWeak) {
+              this.log.error(`Catastrophic failure; unable to run weak script in batch.`, batch);
+              continue;
+            }
+
+            taskLeases.push({
+              lease: batch.lease,
+              pids: [pidGrow, pidWeak],
+            });
+
+            lastFinishTime = targetWeakFinishTime;
+            nextFinishTime += 2 * BATCH_FRAME_OFFSET_MS;
           }
+          break;
 
-          const pidWeak = this.runScript(
-            WEAKEN_SCRIPT,
-            batch.lease,
-            batch.batch.weakThreads1,
-            targetHostname,
-            weakDelay,
-          );
+        case "HWGW":
+          {
+            const targetHackFinishTime = nextFinishTime;
+            const targetWeak1FinishTime = nextFinishTime + BATCH_FRAME_OFFSET_MS;
+            const targetGrowFinishTime = nextFinishTime + 2 * BATCH_FRAME_OFFSET_MS;
+            const targetWeak2FinishTime = nextFinishTime + 3 * BATCH_FRAME_OFFSET_MS;
 
-          if (!pidWeak) {
-            this.log.error(`Catastrophic failure; unable to run weak script in batch.`, batch);
-            continue;
+            const hackDelay = Math.max(0, targetHackFinishTime - batch.batch.hackTime);
+            const weak1Delay = Math.max(0, targetWeak1FinishTime - batch.batch.weakTime1);
+            const growDelay = Math.max(0, targetGrowFinishTime - batch.batch.growTime);
+            const weak2Delay = Math.max(0, targetWeak2FinishTime - batch.batch.weakTime2);
+
+            const pidHack = this.runScript(
+              HACK_SCRIPT,
+              batch.lease,
+              batch.batch.hackThreads,
+              targetHostname,
+              hackDelay,
+            );
+
+            if (!pidHack) {
+              this.log.error(`Catastrophic failure; unable to run hack script in batch.`, batch);
+              continue;
+            }
+
+            const pidWeak1 = this.runScript(
+              WEAKEN_SCRIPT,
+              batch.lease,
+              batch.batch.weakThreads1,
+              targetHostname,
+              weak1Delay,
+            );
+
+            if (!pidWeak1) {
+              this.log.error(`Catastrophic failure; unable to run weak 1 script in batch.`, batch);
+              continue;
+            }
+
+            const pidGrow = this.runScript(
+              GROW_SCRIPT,
+              batch.lease,
+              batch.batch.growThreads,
+              targetHostname,
+              growDelay,
+            );
+
+            if (!pidGrow) {
+              this.log.error(`Catastrophic failure; unable to run grow script in batch.`, batch);
+              continue;
+            }
+
+            const pidWeak2 = this.runScript(
+              WEAKEN_SCRIPT,
+              batch.lease,
+              batch.batch.weakThreads2,
+              targetHostname,
+              weak2Delay,
+            );
+
+            if (!pidWeak2) {
+              this.log.error(`Catastrophic failure; unable to run weak 2 script in batch.`, batch);
+              continue;
+            }
+
+            taskLeases.push({
+              lease: batch.lease,
+              pids: [pidHack, pidWeak1, pidGrow, pidWeak2],
+            });
+
+            lastFinishTime = targetWeak2FinishTime;
+            nextFinishTime += 4 * BATCH_FRAME_OFFSET_MS;
           }
-
-          taskLeases.push({
-            lease: batch.lease,
-            pids: [pidGrow, pidWeak]
-          });
-
-          lastFinishTime = targetWeakFinishTime;
-          nextFinishTime += (2 * BATCH_FRAME_OFFSET_MS);
-        } break;
-
-        case "HWGW": {
-          const targetHackFinishTime = nextFinishTime;
-          const targetWeak1FinishTime = nextFinishTime + BATCH_FRAME_OFFSET_MS;
-          const targetGrowFinishTime = nextFinishTime + 2 * BATCH_FRAME_OFFSET_MS;
-          const targetWeak2FinishTime = nextFinishTime + 3 * BATCH_FRAME_OFFSET_MS;
-
-          const hackDelay = Math.max(0, targetHackFinishTime - batch.batch.hackTime);
-          const weak1Delay = Math.max(0, targetWeak1FinishTime - batch.batch.weakTime1);
-          const growDelay = Math.max(0, targetGrowFinishTime - batch.batch.growTime);
-          const weak2Delay = Math.max(0, targetWeak2FinishTime - batch.batch.weakTime2);
-
-          const pidHack = this.runScript(
-            HACK_SCRIPT,
-            batch.lease,
-            batch.batch.hackThreads,
-            targetHostname,
-            growDelay,
-          );
-
-          if (!pidHack) {
-            this.log.error(`Catastrophic failure; unable to run hack script in batch.`, batch);
-            continue;
-          }
-
-          const pidWeak1 = this.runScript(
-            WEAKEN_SCRIPT,
-            batch.lease,
-            batch.batch.weakThreads1,
-            targetHostname,
-            weak1Delay,
-          );
-
-          if (!pidWeak1) {
-            this.log.error(`Catastrophic failure; unable to run weak 1 script in batch.`, batch);
-            continue;
-          }
-
-          const pidGrow = this.runScript(
-            GROW_SCRIPT,
-            batch.lease,
-            batch.batch.growThreads,
-            targetHostname,
-            growDelay,
-          );
-
-          if (!pidGrow) {
-            this.log.error(`Catastrophic failure; unable to run grow script in batch.`, batch);
-            continue;
-          }
-
-          const pidWeak2 = this.runScript(
-            WEAKEN_SCRIPT,
-            batch.lease,
-            batch.batch.weakThreads2,
-            targetHostname,
-            weak2Delay,
-          );
-
-          if (!pidWeak2) {
-            this.log.error(`Catastrophic failure; unable to run weak 2 script in batch.`, batch);
-            continue;
-          }
-
-          taskLeases.push({
-            lease: batch.lease,
-            pids: [pidHack, pidWeak1, pidGrow, pidWeak2]
-          });
-
-          lastFinishTime = targetWeak2FinishTime;
-          nextFinishTime += (4 * BATCH_FRAME_OFFSET_MS);
-        } break;
+          break;
       }
     }
 

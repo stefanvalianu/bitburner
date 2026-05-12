@@ -2,7 +2,6 @@ import { NS } from "@ns";
 import { BaseTask } from "./baseTask";
 import { TaskId } from "./types";
 import { Allocator, Lease } from "./allocator";
-import { getTaskScriptPath } from "./taskManager";
 
 export interface TaskLease {
   lease: Lease;

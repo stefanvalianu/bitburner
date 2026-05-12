@@ -22,8 +22,15 @@ import { usePreferences } from "../util/usePreferences";
 import { ProgramsDialog } from "./ProgramsDialog";
 import { useLivePlayerState } from "../util/useLivePlayerState";
 
-// Skills the player can train via game actions. 
-type TrainableSkill = "hacking" | "strength" | "defense" | "dexterity" | "agility" | "charisma" | "intelligence";
+// Skills the player can train via game actions.
+type TrainableSkill =
+  | "hacking"
+  | "strength"
+  | "defense"
+  | "dexterity"
+  | "agility"
+  | "charisma"
+  | "intelligence";
 
 // Fraction of the way toward the next level for `skill`, in [0, 1]. Returns 0
 // when Formulas.exe isn't owned — `ns.formulas.skills.calculateExp` throws at
@@ -144,14 +151,14 @@ function PlayerStats(props: PlayerStatsProps) {
         valueColor={colors.cha}
         progress={pct("charisma")}
       />
-      { (player.exp.intelligence > 0 || player.skills.intelligence > 1) &&
+      {(player.exp.intelligence > 0 || player.skills.intelligence > 1) && (
         <SkillRow
           label="int"
           value={`${player.skills.intelligence}`}
           valueColor={colors.int}
           progress={pct("intelligence")}
         />
-      }
+      )}
     </Col>
   );
 }

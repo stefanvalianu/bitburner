@@ -16,6 +16,8 @@ export interface ServerAnalysis {
   maxMoney: number;
 
   profitPerSecond: number;
+
+  xpPerSecond: number;
 }
 
 export type FramePurpose = "W" | "GW" | "HWGW";

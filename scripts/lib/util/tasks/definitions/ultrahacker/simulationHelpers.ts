@@ -1,7 +1,12 @@
 import { NS, Player, Server } from "@ns";
 
 export function applyWeak(ns: NS, server: Server, threads: number, cores: number) {
-  server.hackDifficulty! -= ns.formulas.hacking.weakenEffect(threads, cores);
+  // Math.ceil on caller-side thread counts means we typically over-weaken by a
+  // fraction; clamp so we never report below the floor the game enforces.
+  server.hackDifficulty = Math.max(
+    server.minDifficulty!,
+    server.hackDifficulty! - ns.formulas.hacking.weakenEffect(threads, cores),
+  );
 }
 
 export function applyHack(ns: NS, server: Server, threads: number) {

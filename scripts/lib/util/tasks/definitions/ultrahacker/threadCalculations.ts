@@ -30,7 +30,7 @@ export function tryFindGrowWeakSplit(
   // - need at least 1 grow thread and 1 weak thread.
   // - when in doubt, use more weak threads
   // - split needs to guarantee that after the operations, server will remain at min security
-  if (growRam + weakRam < maxRam) return undefined;
+  if (growRam + weakRam > maxRam) return undefined;
 
   const maxGrowThreadsNeeded = ns.formulas.hacking.growThreads(
     originalTarget,
@@ -41,7 +41,10 @@ export function tryFindGrowWeakSplit(
   const weakSecurityChangePerThread = ns.formulas.hacking.weakenEffect(1, cores);
 
   // let's start on the assumption that we will have 1 weak thread, and UP TO as many grow threads as we can fit in the ram allotment
-  let proposedGrowThreads = Math.min(maxGrowThreadsNeeded, (maxRam - weakRam) / growRam);
+  let proposedGrowThreads = Math.min(
+    maxGrowThreadsNeeded,
+    Math.floor((maxRam - weakRam) / growRam),
+  );
   let proposedGrowSecurityIncrease = ns.growthAnalyzeSecurity(
     proposedGrowThreads,
     originalTarget.hostname,
@@ -50,7 +53,7 @@ export function tryFindGrowWeakSplit(
   let proposedWeakThreads = Math.ceil(proposedGrowSecurityIncrease / weakSecurityChangePerThread);
 
   // TODO - switch this to binary search for finding optimal slot
-  while (proposedGrowThreads > 1) {
+  while (proposedGrowThreads >= 1) {
     if (proposedGrowThreads * growRam + proposedWeakThreads * weakRam <= maxRam) {
       // great, we found a batch that works to grow the server to SOME amount while maintaining min security
       return {
@@ -88,7 +91,6 @@ export function tryFindHackWeakGrowWeakSplit(
   const hackRam = ns.getScriptRam(HACK_SCRIPT);
   // rules:
   // - need at least 1 of each thread.
-  // - if 1 hack thread would drain the server completely, return undefined.
   // - aim to prevent the hack operation from draining more than HACK_MINIMUM_MONEY_PCT of a server
   // - when in doubt, use more weak threads
   // - split needs to guarantee that after the operations, server will remain at min security and max money
@@ -132,7 +134,7 @@ export function tryFindHackWeakGrowWeakSplit(
   }
 
   // TODO - switch this to binary search for finding optimal slot
-  while (proposal.hackThreads > 1) {
+  while (proposal.hackThreads >= 1) {
     if (
       proposal.hackThreads * hackRam +
         proposal.growThreads * growRam +
@@ -160,8 +162,8 @@ function simulateHWGW(
   originalTarget: Server,
   originalPlayer: Player,
 ): HackWeakGrowWeakSplit {
-  const target = cloneServer(ns, originalTarget);
-  const player = clonePlayer(ns, originalPlayer);
+  const target = cloneServer(originalTarget);
+  const player = clonePlayer(originalPlayer);
 
   const weakSecurityChangePerThread = ns.formulas.hacking.weakenEffect(1, cores);
 
@@ -174,17 +176,18 @@ function simulateHWGW(
     (target.hackDifficulty! - target.minDifficulty!) / weakSecurityChangePerThread,
   );
   applyWeak(ns, target, weak1Threads, cores);
-  applyHackingExp(ns, target, player, hackThreads);
+  applyHackingExp(ns, target, player, weak1Threads);
 
   // simulate the grow
   const growThreads = ns.formulas.hacking.growThreads(target, player, target.moneyMax!, cores);
   applyGrow(ns, target, player, growThreads, cores, true);
-  applyHackingExp(ns, target, player, hackThreads);
+  applyHackingExp(ns, target, player, growThreads);
 
   // and now the last weak2
   const weak2Threads = Math.ceil(
     ns.growthAnalyzeSecurity(growThreads, target.hostname, cores) / weakSecurityChangePerThread,
   );
+  applyHackingExp(ns, target, player, weak2Threads);
 
   // state doesn't matter anymore, this is what we need (target/player is a cloned object)
   return {
@@ -195,21 +198,16 @@ function simulateHWGW(
   };
 }
 
-function clonePlayer(ns: NS, originalPlayer: Player): Player {
-  // starting from the real player and applying necessary
-  // transforms on the odd chance we miss some important property
-  let newPlayer = ns.getPlayer();
-  // only the hacking skill should be relevant here (augments, mults,
-  // etc) won't be changing during these calculations.
-  newPlayer.skills.hacking = originalPlayer.skills.hacking;
-  newPlayer.exp.hacking = originalPlayer.exp.hacking;
-  return newPlayer;
+// Spread-copy so applyHackingExp's mutations don't leak back to the caller.
+// `skills` and `exp` are mutated, so they need their own shallow copies too.
+function clonePlayer(originalPlayer: Player): Player {
+  return {
+    ...originalPlayer,
+    skills: { ...originalPlayer.skills },
+    exp: { ...originalPlayer.exp },
+  };
 }
 
-function cloneServer(ns: NS, originalServer: Server): Server {
-  let newServer = ns.getServer(originalServer.hostname) as Server;
-  // only these properties should be changing as part of our calculations
-  newServer.hackDifficulty = originalServer.hackDifficulty;
-  newServer.moneyAvailable = originalServer.moneyAvailable;
-  return newServer;
+function cloneServer(originalServer: Server): Server {
+  return { ...originalServer };
 }

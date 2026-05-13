@@ -70,7 +70,7 @@ export abstract class BaseSpawnerTask<
     // weaken — common after fragmentation drains the pool down to remnants).
     if (threads <= 0) {
       this.log.warn(
-        `Lease too small for ${scriptName} on ${lease.hostname}: got ${lease.ram} GB, need ≥${scriptRam} GB per thread. Returning lease.`,
+        `Lease too small for ${scriptName} on ${lease.hostname}: got ${lease.ram.toFixed(2)} GB, need ≥${scriptRam} GB per thread. Returning lease.`,
         lease,
       );
       this.allocator.return(lease.leaseId);

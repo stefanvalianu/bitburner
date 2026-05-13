@@ -45,9 +45,13 @@ export function tryFindGrowWeakSplit(
     maxGrowThreadsNeeded,
     Math.floor((maxRam - weakRam) / growRam),
   );
+  // Pass undefined for host so growthAnalyzeSecurity returns the uncapped per-
+  // thread security increase. With a host, the formula caps at "threads needed
+  // to reach max money" — which underestimates the security bump our weak
+  // threads have to undo, leaving the server drifting up in security.
   let proposedGrowSecurityIncrease = ns.growthAnalyzeSecurity(
     proposedGrowThreads,
-    originalTarget.hostname,
+    undefined,
     cores,
   );
   let proposedWeakThreads = Math.ceil(proposedGrowSecurityIncrease / weakSecurityChangePerThread);
@@ -64,11 +68,7 @@ export function tryFindGrowWeakSplit(
 
     // we'll keep going, decreasing the number of grow threads by 1 as we try to find the maximum amount we can use while undoing security increase
     proposedGrowThreads--;
-    proposedGrowSecurityIncrease = ns.growthAnalyzeSecurity(
-      proposedGrowThreads,
-      originalTarget.hostname,
-      cores,
-    );
+    proposedGrowSecurityIncrease = ns.growthAnalyzeSecurity(proposedGrowThreads, undefined, cores);
     proposedWeakThreads = Math.ceil(proposedGrowSecurityIncrease / weakSecurityChangePerThread);
   }
 
@@ -135,6 +135,19 @@ export function tryFindHackWeakGrowWeakSplit(
 
   // TODO - switch this to binary search for finding optimal slot
   while (proposal.hackThreads >= 1) {
+    // A valid HWGW batch needs every phase to actually run — a 0-thread phase
+    // means we'd ns.exec something with threads=0 (impossible) or, worse,
+    // place a frame whose ram accounting doesn't match what it'll really do.
+    // simulateHWGW should never emit a zero now that applyHack/analyze calls
+    // are simulation-aware, but if it ever does (e.g. hackPct rounded to 0 at
+    // very low player skill), fail loudly rather than schedule garbage.
+    const valid =
+      proposal.hackThreads >= 1 &&
+      proposal.weak1Threads >= 1 &&
+      proposal.growThreads >= 1 &&
+      proposal.weak2Threads >= 1;
+    if (!valid) return undefined;
+
     if (
       proposal.hackThreads * hackRam +
         proposal.growThreads * growRam +
@@ -183,9 +196,12 @@ function simulateHWGW(
   applyGrow(ns, target, player, growThreads, cores, true);
   applyHackingExp(ns, target, player, growThreads);
 
-  // and now the last weak2
+  // and now the last weak2. Pass undefined for host so the analyze function
+  // doesn't cap based on the real server's current money — at simulation time
+  // the real server is at max money, so a host-anchored call returns 0 even
+  // when growThreads is large.
   const weak2Threads = Math.ceil(
-    ns.growthAnalyzeSecurity(growThreads, target.hostname, cores) / weakSecurityChangePerThread,
+    ns.growthAnalyzeSecurity(growThreads, undefined, cores) / weakSecurityChangePerThread,
   );
   applyHackingExp(ns, target, player, weak2Threads);
 

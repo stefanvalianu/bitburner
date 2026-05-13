@@ -18,7 +18,10 @@ export function applyHack(ns: NS, server: Server, player: Player, threads: numbe
     0,
     server.moneyAvailable! - server.moneyAvailable! * hackPct * threads,
   );
-  server.hackDifficulty! += ns.hackAnalyzeSecurity(threads, server.hostname);
+  // hackAnalyzeSecurity caps the result based on REAL server state when given a
+  // host — "threads needed to hack server's max money". Omit it so we get the
+  // raw per-thread security increase against our simulated state.
+  server.hackDifficulty! += ns.hackAnalyzeSecurity(threads);
 }
 
 export function applyGrow(
@@ -36,7 +39,13 @@ export function applyGrow(
     );
   }
 
-  server.hackDifficulty! += ns.growthAnalyzeSecurity(threads, server.hostname, cores);
+  // growthAnalyzeSecurity caps the result based on REAL server state when given
+  // a host — "threads needed to reach max money". In HWGW the real server IS
+  // already at max money (precondition), so passing host returns 0 and the
+  // simulation drops weak2 entirely. Omit the host to get the raw uncapped
+  // security increase that the real grow() will produce when it runs against
+  // the post-hack (below-max) state.
+  server.hackDifficulty! += ns.growthAnalyzeSecurity(threads, undefined, cores);
 }
 
 export function applyHackingExp(ns: NS, server: Server, player: Player, threads: number): void {

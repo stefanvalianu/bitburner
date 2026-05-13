@@ -4,11 +4,10 @@ import { BaseSpawnerTask, TaskLease } from "../../baseSpawnerTask";
 import { Lease } from "../../allocator";
 
 const SHARE_SCRIPT = "lib/util/script/share.js";
-const THIS_SCRIPT = "lib/util/tasks/definitions/noform-hacker/task.js";
 
 class ServerShareTask extends BaseSpawnerTask {
   constructor(ns: NS) {
-    super(ns, SERVER_SHARE_TASK_ID, THIS_SCRIPT);
+    super(ns, SERVER_SHARE_TASK_ID);
   }
 
   protected async run_task(): Promise<void> {

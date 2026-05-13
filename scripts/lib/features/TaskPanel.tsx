@@ -8,12 +8,16 @@ import { Panel } from "../ui/Panel";
 import { Row } from "../ui/Row";
 import { useTheme } from "../ui/theme";
 import { useDashboardController } from "../util/useDashboardController";
-import { ALL_TASKS, TASK_BY_ID } from "../util/tasks/definitions/tasks";
+import {
+  ALL_TASKS,
+  hasCustomPanel,
+  TASK_BY_ID,
+  TASK_CUSTOM_PANELS,
+} from "../util/tasks/definitions/tasks";
 import { HOME_RESERVED_RAM_GB, getTaskScriptPath } from "../util/tasks/taskManager";
 import type { TaskDefinition, TaskState } from "../util/tasks/types";
 import { Spinner } from "../ui/Spinner";
 import { useNs } from "../util/ns";
-import { TASK_CUSTOM_PANELS, hasCustomPanel } from "./taskCustomPanels";
 
 export function TaskPanel() {
   const { colors, space } = useTheme();
@@ -29,9 +33,6 @@ export function TaskPanel() {
   const taskEntries = Object.entries(state.tasks);
   const startable = ALL_TASKS.filter((def) => {
     if (state.tasks[def.id] !== undefined) return false;
-    if (def.checkRequirements) {
-      return def.checkRequirements(state);
-    }
     return true;
   });
 
@@ -258,7 +259,11 @@ export function TaskPanel() {
                   <div style={{ display: "flex", flexWrap: "wrap", gap: space.md }}>
                     {inCategory.map((def) => {
                       const checked = selectedIds.has(def.id);
-                      const blocked = isPortBlocked(def);
+                      let requirementsNotMetReason: string | undefined = undefined;
+                      if (def.checkRequirements)
+                        requirementsNotMetReason = def.checkRequirements(state);
+
+                      const blocked = isPortBlocked(def) || requirementsNotMetReason !== undefined;
                       return (
                         <label
                           key={def.id}
@@ -329,7 +334,7 @@ export function TaskPanel() {
                           </span>
                           {blocked && (
                             <span style={{ color: colors.warn, fontSize: "0.85em" }}>
-                              conflicts with other task
+                              {requirementsNotMetReason || "conflicts with other task"}
                             </span>
                           )}
                         </label>

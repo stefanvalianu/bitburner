@@ -15,7 +15,7 @@ import {
   maxUsefulHwgwRam,
   maxUsefulWeakenRam,
 } from "./threadCalculations";
-import { BaseSpawnerTask } from "../../baseSpawnerTask";
+import { BaseSpawnerTask, TaskLease } from "../../baseSpawnerTask";
 import { WEAKEN_SCRIPT, GROW_SCRIPT, HACK_SCRIPT } from "../../../script/constants";
 import { getPortData, HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 
@@ -25,15 +25,8 @@ const BATCH_FRAME_OFFSET_MS = 50;
 // For money and securtiy, how many checks in a row can be "Bad" before entering repair mode
 const MAX_SEQUENTIAL_BAD_CHECKS = 3;
 
-const THIS_SCRIPT = "lib/util/tasks/definitions/noform-hacker/task.js";
-
 // re-run analysis every this many milliseconds
 const ANALYSIS_MAX_STALENESS_MS = 60 * 1000; // 1 min
-
-interface TaskLease {
-  lease: Lease;
-  pids: number[];
-}
 
 class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
   private phase: Phase;
@@ -44,7 +37,7 @@ class NoformHackerTask extends BaseSpawnerTask<NoformHackerTaskState> {
   private userTarget?: string;
 
   constructor(ns: NS) {
-    super(ns, NOFORM_HACKER_TASK_ID, THIS_SCRIPT);
+    super(ns, NOFORM_HACKER_TASK_ID);
 
     this.phase = "hack";
     this.analysis = performAnalysis(this.ns, this.snapshot.allServers);

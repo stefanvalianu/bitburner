@@ -85,6 +85,8 @@ export interface TaskDefinition {
   communicationPort?: number;
 
   // Optional function to check requirements for this task to be ran.
-  // Useful for doing things like checking for Formulas.exe, etc
-  checkRequirements?: (state: DashboardState) => boolean;
+  // Useful for doing things like checking for Formulas.exe, etc.
+  // Returns undefined when requirements are met, a string explanation
+  // of what isn't met when requirements are not met.
+  checkRequirements?: (state: DashboardState) => string | undefined;
 }

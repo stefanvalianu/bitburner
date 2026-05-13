@@ -24,6 +24,7 @@ export interface Theme {
     hack: string;
     hp: string;
     rep: string;
+    int: string;
     // Stat-row colors that mirror the in-game UI's own coloring. `white` is
     // the game's literal "white" token (used for combat stats), `cha` is the
     // purple charisma color.
@@ -58,6 +59,7 @@ export function buildTheme(ns: NS): Theme {
       rep: t.rep,
       white: t.white,
       cha: t.cha,
+      int: t.int,
     },
     fonts: { mono: s.fontFamily },
     space: { xs: 2, sm: 4, md: 8, lg: 16 },

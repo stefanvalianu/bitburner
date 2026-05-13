@@ -14,9 +14,18 @@ export interface Inventory {
   programs: { name: string; owned: boolean }[];
 }
 
+export interface Trading {
+  // initial access to enable programmatic trading
+  hasTixApi: boolean;
+
+  // access for more advanced prediction capabilities within trading
+  has4SApi: boolean;
+}
+
 export interface PlayerMonitorTaskState extends TaskState {
   inventory: Inventory;
   player: Player;
+  trading: Trading;
 }
 
 // this task publishes both to the standard dashboard state, but also to a player-specific port

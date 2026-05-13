@@ -1,5 +1,11 @@
 import type { ServerSlice, TaskDemand, TaskId } from "./types";
 
+// Tolerance for FP residue accumulated by lease/return cycles. Smallest real
+// script RAM cost in Bitburner is ~1.6 GB; 1e-6 GB (1 byte) is comfortably
+// below anything we'd actually try to lease, so it can't ever mask a real
+// "too small" condition.
+export const RAM_EPS = 1e-6;
+
 export interface Lease {
   leaseId: number;
   hostname: string;
@@ -86,8 +92,7 @@ export class Allocator {
   // request based on the host's cores (e.g. weaken/grow efficiency).
   peekTopHost(): { hostname: string; ram: number; cores: number } | null {
     const sorted = this.sortedHosts(false);
-    if (sorted.length === 0) return null;
-    if (Math.floor(sorted[0].ram) === 0) return null;
+    if (sorted.length === 0 || sorted[0].ram <= RAM_EPS) return null;
     return { hostname: sorted[0].hostname, ram: sorted[0].ram, cores: sorted[0].cores };
   }
 
@@ -98,8 +103,7 @@ export class Allocator {
   leaseUpTo(ram?: number): Lease | null {
     // let's always prefer highCPU nodes, we already own them, might as well use em
     const sorted = this.sortedHosts(false);
-    if (sorted.length === 0) return null;
-    if (Math.floor(sorted[0].ram) === 0) return null;
+    if (sorted.length === 0 || sorted[0].ram <= RAM_EPS) return null;
 
     const leaseRam = ram ? Math.min(sorted[0].ram, ram) : sorted[0].ram;
 
@@ -111,11 +115,12 @@ export class Allocator {
   // important for callers to understand that whatever they are running
   // on their lease is finished, so they can properly `return` the space.
   lease(ram: number): Lease | null {
-    ram = Math.floor(ram);
     const sorted = this.sortedHosts(false);
 
-    // failed to obtain a lease
-    if (sorted.length === 0 || sorted[0].ram < ram || Math.floor(sorted[0].ram) === 0) return null;
+    // Epsilon-tolerant comparison: FP residue from prior lease/return cycles
+    // can leave the pool entry a hair below the request when they're really
+    // equal. RAM_EPS << any realistic per-thread cost.
+    if (sorted.length === 0 || sorted[0].ram + RAM_EPS < ram) return null;
 
     // reserve it on the host
     sorted[0].ram -= ram;

@@ -5,11 +5,9 @@ import { ServerInfo } from "../../../dashboardTypes";
 import { BaseSpawnerTask, TaskLease } from "../../baseSpawnerTask";
 import { HACK_SCRIPT } from "../../../script/constants";
 
-const THIS_SCRIPT = "lib/util/tasks/definitions/server-devourer/task.js";
-
 class ServerDevourerTask extends BaseSpawnerTask {
   constructor(ns: NS) {
-    super(ns, SERVER_DEVOURER_TASK_ID, THIS_SCRIPT);
+    super(ns, SERVER_DEVOURER_TASK_ID);
   }
 
   protected async run_task(): Promise<void> {

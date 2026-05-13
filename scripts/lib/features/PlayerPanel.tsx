@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { NS, Player } from "@ns";
 import { Button } from "../ui/Button";
 import { Col } from "../ui/Col";
@@ -13,6 +13,7 @@ import { useTheme } from "../ui/theme";
 import { useNs } from "../util/ns";
 import {
   getPlayerMonitorState,
+  PLAYER_MONITOR_FAST_REFRESH_FREQUENCY_MS,
   PlayerMonitorTaskState,
   type Inventory,
 } from "../util/tasks/definitions/player-monitor/info";
@@ -21,10 +22,15 @@ import { usePreferences } from "../util/usePreferences";
 import { ProgramsDialog } from "./ProgramsDialog";
 import { useLivePlayerState } from "../util/useLivePlayerState";
 
-// Skills the player can train via game actions. Intelligence is excluded — the
-// game grants it as a side-effect of other actions and there's no dedicated
-// training loop, so a progress bar would be misleading.
-type TrainableSkill = "hacking" | "strength" | "defense" | "dexterity" | "agility" | "charisma";
+// Skills the player can train via game actions.
+type TrainableSkill =
+  | "hacking"
+  | "strength"
+  | "defense"
+  | "dexterity"
+  | "agility"
+  | "charisma"
+  | "intelligence";
 
 // Fraction of the way toward the next level for `skill`, in [0, 1]. Returns 0
 // when Formulas.exe isn't owned — `ns.formulas.skills.calculateExp` throws at
@@ -38,7 +44,7 @@ function skillProgressPct(
   if (!hasFormulas) return 0;
   const currentLevel = player.skills[skill];
   const currentExp = player.exp[skill];
-  const skillMult = player.mults[skill];
+  const skillMult = skill === "intelligence" ? 1 : player.mults[skill];
   const currentLevelExp = ns.formulas.skills.calculateExp(currentLevel, skillMult);
   const nextLevelExp = ns.formulas.skills.calculateExp(currentLevel + 1, skillMult);
   const progress = (currentExp - currentLevelExp) / (nextLevelExp - currentLevelExp);
@@ -105,10 +111,9 @@ function PlayerStats(props: PlayerStatsProps) {
   const pct = (s: TrainableSkill) => skillProgressPct(ns, player, s, inventory.hasFormulas);
   return (
     <Col gap={space.xs} style={{ minWidth: 120, maxWidth: 160, flexShrink: 0 }}>
-      <SectionHeading>Stats</SectionHeading>
       <StatRow label="HP" value={`${player.hp.current}/${player.hp.max}`} valueColor={colors.hp} />
       <StatRow label="$" value={ns.format.number(player.money, 2)} valueColor={colors.money} />
-      <div style={{ borderTop: `1px solid ${colors.fgDim}`, margin: `${space.xs}px 0` }} />
+      <div style={{ borderTop: `1px solid ${colors.white}`, margin: `${space.xs}px 0` }} />
       <SkillRow
         label="hck"
         value={`${player.skills.hacking}`}
@@ -145,6 +150,14 @@ function PlayerStats(props: PlayerStatsProps) {
         valueColor={colors.cha}
         progress={pct("charisma")}
       />
+      {(player.exp.intelligence > 0 || player.skills.intelligence > 1) && (
+        <SkillRow
+          label="int"
+          value={`${player.skills.intelligence}`}
+          valueColor={colors.int}
+          progress={pct("intelligence")}
+        />
+      )}
     </Col>
   );
 }
@@ -175,6 +188,11 @@ const BAR_HEIGHT = 2;
 function ProgressBar({ value, color }: { value: number; color: string }) {
   const { colors } = useTheme();
   const pct = Math.max(0, Math.min(1, value)) * 100;
+  // Suppress the transition when pct drops (level-up resets progress to ~0) so
+  // the bar snaps instead of visibly draining backwards.
+  const prevPct = useRef(pct);
+  const animate = pct >= prevPct.current;
+  prevPct.current = pct;
   return (
     <div
       style={{
@@ -184,7 +202,16 @@ function ProgressBar({ value, color }: { value: number; color: string }) {
         overflow: "hidden",
       }}
     >
-      <div style={{ width: `${pct}%`, height: BAR_HEIGHT, background: color }} />
+      <div
+        style={{
+          width: `${pct}%`,
+          height: BAR_HEIGHT,
+          background: color,
+          transition: animate
+            ? `width ${PLAYER_MONITOR_FAST_REFRESH_FREQUENCY_MS}ms linear`
+            : "none",
+        }}
+      />
     </div>
   );
 }

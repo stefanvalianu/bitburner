@@ -74,7 +74,7 @@ export class TaskManager {
       const def = TASK_BY_ID.get(taskId);
       if (
         def?.checkRequirements &&
-        (this.state === undefined || def.checkRequirements(this.state) === false)
+        (this.state === undefined || def.checkRequirements(this.state) !== undefined)
       ) {
         this.logger.error(
           `Attempting to start task ${taskId} but its requirements are unmet. Should be blocked in UX, ignoring.`,
@@ -401,6 +401,8 @@ export class TaskManager {
   }
 }
 
+// THIS FUNCTION IS DUPLICATED AT baseSpawnerTask. We don't add a dependency to reduce
+// overall RAM usage.
 export function getTaskScriptPath(task: TaskDefinition): string {
   return `lib/util/tasks/definitions/${task.id}/task.js`;
 }

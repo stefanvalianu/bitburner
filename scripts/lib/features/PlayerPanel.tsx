@@ -21,6 +21,7 @@ import { useDashboardController } from "../util/useDashboardController";
 import { usePreferences } from "../util/usePreferences";
 import { ProgramsDialog } from "./ProgramsDialog";
 import { useLivePlayerState } from "../util/useLivePlayerState";
+import { DashboardTitle } from "./DashboardTitle";
 
 // Skills the player can train via game actions.
 type TrainableSkill =
@@ -111,11 +112,11 @@ function PlayerStats(props: PlayerStatsProps) {
   const ns = useNs();
   const { player, inventory } = useLivePlayerState(props.dashboardPlayerTaskState);
   const pct = (s: TrainableSkill) => skillProgressPct(ns, player, s, inventory.hasFormulas);
+
+  ns.ui.setTailTitle(<DashboardTitle ns={ns} hp={player.hp} money={player.money} />);
+
   return (
     <Col gap={space.xs} style={{ minWidth: 120, maxWidth: 160, flexShrink: 0 }}>
-      <StatRow label="HP" value={`${player.hp.current}/${player.hp.max}`} valueColor={colors.hp} />
-      <StatRow label="$" value={ns.format.number(player.money, 2)} valueColor={colors.money} />
-      <div style={{ borderTop: `1px solid ${colors.white}`, margin: `${space.xs}px 0` }} />
       <SkillRow
         label="hck"
         value={`${player.skills.hacking}`}

@@ -76,9 +76,7 @@ const buildColumns = (
     flex: 1,
     align: "right",
     accessor: (r) => r.xpPerSecond,
-    render: (r) => (
-      <span style={{ color: colors.hack }}>{ns.format.number(r.xpPerSecond, 2)}</span>
-    ),
+    render: (r) => <span style={{ color: colors.hack }}>{ns.format.number(r.xpPerSecond, 2)}</span>,
   },
 ];
 

@@ -4,6 +4,7 @@
   "_chunks/react-shim.js": 1.6,
   "_chunks/useDashboardController.js": 5.4,
   "dashboard.js": 8,
+  "lib/features/DashboardTitle.js": 1.6,
   "lib/features/PlayerPanel.js": 5.4,
   "lib/features/ProgramsDialog.js": 5.4,
   "lib/features/ServerMapDialog.js": 5.4,

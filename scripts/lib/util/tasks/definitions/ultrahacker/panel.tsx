@@ -14,10 +14,7 @@ import { TaskCustomPanel } from "../tasks";
 import {
   ULTRAHACKER_TASK_ID,
   UserCommunicationRequest,
-<<<<<<< HEAD
   type FramePurpose,
-=======
->>>>>>> main
   type ServerAnalysis,
   type UltrahackerTaskState,
 } from "./info";

@@ -47,7 +47,6 @@ export function ServerPanel() {
   const nukeable = state.allServers.filter((s) => !s.purchasedByPlayer);
   const nukedCount = nukeable.filter((s) => s.hasAdminRights).length;
   const nukeableTotal = nukeable.length;
-  const stillNuking = nukedCount < nukeableTotal;
 
   // Home first, then cloud-# in numeric order. cloud-2 before cloud-10.
   const ownedSorted = useMemo(() => {
@@ -101,6 +100,9 @@ export function ServerPanel() {
         title="Servers"
         actions={
           <Row gap={space.sm}>
+            <span style={{ color: colors.muted, fontSize: "0.85em" }}>
+              {nukedCount}/{nukeableTotal} nuked
+            </span>
             <Button onClick={() => setBuyOpen(true)} disabled={!buyer}>
               <HardwareIcon color={colors.accent} title="Buy or upgrade a server" />
               Buy
@@ -112,13 +114,8 @@ export function ServerPanel() {
           </Row>
         }
       >
+        <SectionHeading>Player servers</SectionHeading>
         <Col gap={space.md}>
-          <Row gap={space.sm} style={{ alignItems: "center" }}>
-            <span style={{ color: colors.fg }}>
-              {nukedCount}/{nukeableTotal} nuked
-            </span>
-            {stillNuking && <Spinner active />}
-          </Row>
           <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm }}>
             {ownedSorted.map((s) => (
               <ServerTile

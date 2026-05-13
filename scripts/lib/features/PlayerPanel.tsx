@@ -67,9 +67,11 @@ export function PlayerPanel() {
 
   const actions = (
     <Row gap={space.sm} style={{ alignItems: "center" }}>
-      <span style={{ color: colors.muted, fontSize: "0.85em" }}>
-        {`Reserved: $${ns.format.number(preferences.reservedMoney, 2)}`}
-      </span>
+      {preferences?.reservedMoney > 0 && (
+        <span style={{ color: colors.muted, fontSize: "0.85em" }}>
+          {`Reserved: $${ns.format.number(preferences.reservedMoney, 2)}`}
+        </span>
+      )}
       <Button onClick={() => setModalOpen(true)} disabled={!hasPlayerState}>
         <ProgramsIcon color={colors.fg} title="View programs" />
         Programs

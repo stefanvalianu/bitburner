@@ -9,38 +9,28 @@ export interface ServerAnalysis {
   hostname: string;
 
   hackChance: number;
+
+  // approximate batch time for HWGW (not perfectly simulated)
+  batchTime: number;
+
   maxMoney: number;
-  maxTime: number;
 
-  profitScore: number;
-}
-
-export interface ServerAnalysisReport {
-  // servers are sorted with highest profit servers first, lowest profit last
-  analysis: ServerAnalysis[];
-
-  // time this was last computed
-  ranAt: number;
-}
-
-export type Phase = "hack" | "fix_security" | "fix_money";
-
-export interface HackState {
-  hostname: string;
-  phase: Phase;
+  profitPerSecond: number;
 }
 
 export interface UltrahackerTaskState extends TaskState {
-  targetReport: ServerAnalysisReport;
+  targetOptions: ServerAnalysis[];
 
-  currentTargets: HackState[];
+  // actual target we're attacking
+  target: string;
 
-  userTargets: string[];
+  // hostname of the target the user has chosen
+  userTarget?: string | undefined;
 }
 
 export interface UserCommunicationRequest {
-  // Which servers should the ultrahacker target
-  targetServers: string[];
+  // Which server should the ultrahacker target
+  targetServer?: string | undefined;
 }
 
 export const ultrahackerTask: TaskDefinition = {

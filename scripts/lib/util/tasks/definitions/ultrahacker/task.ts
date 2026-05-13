@@ -1,11 +1,12 @@
 import { NS, Player, Server } from "@ns";
-import { UltrahackerTaskState, ULTRAHACKER_TASK_ID } from "./info";
+import { UltrahackerTaskState, ULTRAHACKER_TASK_ID, UserCommunicationRequest } from "./info";
 import { BaseSpawnerTask, TaskLease } from "../../baseSpawnerTask";
-import { findOptimalTarget } from "./findOptimalTarget";
 import { Lease, RAM_EPS } from "../../allocator";
 import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "../../../script/constants";
 import { tryFindGrowWeakSplit, tryFindHackWeakGrowWeakSplit } from "./threadCalculations";
 import { applyGrow, applyHackingExp, applyWeak } from "./simulationHelpers";
+import { analyzeOptions } from "./analyzeOptions";
+import { getPortData, HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 
 // number of miliseconds to aim for between batched operations
 const BATCH_FRAME_OFFSET_MS = 50;
@@ -64,6 +65,8 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   private readonly growRam: number;
   private readonly weakRam: number;
 
+  private userTarget: string | undefined = undefined;
+
   constructor(ns: NS) {
     super(ns, ULTRAHACKER_TASK_ID);
 
@@ -79,9 +82,27 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         return;
       }
 
+      // figure out the best target (and consume user requests to change it)
+      const targetOptions = analyzeOptions(this.ns, this.ns.getPlayer(), this.snapshot.allServers);
+      const userRequest = getPortData<UserCommunicationRequest>(
+        this.ns,
+        HACKING_SYSTEM_COMMUNICATION_PORT,
+        true,
+      );
+
+      if (userRequest) {
+        this.userTarget = userRequest.targetServer;
+      }
+
       const targetServer = this.ns.getServer(
-        findOptimalTarget(this.ns, this.snapshot.allServers),
+        this.userTarget ?? targetOptions[0].hostname,
       ) as Server;
+
+      this.patchState({
+        targetOptions: targetOptions,
+        userTarget: this.userTarget,
+        target: targetServer.hostname,
+      });
 
       // For a single run of this hacker, we will fill up all available allocated slots
       // with batch frames. We will not re-calculate new batches until all of these

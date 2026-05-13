@@ -24,7 +24,11 @@ export interface SortableTableProps<T> {
   rows: T[];
   rowKey: (row: T) => string;
   actionColumn?: { width: number; render: (row: T) => ReactNode };
+  // When set, collapsed view shows only rows where this returns true.
   isCurrent?: (row: T) => boolean;
+  // When set, collapsed view shows the top N rows in current sort order.
+  // Takes precedence over isCurrent if both are provided.
+  collapsedRows?: number;
   collapsible?: boolean;
   defaultSort?: { column: string; direction: SortDirection };
   emptyMessage?: ReactNode;
@@ -36,6 +40,7 @@ export function SortableTable<T>({
   rowKey,
   actionColumn,
   isCurrent,
+  collapsedRows,
   collapsible = false,
   defaultSort,
   emptyMessage,
@@ -44,13 +49,9 @@ export function SortableTable<T>({
   const [sort, setSort] = useState<SortState>(defaultSort ?? null);
   const [expanded, setExpanded] = useState(false);
 
-  const currentCount = isCurrent ? rows.filter(isCurrent).length : 0;
-  const showAll = !collapsible || expanded || !isCurrent;
-  const visibleRows = showAll ? rows : rows.filter(isCurrent!);
-
   const columnByKey = new Map(columns.map((c) => [c.key, c]));
   const sortedRows = sort
-    ? [...visibleRows].sort((a, b) => {
+    ? [...rows].sort((a, b) => {
         const col = columnByKey.get(sort.column);
         if (!col) return 0;
         const av = col.accessor(a);
@@ -61,7 +62,21 @@ export function SortableTable<T>({
             : (av as number) - (bv as number);
         return sort.direction === "asc" ? cmp : -cmp;
       })
-    : visibleRows;
+    : rows;
+
+  const useTopN = collapsedRows != null;
+  const useFilter = !useTopN && isCurrent != null;
+  const collapseCount = useTopN
+    ? Math.min(collapsedRows!, rows.length)
+    : useFilter
+      ? rows.filter(isCurrent!).length
+      : rows.length;
+  const showAll = !collapsible || expanded || (!useTopN && !useFilter);
+  const visibleRows = showAll
+    ? sortedRows
+    : useTopN
+      ? sortedRows.slice(0, collapsedRows!)
+      : sortedRows.filter(isCurrent!);
 
   const handleHeaderClick = (column: string) => {
     setSort((prev) => {
@@ -104,7 +119,8 @@ export function SortableTable<T>({
     );
   };
 
-  const showToggle = collapsible && isCurrent && rows.length > currentCount;
+  const showToggle = collapsible && (useTopN || useFilter) && rows.length > collapseCount;
+  const collapseLabel = useTopN ? `Collapse to top ${collapsedRows}` : "Collapse to current";
 
   return (
     <Col gap={space.xs}>
@@ -119,12 +135,12 @@ export function SortableTable<T>({
         {actionColumn && <span style={{ width: actionColumn.width, flexShrink: 0 }} />}
         {columns.map(renderHeader)}
       </Row>
-      {sortedRows.length === 0 ? (
+      {visibleRows.length === 0 ? (
         emptyMessage ? (
           <span style={{ color: colors.muted, fontSize: "0.85em" }}>{emptyMessage}</span>
         ) : null
       ) : (
-        sortedRows.map((row) => (
+        visibleRows.map((row) => (
           <Row key={rowKey(row)} gap={space.md} style={{ fontSize: "0.85em" }}>
             {actionColumn && (
               <span
@@ -158,7 +174,7 @@ export function SortableTable<T>({
       {showToggle && (
         <Row style={{ marginTop: space.xs }}>
           <Button onClick={() => setExpanded((e) => !e)}>
-            {expanded ? "Collapse to current" : `Show all (${rows.length})`}
+            {expanded ? collapseLabel : `Show all (${rows.length})`}
           </Button>
         </Row>
       )}

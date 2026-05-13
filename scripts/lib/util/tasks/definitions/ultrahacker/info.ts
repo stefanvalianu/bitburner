@@ -18,6 +18,8 @@ export interface ServerAnalysis {
   profitPerSecond: number;
 }
 
+export type FramePurpose = "W" | "GW" | "HWGW";
+
 export interface UltrahackerTaskState extends TaskState {
   targetOptions: ServerAnalysis[];
 
@@ -26,6 +28,9 @@ export interface UltrahackerTaskState extends TaskState {
 
   // hostname of the target the user has chosen
   userTarget?: string | undefined;
+
+  // visualize the batch types being placed on available leases
+  batches: FramePurpose[];
 }
 
 export interface UserCommunicationRequest {

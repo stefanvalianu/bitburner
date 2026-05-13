@@ -167,8 +167,8 @@ function simulateHWGW(
 
   const weakSecurityChangePerThread = ns.formulas.hacking.weakenEffect(1, cores);
 
-  // simulate the hack
-  applyHack(ns, target, hackThreads);
+  // simulate the hack — reduces moneyAvailable and bumps hackDifficulty
+  applyHack(ns, target, player, hackThreads);
   applyHackingExp(ns, target, player, hackThreads);
 
   // simulate the weak1

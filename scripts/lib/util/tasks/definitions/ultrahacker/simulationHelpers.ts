@@ -9,7 +9,15 @@ export function applyWeak(ns: NS, server: Server, threads: number, cores: number
   );
 }
 
-export function applyHack(ns: NS, server: Server, threads: number) {
+export function applyHack(ns: NS, server: Server, player: Player, threads: number) {
+  // Per-thread money fraction stolen on a successful hack. Ultrahacker is gated
+  // on Formulas.exe and runs in endgame, so hackChance ≈ 1; we don't multiply
+  // by hackChance here, but if this ever gets used at lower skill we should.
+  const hackPct = ns.formulas.hacking.hackPercent(server, player);
+  server.moneyAvailable = Math.max(
+    0,
+    server.moneyAvailable! - server.moneyAvailable! * hackPct * threads,
+  );
   server.hackDifficulty! += ns.hackAnalyzeSecurity(threads, server.hostname);
 }
 

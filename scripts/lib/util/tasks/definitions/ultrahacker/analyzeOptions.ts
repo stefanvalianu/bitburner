@@ -6,28 +6,31 @@ import { ServerAnalysis } from "./info";
 export function analyzeOptions(ns: NS, player: Player, allServers: ServerInfo[]): ServerAnalysis[] {
   // identify all the options and simulate them in optimal conditions
   const targets = allServers
-    .filter(s => 
-      !s.purchasedByPlayer &&
-      s.hasAdminRights &&
-      s.moneyAvailable &&
-      s.hackDifficulty &&
-      s.moneyMax &&
-      s.moneyMax > 0)
-    .map(s => getOptimalServer(s));
+    .filter(
+      (s) =>
+        !s.purchasedByPlayer &&
+        s.hasAdminRights &&
+        s.moneyAvailable &&
+        s.hackDifficulty &&
+        s.moneyMax &&
+        s.moneyMax > 0,
+    )
+    .map((s) => getOptimalServer(s));
 
   let options = targets.map(
-    t => ({
-      hostname: t.hostname,
-      hackChance: ns.formulas.hacking.hackChance(t, player),
-      maxMoney: t.moneyMax!,
-      batchTime: approximateBatchTime(ns, t, player),
-      profitPerSecond: profitCalculation(ns, t, player),
-    } satisfies ServerAnalysis)
+    (t) =>
+      ({
+        hostname: t.hostname,
+        hackChance: ns.formulas.hacking.hackChance(t, player),
+        maxMoney: t.moneyMax!,
+        batchTime: approximateBatchTime(ns, t, player),
+        profitPerSecond: profitCalculation(ns, t, player),
+      }) satisfies ServerAnalysis,
   );
 
   // sort descending by profit per second
   options.sort((a, b) => b.profitPerSecond - a.profitPerSecond);
-  
+
   return options;
 }
 
@@ -40,7 +43,11 @@ function profitCalculation(ns: NS, server: Server, player: Player): number {
 }
 
 function approximateBatchTime(ns: NS, server: Server, player: Player): number {
-  return (ns.formulas.hacking.growTime(server, player) + ns.formulas.hacking.hackTime(server, player) + (2 * ns.formulas.hacking.weakenTime(server, player)));
+  return (
+    ns.formulas.hacking.growTime(server, player) +
+    ns.formulas.hacking.hackTime(server, player) +
+    2 * ns.formulas.hacking.weakenTime(server, player)
+  );
 }
 
 function getOptimalServer(server: Server): Server {
@@ -48,5 +55,5 @@ function getOptimalServer(server: Server): Server {
     ...server,
     moneyAvailable: server.moneyMax,
     hackDifficulty: server.minDifficulty,
-  }
+  };
 }

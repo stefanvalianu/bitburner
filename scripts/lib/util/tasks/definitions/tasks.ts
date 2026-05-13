@@ -9,7 +9,8 @@ import { playerMonitorTask } from "./player-monitor/info";
 import { serverBuyerTask } from "./server-buyer/info";
 import { serverDevourerTask } from "./server-devourer/info";
 import { serverShareTask } from "./server-share/info";
-import { ultrahackerTask } from "./ultrahacker/info";
+import { ULTRAHACKER_TASK_ID, ultrahackerTask } from "./ultrahacker/info";
+import { UltrahackerPanel } from "./ultrahacker/panel";
 import { stockTraderTask } from "./stock-trader/info";
 
 // highest in list = shows first in 'new task' UX per category
@@ -40,6 +41,7 @@ export type TaskCustomPanel = (props: { id: string; slot: TaskState }) => ReactN
 export const TASK_CUSTOM_PANELS: Record<string, TaskCustomPanel> = {
   [NOFORM_HACKER_TASK_ID]: NoformHackerPanel,
   [INFILTRATOR_TASK_ID]: InfiltratorPanel,
+  [ULTRAHACKER_TASK_ID]: UltrahackerPanel,
 };
 
 export function hasCustomPanel(id: string): boolean {

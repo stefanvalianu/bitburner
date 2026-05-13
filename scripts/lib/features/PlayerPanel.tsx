@@ -111,10 +111,9 @@ function PlayerStats(props: PlayerStatsProps) {
   const pct = (s: TrainableSkill) => skillProgressPct(ns, player, s, inventory.hasFormulas);
   return (
     <Col gap={space.xs} style={{ minWidth: 120, maxWidth: 160, flexShrink: 0 }}>
-      <SectionHeading>Stats</SectionHeading>
       <StatRow label="HP" value={`${player.hp.current}/${player.hp.max}`} valueColor={colors.hp} />
       <StatRow label="$" value={ns.format.number(player.money, 2)} valueColor={colors.money} />
-      <div style={{ borderTop: `1px solid ${colors.fgDim}`, margin: `${space.xs}px 0` }} />
+      <div style={{ borderTop: `1px solid ${colors.white}`, margin: `${space.xs}px 0` }} />
       <SkillRow
         label="hck"
         value={`${player.skills.hacking}`}

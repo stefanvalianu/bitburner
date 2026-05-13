@@ -39,7 +39,7 @@ function profitCalculation(ns: NS, server: Server, player: Player): number {
   const chance = ns.formulas.hacking.hackChance(server, player);
   const money = ns.formulas.hacking.hackPercent(server, player) * server.moneyMax!;
 
-  return chance * (money / time);
+  return chance * (money / time) * 1000;
 }
 
 function approximateBatchTime(ns: NS, server: Server, player: Player): number {

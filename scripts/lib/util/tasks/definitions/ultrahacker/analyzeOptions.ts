@@ -43,10 +43,10 @@ function profitCalculation(ns: NS, server: Server, player: Player): number {
 }
 
 function approximateBatchTime(ns: NS, server: Server, player: Player): number {
-  return (
-    ns.formulas.hacking.growTime(server, player) +
-    ns.formulas.hacking.hackTime(server, player) +
-    2 * ns.formulas.hacking.weakenTime(server, player)
+  return Math.max(
+    ns.formulas.hacking.growTime(server, player),
+    ns.formulas.hacking.hackTime(server, player),
+    ns.formulas.hacking.weakenTime(server, player),
   );
 }
 

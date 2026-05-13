@@ -117,14 +117,6 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         return;
       }
 
-      // patch the state here so we can include our lease visualization
-      this.patchState({
-        targetOptions: targetOptions,
-        userTarget: this.userTarget,
-        target: targetServer.hostname,
-        batches: batchLeases.map((b) => b.batch.purpose),
-      });
-
       // Then, we need to schedule all of these frames with appropriate deltas between
       // each of the steps in the frame (grow/weaken/hack). This happens in 3 'waves' that
       // are not discretely separated like they were in noform hacker. The first set of
@@ -141,6 +133,19 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         );
         return;
       }
+
+      // patch the state here so we can include our lease visualization
+      this.patchState({
+        targetOptions: targetOptions,
+        userTarget: this.userTarget,
+        target: targetServer.hostname,
+        batches: batchLeases.map((b) => b.batch.purpose),
+        targetCurrentSecurity: targetServer.hackDifficulty!,
+        targetMinSecurity: targetServer.minDifficulty!,
+        targetCurrentMoney: targetServer.moneyAvailable!,
+        targetMaxMoney: targetServer.moneyMax!,
+        estimatedFinishTime: Date.now() + batchSchedule.estimatedTime,
+      });
 
       // Now we simply wait for our frames to be done, and this round of batches will be
       // complete.

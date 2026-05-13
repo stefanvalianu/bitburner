@@ -14,6 +14,10 @@ import { TaskCustomPanel } from "../tasks";
 import {
   ULTRAHACKER_TASK_ID,
   UserCommunicationRequest,
+<<<<<<< HEAD
+  type FramePurpose,
+=======
+>>>>>>> main
   type ServerAnalysis,
   type UltrahackerTaskState,
 } from "./info";
@@ -66,7 +70,7 @@ const buildColumns = (
     align: "right",
     accessor: (r) => r.profitPerSecond,
     render: (r) => (
-      <span style={{ color: colors.money }}>${ns.format.number(r.profitPerSecond, 0)}/s</span>
+      <span style={{ color: colors.money }}>${ns.format.number(r.profitPerSecond, 2)}/s</span>
     ),
   },
 ];
@@ -80,6 +84,26 @@ export const UltrahackerPanel: TaskCustomPanel = () => {
   const targetOptions = taskState?.targetOptions ?? [];
   const target = taskState?.target ?? "";
   const userTarget = taskState?.userTarget;
+  const batches = taskState?.batches ?? [];
+  const targetCurrentSecurity = taskState?.targetCurrentSecurity ?? 0;
+  const targetMinSecurity = taskState?.targetMinSecurity ?? 0;
+  const targetCurrentMoney = taskState?.targetCurrentMoney ?? 0;
+  const targetMaxMoney = taskState?.targetMaxMoney ?? 0;
+  const estimatedFinishTime = taskState?.estimatedFinishTime ?? 0;
+  const securityComplete = targetCurrentSecurity <= targetMinSecurity + 1e-6;
+  const moneyComplete = targetCurrentMoney >= targetMaxMoney - 1e-6;
+  const remainingMs = Math.max(0, estimatedFinishTime - Date.now());
+
+  const colorForPurpose = (p: FramePurpose): string => {
+    switch (p) {
+      case "W":
+        return colors.success;
+      case "GW":
+        return colors.money;
+      case "HWGW":
+        return colors.muted;
+    }
+  };
 
   if (targetOptions.length === 0) {
     return <span style={{ color: colors.muted }}>No analysis yet — first scan pending.</span>;
@@ -124,10 +148,63 @@ export const UltrahackerPanel: TaskCustomPanel = () => {
           Target: <span style={{ color: colors.accent }}>{target || "—"}</span>
           {userTarget !== undefined && <span style={{ color: colors.muted }}> (user-pinned)</span>}
         </span>
+        {!securityComplete && (
+          <span style={{ color: colors.muted }}>
+            sec:{" "}
+            <span style={{ color: colors.hack }}>
+              {ns.format.number((100 * targetMinSecurity) / targetCurrentSecurity, 0)}%
+            </span>
+          </span>
+        )}
+        {!moneyComplete && (
+          <span style={{ color: colors.muted }}>
+            $:{" "}
+            <span style={{ color: colors.money }}>
+              {ns.format.number((100 * targetCurrentMoney) / targetMaxMoney, 0)}%
+            </span>
+          </span>
+        )}
         <span style={{ color: colors.muted }}>
+          <span style={{ color: colors.fg }}>{ns.format.time(remainingMs)}</span> remaining
+        </span>
+        <span style={{ color: colors.muted, marginLeft: "auto" }}>
           Options: <span style={{ color: colors.fg }}>{targetOptions.length}</span>
         </span>
       </Row>
+
+      {batches.length > 0 && (
+        <Col gap={space.xs}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+            {batches.map((purpose, i) => (
+              <div
+                key={i}
+                title={purpose}
+                style={{
+                  width: 8,
+                  height: 8,
+                  background: colorForPurpose(purpose),
+                }}
+              />
+            ))}
+          </div>
+          <Row gap={space.md} style={{ fontSize: "0.75em" }}>
+            {(["W", "GW", "HWGW"] as const).map((p) => (
+              <span
+                key={p}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  color: colors.muted,
+                }}
+              >
+                <span style={{ width: 8, height: 8, background: colorForPurpose(p) }} />
+                {p}
+              </span>
+            ))}
+          </Row>
+        </Col>
+      )}
 
       <SortableTable<ServerAnalysis>
         columns={buildColumns(ns, colors, target)}

@@ -1,5 +1,10 @@
 import { NS, Player, Server } from "@ns";
-import { UltrahackerTaskState, ULTRAHACKER_TASK_ID, UserCommunicationRequest } from "./info";
+import {
+  UltrahackerTaskState,
+  ULTRAHACKER_TASK_ID,
+  UserCommunicationRequest,
+  FramePurpose,
+} from "./info";
 import { BaseSpawnerTask, TaskLease } from "../../baseSpawnerTask";
 import { Lease, RAM_EPS } from "../../allocator";
 import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "../../../script/constants";
@@ -17,8 +22,6 @@ const BATCH_FRAME_OFFSET_MS = 50;
 // the absolute MINIMUM number of hack threads has to be 1, and it
 // might be possible that 1 thread goes below this percentage.
 export const HACK_MINIMUM_MONEY_PCT = 0.66;
-
-type FramePurpose = "W" | "GW" | "HWGW";
 
 interface BatchFrame {
   // how many hack threads this frame will require
@@ -98,12 +101,6 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         this.userTarget ?? targetOptions[0].hostname,
       ) as Server;
 
-      this.patchState({
-        targetOptions: targetOptions,
-        userTarget: this.userTarget,
-        target: targetServer.hostname,
-      });
-
       // For a single run of this hacker, we will fill up all available allocated slots
       // with batch frames. We will not re-calculate new batches until all of these
       // lease are empty, which means there might be a lot of downtime between target
@@ -136,6 +133,19 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         );
         return;
       }
+
+      // patch the state here so we can include our lease visualization
+      this.patchState({
+        targetOptions: targetOptions,
+        userTarget: this.userTarget,
+        target: targetServer.hostname,
+        batches: batchLeases.map((b) => b.batch.purpose),
+        targetCurrentSecurity: targetServer.hackDifficulty!,
+        targetMinSecurity: targetServer.minDifficulty!,
+        targetCurrentMoney: targetServer.moneyAvailable!,
+        targetMaxMoney: targetServer.moneyMax!,
+        estimatedFinishTime: Date.now() + batchSchedule.estimatedTime,
+      });
 
       // Now we simply wait for our frames to be done, and this round of batches will be
       // complete.

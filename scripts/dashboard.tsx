@@ -14,6 +14,7 @@ import { TaskPanel } from "./lib/features/TaskPanel";
 import { DashboardPanel } from "./lib/ui/DashboardPanel";
 import { Row } from "./lib/ui/Row";
 import { useTheme, ThemeProvider } from "./lib/ui/theme";
+import { DashboardTitle } from "./lib/features/DashboardTitle";
 
 function Dashboard() {
   const { space } = useTheme();
@@ -68,7 +69,6 @@ export async function main(ns: NS): Promise<void> {
   const [vpW, vpH] = ns.ui.windowSize();
   const width = Math.floor(vpW / 2) - margin * 2;
   const height = vpH - margin * 2;
-  const theme = ns.ui.getTheme();
   ns.ui.resizeTail(width, height);
   ns.ui.moveTail(vpW - width - margin, margin);
   ns.ui.setTailMinimized(false);
@@ -76,13 +76,7 @@ export async function main(ns: NS): Promise<void> {
   // when the script is stopped, we'll kill every running script
   ns.atExit(() => killAllScripts(ns));
 
-  ns.ui.setTailTitle(
-    <div style={{ padding: "4px 8px" }}>
-      <span style={{ color: theme.primary, fontSize: 16, fontWeight: "bolder" }}>
-        <span style={{ color: theme.hack, paddingBottom: "2px" }}>⦾</span> Dashboard
-      </span>
-    </div>,
-  );
+  ns.ui.setTailTitle(<DashboardTitle ns={ns} />);
 
   clearPorts(ns);
 

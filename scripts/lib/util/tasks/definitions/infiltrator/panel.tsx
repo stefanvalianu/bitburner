@@ -1,49 +1,39 @@
-import { useState } from "react";
-import type { ReactNode } from "react";
-import type { NS } from "@ns";
+import type { NS, InfiltrationLocation } from "@ns";
+import { Button } from "../../../../ui/Button";
 import { Col } from "../../../../ui/Col";
-import { ChevronDownIcon, ChevronUpDownIcon, ChevronUpIcon } from "../../../../ui/Icons";
 import { Row } from "../../../../ui/Row";
+import { SortableColumn, SortableTable } from "../../../../ui/SortableTable";
 import { useTheme } from "../../../../ui/theme";
 import { useNs } from "../../../ns";
 import { useDashboardController } from "../../../useDashboardController";
+import {
+  INFILTRATION_SOLVER_TASK_ID,
+  type InfiltrationSolverTaskState,
+} from "../infiltration-solver/info";
 import { INFILTRATOR_TASK_ID, type InfiltratorTaskState } from "./info";
-import type { InfiltrationLocation } from "@ns";
 import { TaskCustomPanel } from "../tasks";
 
-type SortColumn =
-  | "location"
-  | "city"
-  | "difficulty"
-  | "maxClearance"
-  | "startingSecurity"
-  | "sellCash"
-  | "tradeRep"
-  | "soaRep";
-type SortDirection = "asc" | "desc";
-type SortState = { column: SortColumn; direction: SortDirection } | null;
-
-type Column = {
-  key: SortColumn;
-  label: string;
-  align: "left" | "right";
-  flex: number;
-  accessor: (row: InfiltrationLocation) => string | number;
-  format: (
-    row: InfiltrationLocation,
-    ns: NS,
-    colors: ReturnType<typeof useTheme>["colors"],
-  ) => ReactNode;
+const GAME_LABELS: Record<string, string> = {
+  slash: "Slash",
+  bracket: "Brackets",
+  backward: "Backward",
+  bribe: "Bribe",
+  cheatCode: "Cheat code",
+  cyberpunk2077: "Match symbols",
+  minesweeper: "Minesweeper",
+  wireCutting: "Wire cutting",
 };
 
-const COLUMNS: Column[] = [
+type Theme = ReturnType<typeof useTheme>;
+
+const buildColumns = (ns: NS, colors: Theme["colors"]): SortableColumn<InfiltrationLocation>[] => [
   {
     key: "location",
     label: "location",
     align: "left",
     flex: 2,
     accessor: (r) => r.location.name,
-    format: (r, _ns, colors) => <span style={{ color: colors.fg }}>{r.location.name}</span>,
+    render: (r) => <span style={{ color: colors.fg }}>{r.location.name}</span>,
   },
   {
     key: "city",
@@ -51,7 +41,7 @@ const COLUMNS: Column[] = [
     align: "left",
     flex: 1,
     accessor: (r) => r.location.city,
-    format: (r, _ns, colors) => <span style={{ color: colors.fg }}>{r.location.city}</span>,
+    render: (r) => <span style={{ color: colors.fg }}>{r.location.city}</span>,
   },
   {
     key: "difficulty",
@@ -59,9 +49,7 @@ const COLUMNS: Column[] = [
     align: "right",
     flex: 1,
     accessor: (r) => r.difficulty,
-    format: (r, ns, colors) => (
-      <span style={{ color: colors.fg }}>{ns.format.number(r.difficulty, 2)}</span>
-    ),
+    render: (r) => <span style={{ color: colors.fg }}>{ns.format.number(r.difficulty, 2)}</span>,
   },
   {
     key: "maxClearance",
@@ -69,7 +57,7 @@ const COLUMNS: Column[] = [
     align: "right",
     flex: 1,
     accessor: (r) => r.maxClearanceLevel,
-    format: (r, ns, colors) => (
+    render: (r) => (
       <span style={{ color: colors.fg }}>{ns.format.number(r.maxClearanceLevel, 0)}</span>
     ),
   },
@@ -79,7 +67,7 @@ const COLUMNS: Column[] = [
     align: "right",
     flex: 1,
     accessor: (r) => r.startingSecurityLevel,
-    format: (r, ns, colors) => (
+    render: (r) => (
       <span style={{ color: colors.fg }}>{ns.format.number(r.startingSecurityLevel, 2)}</span>
     ),
   },
@@ -89,7 +77,7 @@ const COLUMNS: Column[] = [
     align: "right",
     flex: 1,
     accessor: (r) => r.reward.sellCash,
-    format: (r, ns, colors) => (
+    render: (r) => (
       <span style={{ color: colors.money }}>${ns.format.number(r.reward.sellCash, 0)}</span>
     ),
   },
@@ -99,9 +87,7 @@ const COLUMNS: Column[] = [
     align: "right",
     flex: 1,
     accessor: (r) => r.reward.tradeRep,
-    format: (r, ns, colors) => (
-      <span style={{ color: colors.fg }}>{ns.format.number(r.reward.tradeRep)}</span>
-    ),
+    render: (r) => <span style={{ color: colors.fg }}>{ns.format.number(r.reward.tradeRep)}</span>,
   },
   {
     key: "soaRep",
@@ -109,120 +95,80 @@ const COLUMNS: Column[] = [
     align: "right",
     flex: 1,
     accessor: (r) => r.reward.SoARep,
-    format: (r, ns, colors) => (
-      <span style={{ color: colors.fg }}>{ns.format.number(r.reward.SoARep)}</span>
-    ),
+    render: (r) => <span style={{ color: colors.fg }}>{ns.format.number(r.reward.SoARep)}</span>,
   },
 ];
 
 export const InfiltratorPanel: TaskCustomPanel = () => {
   const { colors, space } = useTheme();
   const ns = useNs();
-  const { state } = useDashboardController();
-  const [sort, setSort] = useState<SortState>({ column: "difficulty", direction: "asc" });
+  const { state, startTasks, shutdownTask } = useDashboardController();
 
   const taskState = state.tasks[INFILTRATOR_TASK_ID] as unknown as InfiltratorTaskState | undefined;
   const infiltrations = taskState?.infiltrations ?? [];
 
-  if (infiltrations.length === 0) {
-    return (
-      <span style={{ color: colors.muted }}>
-        No infiltrations scanned yet — first refresh pending.
-      </span>
-    );
-  }
+  const solverSlot = state.tasks[INFILTRATION_SOLVER_TASK_ID] as
+    | (InfiltrationSolverTaskState & { status?: string })
+    | undefined;
+  const solverPresent = solverSlot !== undefined;
+  const solverRunning = solverPresent && solverSlot?.status === "running";
+  const solverStopping = solverPresent && solverSlot?.status === "stopping";
+  const currentGameLabel = solverSlot?.currentGame
+    ? (GAME_LABELS[solverSlot.currentGame] ?? solverSlot.currentGame)
+    : null;
+  const keysSent = solverSlot?.keysSent ?? 0;
 
-  const columnByKey = new Map(COLUMNS.map((c) => [c.key, c]));
-  const rows = sort
-    ? [...infiltrations].sort((a, b) => {
-        const col = columnByKey.get(sort.column)!;
-        const av = col.accessor(a);
-        const bv = col.accessor(b);
-        const cmp =
-          typeof av === "string" && typeof bv === "string"
-            ? av.localeCompare(bv)
-            : (av as number) - (bv as number);
-        return sort.direction === "asc" ? cmp : -cmp;
-      })
-    : infiltrations;
+  const solverStatus = solverStopping
+    ? "stopping…"
+    : solverRunning
+      ? currentGameLabel
+        ? `playing ${currentGameLabel} (${keysSent} keys sent)`
+        : `idle — waiting for infiltration (${keysSent} keys sent)`
+      : solverPresent
+        ? `requested — ${solverSlot?.status ?? "?"}`
+        : "off";
 
-  const handleHeaderClick = (column: SortColumn) => {
-    setSort((prev) => {
-      if (!prev || prev.column !== column) return { column, direction: "asc" };
-      if (prev.direction === "asc") return { column, direction: "desc" };
-      return null;
-    });
-  };
-
-  const renderHeader = (col: Column) => {
-    const isActive = sort?.column === col.key;
-    const direction = isActive ? sort!.direction : null;
-    const chevronColor = isActive ? colors.accent : colors.fgDim;
-    const chevron =
-      direction === "asc" ? (
-        <ChevronUpIcon color={chevronColor} size={10} />
-      ) : direction === "desc" ? (
-        <ChevronDownIcon color={chevronColor} size={10} />
-      ) : (
-        <ChevronUpDownIcon color={chevronColor} size={10} />
-      );
-    return (
-      <span
-        key={col.key}
-        onClick={() => handleHeaderClick(col.key)}
-        style={{
-          color: isActive ? colors.fg : colors.muted,
-          flex: col.flex,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: col.align === "right" ? "flex-end" : "flex-start",
-          gap: 4,
-          cursor: "pointer",
-          userSelect: "none",
-        }}
-      >
-        {col.label}
-        {chevron}
-      </span>
-    );
-  };
+  const startSolver = () => startTasks([INFILTRATION_SOLVER_TASK_ID]);
+  const stopSolver = () => shutdownTask(INFILTRATION_SOLVER_TASK_ID);
 
   return (
     <Col gap={space.sm}>
-      <Row gap={space.lg} style={{ fontSize: "0.85em" }}>
-        <span style={{ color: colors.muted }}>
-          Locations: <span style={{ color: colors.fg }}>{infiltrations.length}</span>
-        </span>
-      </Row>
-
-      <Col gap={space.xs}>
-        <Row
-          gap={space.md}
-          style={{
-            borderBottom: `1px solid ${colors.fgDim}`,
-            paddingBottom: space.xs,
-            fontSize: "0.85em",
-          }}
+      <Row gap={space.md}>
+        {solverPresent ? (
+          <Button onClick={stopSolver} variant="warn" disabled={!solverRunning}>
+            ■ Stop solver
+          </Button>
+        ) : (
+          <Button onClick={startSolver} variant="primary">
+            ▶ Start solver
+          </Button>
+        )}
+        <span
+          style={{ color: solverRunning ? colors.fg : colors.muted, fontSize: "0.9em" }}
+          title="Start the solver BEFORE clicking Infiltrate Company — it can't hook into infiltrations already in progress."
         >
-          {COLUMNS.map(renderHeader)}
-        </Row>
-        {rows.map((row) => (
-          <Row key={row.location.name} gap={space.md} style={{ fontSize: "0.85em" }}>
-            {COLUMNS.map((col) => (
-              <span
-                key={col.key}
-                style={{
-                  flex: col.flex,
-                  textAlign: col.align,
-                  display: "inline-block",
-                }}
-              >
-                {col.format(row, ns, colors)}
-              </span>
-            ))}
-          </Row>
-        ))}
-      </Col>
+          solver: {solverStatus}
+        </span>
+        {solverSlot?.lastError && (
+          <span style={{ color: colors.warn, fontSize: "0.85em" }}>
+            last error: {solverSlot.lastError}
+          </span>
+        )}
+      </Row>
+      {infiltrations.length === 0 ? (
+        <span style={{ color: colors.muted }}>
+          No infiltrations scanned yet — first refresh pending.
+        </span>
+      ) : (
+        <SortableTable<InfiltrationLocation>
+          columns={buildColumns(ns, colors)}
+          rows={infiltrations}
+          rowKey={(r) => r.location.name}
+          collapsible
+          collapsedRows={3}
+          defaultSort={{ column: "difficulty", direction: "asc" }}
+        />
+      )}
     </Col>
   );
 };

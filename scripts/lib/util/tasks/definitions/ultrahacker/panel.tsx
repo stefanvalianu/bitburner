@@ -14,10 +14,7 @@ import { TaskCustomPanel } from "../tasks";
 import {
   ULTRAHACKER_TASK_ID,
   UserCommunicationRequest,
-<<<<<<< HEAD
   type FramePurpose,
-=======
->>>>>>> main
   type ServerAnalysis,
   type UltrahackerTaskState,
 } from "./info";
@@ -70,8 +67,16 @@ const buildColumns = (
     align: "right",
     accessor: (r) => r.profitPerSecond,
     render: (r) => (
-      <span style={{ color: colors.money }}>${ns.format.number(r.profitPerSecond, 2)}/s</span>
+      <span style={{ color: colors.money }}>${ns.format.number(r.profitPerSecond, 2)}</span>
     ),
+  },
+  {
+    key: "xpPerSecond",
+    label: "xp/s",
+    flex: 1,
+    align: "right",
+    accessor: (r) => r.xpPerSecond,
+    render: (r) => <span style={{ color: colors.hack }}>{ns.format.number(r.xpPerSecond, 2)}</span>,
   },
 ];
 

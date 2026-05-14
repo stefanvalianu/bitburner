@@ -1,0 +1,51 @@
+// Positive and negative words used by upstream BribeGame. Source:
+// bitburner-official/bitburner-src/src/Infiltration/model/BribeGameModel.ts
+// (copied verbatim — order doesn't matter for set membership).
+
+export const POSITIVE_WORDS: ReadonlySet<string> = new Set([
+  "affectionate",
+  "agreeable",
+  "bright",
+  "charming",
+  "creative",
+  "determined",
+  "energetic",
+  "friendly",
+  "funny",
+  "generous",
+  "polite",
+  "likable",
+  "diplomatic",
+  "helpful",
+  "giving",
+  "kind",
+  "hardworking",
+  "patient",
+  "dynamic",
+  "loyal",
+  "straightforward",
+]);
+
+export const NEGATIVE_WORDS: ReadonlySet<string> = new Set([
+  "aggressive",
+  "aloof",
+  "arrogant",
+  "big-headed",
+  "boastful",
+  "boring",
+  "bossy",
+  "careless",
+  "clingy",
+  "couch potato",
+  "cruel",
+  "cynical",
+  "grumpy",
+  "hot air",
+  "know it all",
+  "obnoxious",
+  "pain in the neck",
+  "picky",
+  "tactless",
+  "thoughtless",
+  "cringe",
+]);

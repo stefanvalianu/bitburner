@@ -5,12 +5,16 @@ import { InfilGameId } from "./info";
 // changes within a single game (e.g. Slash flips between "Guarding ...",
 // "Distracted!" and "Alerted!") — those subphase reads happen inside the
 // per-game step() functions.
+// Needles match the upstream h4 strings. A couple of them flip based on
+// player augmentations (e.g. ChaosOfDionysus turns "Type it backward"
+// into just "Type it"), so the needles are kept as short common-prefix
+// substrings rather than full sentences.
 const GAME_HEADINGS: Array<{ id: InfilGameId; needles: string[] }> = [
   { id: "slash", needles: ["Guarding", "Distracted", "Alerted"] },
   { id: "bracket", needles: ["Close the brackets"] },
-  { id: "backward", needles: ["Type it backward", "Type it backwards"] },
+  { id: "backward", needles: ["Type it"] }, // "Type it" | "Type it backward"
   { id: "bribe", needles: ["Say something nice"] },
-  { id: "cheatCode", needles: ["Enter the cheat code"] },
+  { id: "cheatCode", needles: ["Enter the Code"] }, // upstream: "Enter the Code!"
   { id: "cyberpunk2077", needles: ["Match the symbols"] },
   { id: "minesweeper", needles: ["Remember all the mines", "Mark all the mines"] },
   { id: "wireCutting", needles: ["Cut the wires"] },

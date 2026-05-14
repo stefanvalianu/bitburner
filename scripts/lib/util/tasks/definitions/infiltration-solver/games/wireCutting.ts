@@ -28,15 +28,25 @@ interface Rules {
 }
 
 function parseRules(root: Element): Rules {
+  // Upstream renders each rule in its own <Typography>. The model's
+  // toString templates are SINGULAR:
+  //   `Cut wire number ${n}.`
+  //   `Cut all wires colored ${COLOR}.`
+  // (See src/Infiltration/model/WireCuttingModel.ts.) So two number
+  // rules render as two separate sentences — there's no "3 and 7" syntax
+  // we can grep for. We extract every occurrence of each template
+  // independently.
   const text = root.textContent ?? "";
   const colors = new Set<ColorName>();
   const numbers = new Set<number>();
-  const colorMatches = text.match(/\b(red|blue|yellow|white)\b/gi);
-  if (colorMatches) for (const c of colorMatches) colors.add(c.toLowerCase() as ColorName);
-  const numberMatches = text.match(/numbered\s+([0-9](?:\s+(?:or|and)\s+[0-9])*)/i);
-  if (numberMatches) {
-    const digits = numberMatches[1].match(/[0-9]/g) ?? [];
-    for (const d of digits) numbers.add(Number(d));
+  const colorRe = /colou?red\s+(red|blue|yellow|white)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = colorRe.exec(text)) !== null) {
+    colors.add(m[1].toLowerCase() as ColorName);
+  }
+  const numRe = /wire\s+number\s+([0-9])/gi;
+  while ((m = numRe.exec(text)) !== null) {
+    numbers.add(Number(m[1]));
   }
   return { colors, numbers };
 }
@@ -98,28 +108,19 @@ function readWires(root: Element): WireColumn[] {
 }
 
 function pickWires(rules: Rules, wires: WireColumn[]): number[] {
-  const out: number[] = [];
-  // First attempt: match if either color OR number rule matches.
+  // Number rules dispatch the digit directly — no need to look up wire
+  // metadata. Color rules use the wire's column color. With the
+  // KnowledgeOfApollo aug, non-answer wires recolor to disabled (gray),
+  // which doesn't appear in our COLOR_TO_NAME map, so they simply don't
+  // match — color detection works in both aug states.
+  const out = new Set<number>();
+  for (const n of rules.numbers) out.add(n);
   for (const w of wires) {
-    let match = false;
-    for (const c of rules.colors) if (w.colors.has(c)) match = true;
-    for (const n of rules.numbers) if (w.numbers.has(n)) match = true;
-    if (match) out.push(w.index);
-  }
-  if (out.length > 0) return out;
-
-  // Fallback (KnowledgeOfApollo): retry with number-only rules.
-  if (rules.numbers.size > 0) {
-    for (const w of wires) {
-      for (const n of rules.numbers) {
-        if (w.numbers.has(n)) {
-          out.push(w.index);
-          break;
-        }
-      }
+    for (const c of rules.colors) {
+      if (w.colors.has(c)) out.add(w.index);
     }
   }
-  return out;
+  return Array.from(out).sort((a, b) => a - b);
 }
 
 let lastSignature = "";

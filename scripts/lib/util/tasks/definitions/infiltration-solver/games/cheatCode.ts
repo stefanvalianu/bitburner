@@ -1,7 +1,14 @@
-// CheatCodeGame: shows the next arrow as a unicode glyph (←↑→↓). The
-// player presses the corresponding ArrowLeft/Up/Right/Down. Without the
-// TrickeryOfHermes aug only one glyph is visible at a time, so we read,
-// dispatch, and let the next poll reveal the new arrow.
+// CheatCodeGame ("Enter the Code!"): a horizontal row of <span>s, one per
+// arrow in the sequence. Per upstream src/Infiltration/ui/CheatCodeGame.tsx:
+//
+//   <span style={i !== stage.index ? { opacity: 0.4 } : {}}>
+//     {i > stage.index && !hasAugment ? "?" : arrow}
+//   </span>
+//
+// The unique span with no inline opacity is the current arrow. Without
+// TrickeryOfHermes, future spans show "?"; with the aug they show real
+// glyphs but still at opacity 0.4 — so checking inline opacity is the
+// stable signal in both aug states.
 
 const ARROW_KEY: Record<string, string> = {
   "←": "ArrowLeft",
@@ -10,37 +17,39 @@ const ARROW_KEY: Record<string, string> = {
   "↓": "ArrowDown",
 };
 
-let lastSignature = "";
-
-function readCurrentArrow(root: Element): { arrow: string; signature: string } | null {
-  // The cheat-code grid renders each glyph in its own cell. The current
-  // glyph is highlighted (typically a different color) — but the simpler
-  // robust read is to scan all text descendants for any of the four arrows
-  // and take the first one in document order.
-  const walker = (root.ownerDocument ?? document).createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let node = walker.nextNode();
-  let allGlyphs = "";
-  let first: string | null = null;
-  while (node) {
-    const text = node.nodeValue ?? "";
-    for (const ch of text) {
-      if (ARROW_KEY[ch]) {
-        allGlyphs += ch;
-        if (!first) first = ch;
-      }
-    }
-    node = walker.nextNode();
-  }
-  if (!first) return null;
-  return { arrow: first, signature: allGlyphs };
+interface Read {
+  arrow: string;
+  index: number;
 }
+
+function readCurrentArrow(root: Element): Read | null {
+  const spans = Array.from(root.querySelectorAll("span")) as HTMLElement[];
+  for (let i = 0; i < spans.length; i++) {
+    const s = spans[i];
+    const text = (s.textContent ?? "").trim();
+    const key = ARROW_KEY[text];
+    if (!key) continue;
+    // React sets style={{}} for the current arrow (no inline opacity) and
+    // style={{opacity: 0.4}} for the rest. After JSDOM/React renders,
+    // el.style.opacity is "" for the current and "0.4" for others.
+    const op = s.style.opacity;
+    if (op === "" || op === "1") return { arrow: key, index: i };
+  }
+  return null;
+}
+
+let lastIndex = -1;
 
 export function step(root: Element, dispatch: (key: string) => void): boolean {
   const result = readCurrentArrow(root);
-  if (!result) return false;
-  // Avoid redispatching while the DOM still shows the just-pressed arrow.
-  if (result.signature === lastSignature) return false;
-  lastSignature = result.signature;
-  dispatch(ARROW_KEY[result.arrow]);
+  if (!result) {
+    lastIndex = -1;
+    return false;
+  }
+  // Skip if we've already dispatched for this position (DOM not updated
+  // between ticks).
+  if (result.index === lastIndex) return false;
+  lastIndex = result.index;
+  dispatch(result.arrow);
   return true;
 }

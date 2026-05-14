@@ -45,7 +45,7 @@ export const NEGATIVE_WORDS: ReadonlySet<string> = new Set([
   "obnoxious",
   "pain in the neck",
   "picky",
-  "pompous",
-  "quarrelsome",
-  "rude",
+  "tactless",
+  "thoughtless",
+  "cringe",
 ]);

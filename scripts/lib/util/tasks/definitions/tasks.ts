@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { TaskDefinition, TaskId, TaskState } from "../types";
 import { contractSolverTask } from "./contract-solver/info";
+import { infiltrationSolverTask } from "./infiltration-solver/info";
 import { INFILTRATOR_TASK_ID, infiltratorTask } from "./infiltrator/info";
 import { InfiltratorPanel } from "./infiltrator/panel";
 import { NOFORM_HACKER_TASK_ID, noformHackerTask } from "./noform-hacker/info";
@@ -17,6 +18,7 @@ import { stockTraderTask } from "./stock-trader/info";
 export const ALL_TASKS: TaskDefinition[] = [
   contractSolverTask,
   infiltratorTask,
+  infiltrationSolverTask,
   stockTraderTask,
   playerMonitorTask,
   serverBuyerTask,

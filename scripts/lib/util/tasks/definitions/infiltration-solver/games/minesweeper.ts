@@ -1,28 +1,25 @@
 // MinesweeperGame: two phases via h4 heading.
-//   Memory: "Remember all the mines!"  — every cell with a mine shows
-//   a MUI <Report /> SVG (data-testid="ReportIcon"). Cursor is hidden.
-//   Mark:   "Mark all the mines!"      — cursor cell shows <Close />
-//   (data-testid="CloseIcon"); marked cells show <Flag />
-//   (data-testid="FlagIcon"). Without HuntOfArtemis the mines are
-//   completely hidden in mark phase — we snapshot during memory phase
-//   and act from the snapshot.
+//   Memory: "Remember all the mines!" — mine cells show <Report />
+//     (data-testid="ReportIcon"). Cursor is hidden. We snapshot the
+//     mine positions here.
+//   Mark:   "Mark all the mines!"     — cursor cell shows <Close />
+//     (data-testid="CloseIcon"); marked cells show <Flag />
+//     (data-testid="FlagIcon"). Without HuntOfArtemis the un-marked
+//     mines are completely hidden — the snapshot from memory phase is
+//     authoritative.
 //
-// Cell layout (upstream src/Infiltration/ui/MinesweeperGame.tsx):
-//   <Box style="grid-template-columns: repeat(W, 1fr)">
-//     <Typography sx={{border: '2px solid <color>'}}>{icon}</Typography>
-//     ...
-//   </Box>
+// Approach: read the visible cursor once at the start of mark phase,
+// then BATCH the entire move + mark sequence for every remaining mine
+// in a single tick. JavaScript keydown dispatch is synchronous and the
+// model state advances per event, so we can drive the cursor through
+// all mines in one pass without re-reading the DOM between presses.
 //
-// Critically: when the cursor moves onto a cell the player has already
-// marked, the rendered icon is the Flag (marked) — Close (cursor)
-// loses priority. So after pressing space the cursor "disappears" from
-// the DOM. We track an internal cursor position; we sync it from the
-// DOM whenever Close is visible, and fall back to it when it isn't.
-//
-// Pressing space on a non-mine cell is an INSTANT failure, so the
-// internal cursor MUST stay in sync with the model. Each tick dispatches
-// at most one key (move OR mark) and updates internalCursor with the
-// same arithmetic the upstream model uses.
+// Why batched is more robust than one-key-per-tick: after marking, the
+// cursor cell renders <Flag> (marked wins priority over current) — so
+// the cursor "disappears" from the DOM. A per-tick walker that tries
+// to resync from the DOM gets stuck on that invisible cursor; the
+// player ends up having to nudge the cursor manually before the next
+// action fires.
 
 import { getHeadingText } from "../detector";
 
@@ -60,7 +57,6 @@ function readGrid(root: Element): GridRead | null {
   const m = tplCols.match(/repeat\(\s*(\d+)\s*,/);
   if (m) width = Number(m[1]);
   if (width === 0) {
-    // Fallback: count cells in the topmost row via rect clustering.
     const tops = cellEls.map((el) => el.getBoundingClientRect().top);
     const first = Math.min(...tops);
     width = tops.filter((t) => Math.abs(t - first) <= 8).length;
@@ -81,17 +77,12 @@ function readGrid(root: Element): GridRead | null {
 
 let snapshot: Pos[] = [];
 let snapSig = "";
-let internalCursor: Pos | null = null;
+let dispatchedFor = "";
 
 export function step(root: Element, dispatch: (key: string) => void): boolean {
   const heading = getHeadingText(root);
   const grid = readGrid(root);
-  if (!grid) {
-    // Game is gone or DOM is mid-mount; reset cursor tracking so the
-    // next mark phase resyncs cleanly.
-    internalCursor = null;
-    return false;
-  }
+  if (!grid) return false;
 
   if (heading.includes("Remember")) {
     const mines = grid.cells.filter((c) => c.isMine).map((c) => ({ row: c.row, col: c.col }));
@@ -99,64 +90,65 @@ export function step(root: Element, dispatch: (key: string) => void): boolean {
     if (sig !== snapSig) {
       snapshot = mines;
       snapSig = sig;
-      internalCursor = null;
+      dispatchedFor = "";
     }
     return false;
   }
 
   if (!heading.includes("Mark")) return false;
   if (snapshot.length === 0) return false;
+  // Already dispatched the full sequence for this stage — wait for the
+  // game to transition to the next stage (which resets snapSig).
+  if (dispatchedFor === snapSig) return false;
 
-  // Sync internal cursor when visible. Cursor is hidden when the model
-  // is on an already-marked cell (Flag wins over Close in priority).
-  const visibleCursor = grid.cells.find((c) => c.isCursor);
-  if (visibleCursor) {
-    internalCursor = { row: visibleCursor.row, col: visibleCursor.col };
-  }
-  if (!internalCursor) return false;
+  const cursor = grid.cells.find((c) => c.isCursor);
+  if (!cursor) return false;
 
-  // Compute remaining unmarked mines.
   const markedKeys = new Set<string>();
   for (const c of grid.cells) if (c.isMarked) markedKeys.add(`${c.row},${c.col}`);
-  const unmarked = snapshot.filter((m) => !markedKeys.has(`${m.row},${m.col}`));
-  if (unmarked.length === 0) return false;
-
-  // Nearest unmarked mine by Manhattan distance.
-  let target = unmarked[0];
-  let bestDist = Infinity;
-  for (const m of unmarked) {
-    const d = Math.abs(m.row - internalCursor.row) + Math.abs(m.col - internalCursor.col);
-    if (d < bestDist) {
-      bestDist = d;
-      target = m;
-    }
+  const remaining = snapshot.filter((m) => !markedKeys.has(`${m.row},${m.col}`));
+  if (remaining.length === 0) {
+    dispatchedFor = snapSig;
+    return false;
   }
 
-  // One step per tick. The model uses non-wrapping +1/-1 arithmetic
-  // (modulo for wraparound), so as long as we only move directly toward
-  // the target our internal counter matches the model.
-  if (internalCursor.col !== target.col) {
-    if (internalCursor.col < target.col) {
+  // Greedy nearest-neighbor ordering minimizes total keypresses without
+  // needing a full TSP solve. Each chosen mine becomes the new cursor
+  // origin for the next pick.
+  let cx = cursor.col;
+  let cy = cursor.row;
+  const todo = remaining.slice();
+  while (todo.length > 0) {
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < todo.length; i++) {
+      const d = Math.abs(todo[i].col - cx) + Math.abs(todo[i].row - cy);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+    const m = todo.splice(bestIdx, 1)[0];
+
+    while (cx < m.col) {
       dispatch("ArrowRight");
-      internalCursor.col++;
-    } else {
+      cx++;
+    }
+    while (cx > m.col) {
       dispatch("ArrowLeft");
-      internalCursor.col--;
+      cx--;
     }
-    return true;
-  }
-  if (internalCursor.row !== target.row) {
-    if (internalCursor.row < target.row) {
+    while (cy < m.row) {
       dispatch("ArrowDown");
-      internalCursor.row++;
-    } else {
-      dispatch("ArrowUp");
-      internalCursor.row--;
+      cy++;
     }
-    return true;
+    while (cy > m.row) {
+      dispatch("ArrowUp");
+      cy--;
+    }
+    dispatch(" ");
   }
 
-  // On the mine. Mark it.
-  dispatch(" ");
+  dispatchedFor = snapSig;
   return true;
 }

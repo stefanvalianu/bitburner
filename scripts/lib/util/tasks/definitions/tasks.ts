@@ -13,10 +13,12 @@ import { serverShareTask } from "./server-share/info";
 import { ULTRAHACKER_TASK_ID, ultrahackerTask } from "./ultrahacker/info";
 import { UltrahackerPanel } from "./ultrahacker/panel";
 import { stockTraderTask } from "./stock-trader/info";
+import { gangBangerTask } from "./gang-banger/info";
 
 // highest in list = shows first in 'new task' UX per category
 export const ALL_TASKS: TaskDefinition[] = [
   contractSolverTask,
+  gangBangerTask,
   infiltratorTask,
   infiltrationSolverTask,
   stockTraderTask,

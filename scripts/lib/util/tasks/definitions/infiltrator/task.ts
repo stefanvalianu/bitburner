@@ -11,6 +11,10 @@ class InfiltratorTask extends BaseTask<InfiltratorTaskState> {
 
   protected async run_task(): Promise<void> {
     while (true) {
+      if (this.shouldShutdown) {
+        return;
+      }
+      
       this.patchState({
         infiltrations: this.ns.infiltration
           .getPossibleLocations()

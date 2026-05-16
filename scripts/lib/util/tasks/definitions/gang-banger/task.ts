@@ -98,27 +98,32 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
         gang: this.ns.gang.getGangInformation(),
       });
 
-      // track stuff for managing territory warfare.
-      // for the most part, this part is responsible for
-      // blocking until the next tick and continuing like
-      // normal, or if we're in a war window, ensuring that
-      // we set members to territory warfare, waiting for
-      // the war tick, then setting them back to their
-      // previous tasks. NOTE this is also responsible for
-      // enabling clashes when the chance to win is high
-      // enough
-      const warCycleUpdate = await continueOrFightWar(
-        this.ns,
-        lastProcessedCycles,
-        cyclesSinceTerritoryPowerUpdate,
-        inWarWindow,
-        preWarTasks,
-        this.snapshot?.preferences?.gangClashWinThreshold,
-      );
-      lastProcessedCycles = warCycleUpdate.lastProcessedCycles;
-      cyclesSinceTerritoryPowerUpdate = warCycleUpdate.cyclesSinceTerritoryPowerUpdate;
-      inWarWindow = warCycleUpdate.inWarWindow;
-      preWarTasks = warCycleUpdate.preWarTasks;
+      if (this.ns.gang.getGangInformation().territory === 1) {
+        // we own all the land, peace on earth
+        await this.ns.asleep(10_000);
+      } else {
+        // track stuff for managing territory warfare.
+        // for the most part, this part is responsible for
+        // blocking until the next tick and continuing like
+        // normal, or if we're in a war window, ensuring that
+        // we set members to territory warfare, waiting for
+        // the war tick, then setting them back to their
+        // previous tasks. NOTE this is also responsible for
+        // enabling clashes when the chance to win is high
+        // enough
+        const warCycleUpdate = await continueOrFightWar(
+          this.ns,
+          lastProcessedCycles,
+          cyclesSinceTerritoryPowerUpdate,
+          inWarWindow,
+          preWarTasks,
+          this.snapshot?.preferences?.gangClashWinThreshold,
+        );
+        lastProcessedCycles = warCycleUpdate.lastProcessedCycles;
+        cyclesSinceTerritoryPowerUpdate = warCycleUpdate.cyclesSinceTerritoryPowerUpdate;
+        inWarWindow = warCycleUpdate.inWarWindow;
+        preWarTasks = warCycleUpdate.preWarTasks;
+      }
     }
   }
 

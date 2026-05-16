@@ -234,7 +234,7 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
 
   private getMemberAscensionMultiplier(member: GangMemberInfo): number {
     return Math.min(
-      member.agi_asc_mult,
+      //member.agi_asc_mult, // we omit agility because it seems to always be significantly lower than the other asc multipliers, greatly slowing down asc timings
       member.def_asc_mult,
       member.dex_asc_mult,
       member.str_asc_mult,

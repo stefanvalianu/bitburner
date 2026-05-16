@@ -93,8 +93,11 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         true,
       );
 
-      if (userRequest) {
+      if (userRequest && this.userTarget !== userRequest.targetServer) {
         this.userTarget = userRequest.targetServer;
+        
+        // shut off currently running tasks abruptly
+        this.teardown();
       }
 
       const targetServer = this.ns.getServer(

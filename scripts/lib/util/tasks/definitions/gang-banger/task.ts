@@ -28,7 +28,7 @@ const ASC_MULTS: Record<MemberRank, number> = {
 };
 
 // Slum Snakes rule!
-const GANG_FACTION: FactionName = "Slum Snakes";
+export const GANG_FACTION: FactionName = "Slum Snakes";
 
 class GangBangerTask extends BaseTask<GangBangerTaskState> {
   // Equipment that persists. Something to prioritize for all members
@@ -86,10 +86,8 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
         this.ascendEligibleMembers(members);
       }
 
-      // purchase gear for members (only once per war cycle)
-      if (inWarWindow) {
-        this.purchaseGearForMembers(members);
-      }
+      // purchase gear for members
+      this.purchaseGearForMembers(members);
 
       // set members to their optimal tasks
       assignOptimalGangTasks(this.ns, members);
@@ -115,6 +113,7 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
         cyclesSinceTerritoryPowerUpdate,
         inWarWindow,
         preWarTasks,
+        this.snapshot?.preferences?.gangClashWinThreshold,
       );
       lastProcessedCycles = warCycleUpdate.lastProcessedCycles;
       cyclesSinceTerritoryPowerUpdate = warCycleUpdate.cyclesSinceTerritoryPowerUpdate;

@@ -1,4 +1,5 @@
 import { NS } from "@ns";
+import { GANG_FACTION } from "./task";
 
 // constants from the game
 const CYCLE_MS = 200;
@@ -83,14 +84,20 @@ function setAllMembersToWar(ns: NS): void {
   }
 }
 
-function shouldEnableClash(ns: NS): boolean {
-  for (const [gangName, gangInfo] of Object.entries(ns.gang.getAllGangInformation())) {
-    if (gangInfo.territory === 0) continue; // this gang isn't clashing with us
+function shouldEnableClash(ns: NS, userDefinedThreshold: number | undefined): boolean {
+  // user preference is from 1 to 100%
+  const victoryThreshold = userDefinedThreshold
+    ? userDefinedThreshold / 100
+    : CLASH_VICTORY_THRESHOLD;
 
-    if (ns.gang.getChanceToWinClash(gangName) < CLASH_VICTORY_THRESHOLD) {
+  for (const [gangName, gangInfo] of Object.entries(ns.gang.getAllGangInformation())) {
+    if (gangInfo.territory === 0 || gangName === GANG_FACTION) continue; // this gang isn't clashing with us (or IS us)
+
+    if (ns.gang.getChanceToWinClash(gangName) < victoryThreshold) {
       return false;
     }
   }
+
   return true;
 }
 
@@ -118,6 +125,7 @@ export async function continueOrFightWar(
   cyclesSinceTerritoryPowerUpdate: number,
   inWarWindow: boolean,
   preWarTasks: MemberTasks | undefined,
+  userDefinedClashVictoryThreshold: number | undefined,
 ): Promise<CycleUpdate> {
   const preWarThresholdCycles = getPreWarThresholdCycles(lastProcessedCycles);
   const cyclesUntilTerritoryPowerUpdate = TERRITORY_POWER_CYCLES - cyclesSinceTerritoryPowerUpdate;
@@ -128,7 +136,7 @@ export async function continueOrFightWar(
     inWarWindow = true;
 
     // turn clashing on or off
-    ns.gang.setTerritoryWarfare(shouldEnableClash(ns));
+    ns.gang.setTerritoryWarfare(shouldEnableClash(ns, userDefinedClashVictoryThreshold));
   }
 
   const before = ns.gang.getAllGangInformation();

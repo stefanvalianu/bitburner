@@ -1,3 +1,5 @@
+import { NS } from "@ns";
+
 const GANG_MEMBER_NAMES = [
   "Vex",
   "Nyx",
@@ -101,7 +103,31 @@ const GANG_MEMBER_NAMES = [
   "Chrome",
 ] as const;
 
-export function pickRandomGangMemberName(): string {
+const GANG_MEMBER_SUFFIXES = [
+  "Tight Lips",
+  "the Rat",
+  "Two Knives",
+  "No Face",
+  "Cold Eyes",
+  "the Crow",
+  "Deadbolt",
+  "Blackjack",
+  "the Snake",
+  "Quiet Jack",
+  "Red Hands",
+  "the Fixer",
+  "Bad Luck",
+  "the Ghost",
+  "Iron Tooth",
+  "the Shiv",
+  "Low Card",
+  "Mad Dog",
+  "the Weasel",
+  "Hard Times",
+] as const;
+
+export function pickRandomGangMemberName(ns: NS): string {
   const index = Math.floor(Math.random() * GANG_MEMBER_NAMES.length);
-  return GANG_MEMBER_NAMES[index];
+  const count = ns.gang.getMemberNames().length;
+  return `${GANG_MEMBER_NAMES[index]} ${GANG_MEMBER_SUFFIXES[count]}`;
 }

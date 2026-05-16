@@ -14,7 +14,7 @@ class InfiltratorTask extends BaseTask<InfiltratorTaskState> {
       if (this.shouldShutdown) {
         return;
       }
-      
+
       this.patchState({
         infiltrations: this.ns.infiltration
           .getPossibleLocations()

@@ -181,9 +181,13 @@ export class Allocator {
 // Priority-aware bulk allocation. Locks running task RAM out of the pool,
 // then allocates pending demands in order:
 //   1. critical priority before normal
-//   2. within a priority: bounded → ram-limited unbounded → truly unlimited
+//   2. within a priority: bounded (largest entrypointRam first) → ram-limited unbounded → truly unlimited
 //   3. ram-limited unbounded oversubscription splits proportionally to maxRamDemand
 //   4. truly unlimited splits the remainder equally
+//
+// Bounded tasks are sorted by entrypointRam descending (best-fit-decreasing)
+// so a heavy bounded task gets first crack at the biggest host before a
+// smaller bounded peer fragments it below the heavy task's controller fit.
 export function allocateAllTasks(
   pool: ServerSlice[],
   running: Map<TaskId, ServerSlice[]>,
@@ -204,7 +208,9 @@ export function allocateAllTasks(
     }
     if (atPriority.length === 0) continue;
 
-    const bounded = atPriority.filter(([, d]) => !d.unbounded);
+    const bounded = atPriority
+      .filter(([, d]) => !d.unbounded)
+      .sort(([, a], [, b]) => b.entrypointRam - a.entrypointRam);
     const ramLimited = atPriority.filter(([, d]) => d.unbounded && d.maxRamDemand !== undefined);
     const unlimited = atPriority.filter(([, d]) => d.unbounded && d.maxRamDemand === undefined);
 

@@ -45,10 +45,7 @@ function processedMsToCycles(processedMs: number): number {
   return Math.round(processedMs / CYCLE_MS);
 }
 
-function didTerritoryOrPowerUpdate(
-  before: GangPowerTerritory,
-  after: GangPowerTerritory,
-): boolean {
+function didTerritoryOrPowerUpdate(before: GangPowerTerritory, after: GangPowerTerritory): boolean {
   for (const gangName of Object.keys(after)) {
     const oldGang = before[gangName];
     const newGang = after[gangName];
@@ -75,7 +72,7 @@ function getMemberTasks(ns: NS): MemberTasks {
 function restoreMemberTasks(ns: NS, tasks: MemberTasks): void {
   const members = ns.gang.getMemberNames();
   for (const [memberName, taskName] of Object.entries(tasks)) {
-    if(!members.includes(memberName)) continue;
+    if (!members.includes(memberName)) continue;
     ns.gang.setMemberTask(memberName, taskName);
   }
 }
@@ -120,7 +117,8 @@ export async function continueOrFightWar(
   lastProcessedCycles: number,
   cyclesSinceTerritoryPowerUpdate: number,
   inWarWindow: boolean,
-  preWarTasks: MemberTasks | undefined): Promise<CycleUpdate> {
+  preWarTasks: MemberTasks | undefined,
+): Promise<CycleUpdate> {
   const preWarThresholdCycles = getPreWarThresholdCycles(lastProcessedCycles);
   const cyclesUntilTerritoryPowerUpdate = TERRITORY_POWER_CYCLES - cyclesSinceTerritoryPowerUpdate;
 
@@ -144,7 +142,7 @@ export async function continueOrFightWar(
     if (inWarWindow) {
       inWarWindow = false;
 
-      if(preWarTasks) {
+      if (preWarTasks) {
         restoreMemberTasks(ns, preWarTasks);
         preWarTasks = undefined;
       }
@@ -155,7 +153,7 @@ export async function continueOrFightWar(
       cyclesSinceTerritoryPowerUpdate,
       inWarWindow,
       preWarTasks,
-    }
+    };
   }
 
   cyclesSinceTerritoryPowerUpdate += lastProcessedCycles;
@@ -165,7 +163,7 @@ export async function continueOrFightWar(
     if (inWarWindow) {
       inWarWindow = false;
 
-      if(preWarTasks) {
+      if (preWarTasks) {
         restoreMemberTasks(ns, preWarTasks);
         preWarTasks = undefined;
       }
@@ -174,7 +172,7 @@ export async function continueOrFightWar(
     lastProcessedCycles = await syncToTerritoryPowerUpdate(ns);
     cyclesSinceTerritoryPowerUpdate = 0;
   }
-  
+
   return {
     lastProcessedCycles,
     cyclesSinceTerritoryPowerUpdate,

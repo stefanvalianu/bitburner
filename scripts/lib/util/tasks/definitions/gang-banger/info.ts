@@ -12,9 +12,10 @@ export const GANG_BANGER_TASK_ID = "gang-banger";
 // IV: 32+
 // We only buy non-augmentation equipment starting
 // at rank II.
-export type MemberRank = "I" | "II" | "III" | "IV";
+export type MemberRank = 1 | 2 | 3 | 4;
 
-export interface GangMember extends GangMemberInfo {
+export interface GangMember {
+  info: GangMemberInfo;
   rank: MemberRank;
 }
 

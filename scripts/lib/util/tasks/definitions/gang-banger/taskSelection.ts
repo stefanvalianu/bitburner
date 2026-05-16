@@ -1,4 +1,4 @@
-import { GangGenInfo, GangMemberInfo, GangTaskStats, NS } from "@ns";
+import { GangGenInfo, GangTaskStats, NS } from "@ns";
 import { GangMember, MemberRank } from "./info";
 
 const MAX_GANG_MEMBERS = 12;

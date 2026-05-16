@@ -93,9 +93,9 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         true,
       );
 
-      if (userRequest && this.userTarget !== userRequest.targetServer) {
+      if (userRequest) {
         this.userTarget = userRequest.targetServer;
-        
+
         // shut off currently running tasks abruptly
         this.teardown();
       }
@@ -150,10 +150,16 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         estimatedFinishTime: Date.now() + batchSchedule.estimatedTime,
       });
 
+      // if we receive a port request, we'll exit the loop early
+      const shouldExitEarly = (): boolean => {
+        return this.ns.peek(HACKING_SYSTEM_COMMUNICATION_PORT) !== "NULL PORT DATA";
+      };
+
       // Now we simply wait for our frames to be done, and this round of batches will be
       // complete.
       await this.waitAndFreeTaskLeases(batchSchedule.taskLeases, batchSchedule.estimatedTime, {
         forceKillOnExit: true,
+        shouldExitEarly: shouldExitEarly,
       });
     }
   }

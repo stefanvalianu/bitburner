@@ -24,7 +24,7 @@ const ASC_MULTS: Record<MemberRank, number> = {
   1: 1.6,
   2: 1.26,
   3: 1.15,
-  4: 1.5,
+  4: 2,
 };
 
 // Slum Snakes rule!
@@ -246,7 +246,8 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
 
     if (!multGains) return 1;
 
-    return Math.min(multGains.str, multGains.def, multGains.dex, multGains.agi);
+    // we omit agility because it seems to always be significantly lower than the other asc multipliers, greatly slowing down asc timings
+    return Math.min(multGains.str, multGains.def, multGains.dex);
   }
 }
 

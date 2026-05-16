@@ -26,6 +26,11 @@ export interface DashboardPreferences {
 
   // Whether to auto-purchase hacknet servers and their upgrades.
   autobuyHacknet: boolean;
+
+  // Number (1-100) representing the minimum win% required
+  // to enable gang clashes as part of the war ticks.
+  // Undefined = use task default
+  gangClashWinThreshold?: number | undefined;
 }
 
 export interface DashboardState {
@@ -80,4 +85,5 @@ export const DEFAULT_PREFERENCES: DashboardPreferences = {
   reservedMoney: 0,
   autobuyServers: false,
   autobuyHacknet: false,
+  gangClashWinThreshold: undefined,
 };

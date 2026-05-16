@@ -20,22 +20,30 @@ export function PreferencesButton() {
   const [reservedMoneyInput, setReservedMoneyInput] = useState<string>("0");
   const [autobuyServers, setAutobuyServers] = useState<boolean>(false);
   const [autobuyHacknet, setAutobuyHacknet] = useState<boolean>(false);
+  const [gangClashThresholdInput, setGangClashThresholdInput] = useState<string>("");
 
   const openModal = () => {
     setReservedMoneyInput(String(preferences.reservedMoney));
     setAutobuyServers(preferences.autobuyServers);
     setAutobuyHacknet(preferences.autobuyHacknet);
+    setGangClashThresholdInput(
+      preferences.gangClashWinThreshold !== undefined
+        ? String(preferences.gangClashWinThreshold)
+        : "",
+    );
     setOpen(true);
   };
 
   const save = () => {
     const parsed = Number(reservedMoneyInput);
     const reservedMoney = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    const gangClashWinThreshold = parseGangClashThreshold(gangClashThresholdInput);
     setPreferences({
       ...preferences,
       reservedMoney,
       autobuyServers,
       autobuyHacknet,
+      gangClashWinThreshold,
     });
     setOpen(false);
   };
@@ -45,6 +53,11 @@ export function PreferencesButton() {
     Number.isFinite(parsedPreview) && parsedPreview >= 0
       ? `$${ns.format.number(parsedPreview, 2)}`
       : "—";
+
+  const gangThresholdPreview =
+    parseGangClashThreshold(gangClashThresholdInput) !== undefined
+      ? `${parseGangClashThreshold(gangClashThresholdInput)}%`
+      : "task default";
 
   return (
     <>
@@ -70,6 +83,25 @@ export function PreferencesButton() {
           </Col>
 
           <Col gap={space.sm}>
+            <SectionHeading>Gang clash win threshold</SectionHeading>
+            <Row gap={space.sm} style={{ alignItems: "center" }}>
+              <NumberInput
+                value={gangClashThresholdInput}
+                onChange={setGangClashThresholdInput}
+                min={1}
+                max={100}
+                placeholder="blank = task default"
+              />
+              <span style={{ color: colors.muted }}>%</span>
+              <Hint>{gangThresholdPreview}</Hint>
+            </Row>
+            <Hint>
+              Minimum win chance (1–100) required before the gang task enables territory clashes.
+              Leave blank to use the task's built-in default.
+            </Hint>
+          </Col>
+
+          <Col gap={space.sm}>
             <SectionHeading>Auto-purchasing</SectionHeading>
             <CheckboxRow
               checked={autobuyServers}
@@ -88,6 +120,15 @@ export function PreferencesButton() {
       </Modal>
     </>
   );
+}
+
+// Treat blank, non-numeric, or out-of-range inputs the same as "unset" —
+// the gang task falls back to its built-in default when this is undefined.
+function parseGangClashThreshold(input: string): number | undefined {
+  if (input.trim() === "") return undefined;
+  const parsed = Number(input);
+  if (!Number.isFinite(parsed) || parsed < 1 || parsed > 100) return undefined;
+  return parsed;
 }
 
 interface CheckboxRowProps {

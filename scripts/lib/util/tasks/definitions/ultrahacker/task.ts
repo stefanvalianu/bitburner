@@ -152,8 +152,12 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
 
       // if we receive a port request, we'll exit the loop early
       const shouldExitEarly = (): boolean => {
+        const hasComms = this.ns.peek(HACKING_SYSTEM_COMMUNICATION_PORT) !== "NULL PORT DATA";
+
+        if (!hasComms) return false;
+
         this.log.info(`Ultrahacker exiting wait early due to user communication`);
-        return this.ns.peek(HACKING_SYSTEM_COMMUNICATION_PORT) !== "NULL PORT DATA";
+        return true;
       };
 
       // Now we simply wait for our frames to be done, and this round of batches will be

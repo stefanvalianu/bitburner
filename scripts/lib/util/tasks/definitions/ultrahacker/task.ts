@@ -152,6 +152,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
 
       // if we receive a port request, we'll exit the loop early
       const shouldExitEarly = (): boolean => {
+        this.log.info(`Ultrahacker exiting wait early due to user communication`);
         return this.ns.peek(HACKING_SYSTEM_COMMUNICATION_PORT) !== "NULL PORT DATA";
       };
 
@@ -159,6 +160,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       // complete.
       await this.waitAndFreeTaskLeases(batchSchedule.taskLeases, batchSchedule.estimatedTime, {
         forceKillOnExit: true,
+        waitAsLongAsNeeded: true,
         shouldExitEarly: shouldExitEarly,
       });
     }

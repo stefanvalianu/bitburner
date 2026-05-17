@@ -11,6 +11,13 @@ export interface TaskLease {
 export interface WaitAndFreeTaskLeaseOptions {
   pollIntervalMs?: number;
   extraBufferMs?: number;
+
+  // Instead of waiting for a fixed amount of time,
+  // waits until the lease tasks are completed.
+  // DO NOT USE THIS if your tasks themselves run
+  // forever (like the share() tasks)
+  waitAsLongAsNeeded?: boolean;
+
   shouldExitEarly?: () => boolean;
 
   // if true, pids and leases will be killed/renewed
@@ -108,7 +115,7 @@ export abstract class BaseSpawnerTask<
 
     let remaining = [...taskLeases];
 
-    while (remaining.length > 0 && Date.now() < deadline) {
+    while (options.waitAsLongAsNeeded || (remaining.length > 0 && Date.now() < deadline)) {
       if (shouldExitEarly()) {
         this.log.info("Exiting wait early");
 
@@ -138,6 +145,9 @@ export abstract class BaseSpawnerTask<
 
       if (remaining.length === 0) {
         return;
+      } else if (options.waitAsLongAsNeeded) {
+        await this.ns.asleep(options.pollIntervalMs);
+        continue;
       }
 
       const remainingWaitMs = deadline - Date.now();

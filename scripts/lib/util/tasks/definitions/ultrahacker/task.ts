@@ -8,8 +8,13 @@ import {
 import { BaseSpawnerTask, TaskLease } from "../../baseSpawnerTask";
 import { Lease, RAM_EPS } from "../../allocator";
 import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "../../../script/constants";
-import { tryFindGrowWeakSplit, tryFindHackWeakGrowWeakSplit } from "./threadCalculations";
-import { applyGrow, applyHackingExp, applyWeak } from "./simulationHelpers";
+import {
+  clonePlayer,
+  cloneServer,
+  tryFindGrowWeakSplit,
+  tryFindHackWeakGrowWeakSplit,
+} from "./threadCalculations";
+import { applyGrow, applyWeak } from "./simulationHelpers";
 import { analyzeOptions } from "./analyzeOptions";
 import { getPortData, HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 
@@ -174,10 +179,19 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   private getBatchLeases(targetHostname: string): BatchLease[] {
     let leases: BatchLease[] = [];
 
-    // These objects will be modified as necessary to properly simulate
-    // times, amounts, etc
-    let target = this.ns.getServer(targetHostname) as Server;
-    let player = this.ns.getPlayer();
+    // `target` is mutated across iterations to advance the *sizing* state for
+    // the next batch (security and money decisions like W → GW → HWGW phase
+    // transitions and per-batch thread counts). `originalTarget` /
+    // `originalPlayer` are unmutated snapshots used for the *op-time* formula
+    // reads, because batches overlap by far more than BATCH_FRAME_OFFSET_MS —
+    // by the time batch K's scripts actually call ns.hack/grow/weaken, prior
+    // batches' effects haven't resolved yet, so the real game state at op-call
+    // time is approximately the snapshot, not the simulation's post-batch
+    // state. See findOptimalBatchFrame for the full invariant.
+    const target = this.ns.getServer(targetHostname) as Server;
+    const player = this.ns.getPlayer();
+    const originalTarget = cloneServer(target);
+    const originalPlayer = clonePlayer(player);
 
     while (true) {
       // take a look at what we have available for our next lease. let's use it to figure out
@@ -186,10 +200,18 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       const top = this.allocator.peekTopHost();
       if (!top) break;
 
-      // computing the batch frame will also modify the player object with the assumption
-      // that the frame will be placed properly, so that the next calculation takes effect
-      // from that version of the player. the server object is similarly modified.
-      const batchFrame = this.findOptimalBatchFrame(top.ram, top.cores, target, player);
+      // computing the batch frame will mutate `target`'s security/money so the
+      // next iteration sizes its threads against the post-batch state. Player
+      // is intentionally NOT mutated between batches (prior batches' XP hasn't
+      // been earned yet at the next batch's op-call time).
+      const batchFrame = this.findOptimalBatchFrame(
+        top.ram,
+        top.cores,
+        target,
+        player,
+        originalTarget,
+        originalPlayer,
+      );
       if (!batchFrame) break;
 
       const batchFrameRam = this.calculateBatchFrameRam(batchFrame);
@@ -451,6 +473,8 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
     hostCores: number,
     target: Server,
     player: Player,
+    originalTarget: Server,
+    originalPlayer: Player,
   ): BatchFrame | undefined {
     let frame = {
       purpose: "HWGW",
@@ -476,13 +500,32 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
     // how much does 1 thread of weak() reduce security
     const weakSecurityDecreasePerThread = this.ns.formulas.hacking.weakenEffect(1, hostCores);
 
-    // INVARIANT: each case below reads all formula values (durations, XP)
-    // against the pre-batch state of `target` and `player` BEFORE applying
-    // any state mutations. In real execution every script in a batch launches
-    // when the server is at min security and (for HWGW) max money — durations
-    // and XP are locked at launch, so the formula reads must happen against
-    // that pristine state. Mutations come at the end, to advance the simulated
-    // state for the *next* batch.
+    // INVARIANT: op-duration formula reads use the SNAPSHOT pair
+    // (originalTarget, originalPlayer), not the mutated (target, player).
+    //
+    // The game locks each op's duration when ns.hack/grow/weaken is called
+    // (after the script's sleep(delay)), based on the player's hacking skill
+    // and the server's security level AT THAT MOMENT (see NS docs on hack,
+    // grow, weaken). Within a single batch all four ops are launched in a
+    // tight window — no in-batch op has resolved yet, so they all see the
+    // batch-start state.
+    //
+    // Crucially: batches OVERLAP. Batch K's scripts call hack/grow/weaken at
+    // roughly the same wall-clock time as batch K-1's (they're staggered by
+    // ~BATCH_FRAME_OFFSET_MS, while each op's runtime is one weakTime / 3.2
+    // hackTimes long). So at batch K's op-call time, prior batches have NOT
+    // resolved — neither their player XP nor their server security/money
+    // effects are visible in the real game. The real op-call state is
+    // approximately the snapshot taken at the start of getBatchLeases.
+    //
+    // Therefore: read durations against (originalTarget, originalPlayer).
+    // Mutations to `target` (security/money) below are kept ONLY to advance
+    // the *sizing* state for the next batch — they tell the next iteration
+    // "how much security is left to remove" or "we've transitioned to GW".
+    // `player` is intentionally not mutated; the previously-applied per-batch
+    // XP did not match reality and caused the simulated player to drift
+    // higher than the real player at op-call time, shrinking simulated
+    // durations and corrupting the schedule.
     switch (frame.purpose) {
       // The weaken phase aims to bring the server to minimum security level. Once it reaches that state, all remaining
       // frames must preserve this at the end of their run. If a frame that sufficiently weakens the server back to minimum
@@ -490,7 +533,9 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       // In this phase, only frame.weak1 is applied.
       case "W":
         {
-          // how many threads of weak() are needed to bring security to min
+          // how many threads of weak() are needed to bring security to min.
+          // Sized against `target` (the mutated sizing-state) so successive W
+          // batches whittle down the remaining security.
           frame.weakThreads1 = Math.ceil(
             (target.hackDifficulty! - target.minDifficulty!) / weakSecurityDecreasePerThread,
           );
@@ -504,12 +549,12 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
           // seems basically impossible, but just to be safe
           if (frame.weakThreads1 === 0) return undefined;
 
-          // Read time against pristine target.
-          frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
+          // Duration read against the snapshot (real op-call state).
+          frame.weakTime1 = this.ns.formulas.hacking.weakenTime(originalTarget, originalPlayer);
 
-          // Mutations for the next batch's simulated state: apply player XP,
-          // then drop server security toward min.
-          applyHackingExp(this.ns, target, player, frame.weakThreads1);
+          // Sizing-state mutation only: drop server security toward min so the
+          // next iteration knows how much weakening remains. No player XP
+          // mutation — that drift was the source of the timing bug.
           applyWeak(this.ns, target, frame.weakThreads1, hostCores);
         }
         break;
@@ -518,24 +563,29 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       // In this phase, frame.grow is applied, followed by frame.weak1.
       case "GW":
         {
-          const split = tryFindGrowWeakSplit(this.ns, hostMaxRam, hostCores, player, target);
+          const split = tryFindGrowWeakSplit(
+            this.ns,
+            hostMaxRam,
+            hostCores,
+            originalPlayer,
+            target,
+          );
           if (!split) return undefined;
 
           frame.growThreads = split.growThreads;
           frame.weakThreads1 = split.weakThreads;
 
-          // Read both durations against the pristine target — both grow and
-          // weak1 launch when security is at min, so locking in their times
-          // here matches the real-world launch state.
-          frame.growTime = this.ns.formulas.hacking.growTime(target, player);
-          frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
+          // Durations against the snapshot. Note: in the W → GW transition,
+          // `target` has been mutated down to min security by the simulated W
+          // batches, but in reality those W weaks haven't resolved yet at the
+          // GW grow's op-call time, so the real server security is still ~the
+          // snapshot's. Reading against `originalTarget` matches reality.
+          frame.growTime = this.ns.formulas.hacking.growTime(originalTarget, originalPlayer);
+          frame.weakTime1 = this.ns.formulas.hacking.weakenTime(originalTarget, originalPlayer);
 
-          // Mutations: apply XP from both ops, then advance money via grow.
-          // weak1 is sized to undo grow's security increase, so the server
-          // ends back at min security.
-          applyHackingExp(this.ns, target, player, frame.growThreads);
-          applyHackingExp(this.ns, target, player, frame.weakThreads1);
-          applyGrow(this.ns, target, player, frame.growThreads, hostCores, true);
+          // Sizing-state mutation: advance money via grow, and reset security
+          // to min (weak1 is sized to undo grow's security bump).
+          applyGrow(this.ns, target, originalPlayer, frame.growThreads, hostCores, true);
           // ASSUMPTION: server is back in min security state (no applyWeak)
           target.hackDifficulty = target.minDifficulty;
         }
@@ -550,7 +600,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
             this.ns,
             hostMaxRam,
             hostCores,
-            player,
+            originalPlayer,
             target,
           );
           if (!split) return undefined;
@@ -563,23 +613,19 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
           // ASSUMPTION: changing the server's moneyAvailable does NOT impact
           // grow time. The docs indicate this, but calling it out so anyone
           // reading is aware.
-          // All four ops launch when the server is at min security and max
-          // money; their durations are locked at launch, so read them against
-          // the pristine target before any mutations.
-          frame.hackTime = this.ns.formulas.hacking.hackTime(target, player);
-          frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
-          frame.growTime = this.ns.formulas.hacking.growTime(target, player);
-          frame.weakTime2 = this.ns.formulas.hacking.weakenTime(target, player);
+          // Durations against the snapshot. The HWGW batch is self-balancing
+          // (the simulated `target` stays at min security / max money across
+          // iterations), so for HWGW the snapshot and the mutated `target`
+          // happen to agree on security/money; we still use the snapshot for
+          // consistency with W/GW and to avoid future drift bugs.
+          frame.hackTime = this.ns.formulas.hacking.hackTime(originalTarget, originalPlayer);
+          frame.weakTime1 = this.ns.formulas.hacking.weakenTime(originalTarget, originalPlayer);
+          frame.growTime = this.ns.formulas.hacking.growTime(originalTarget, originalPlayer);
+          frame.weakTime2 = this.ns.formulas.hacking.weakenTime(originalTarget, originalPlayer);
 
-          // Mutations: apply all four XP gains. We skip the intermediate
-          // applyHack/applyGrow security mutations because the batch is
-          // self-balancing — weak1 undoes hack's bump, weak2 undoes grow's
-          // bump, grow restores money. The next batch sees pristine state.
-          applyHackingExp(this.ns, target, player, frame.hackThreads);
-          applyHackingExp(this.ns, target, player, frame.weakThreads1);
-          applyHackingExp(this.ns, target, player, frame.growThreads);
-          applyHackingExp(this.ns, target, player, frame.weakThreads2);
-
+          // Sizing-state mutation: the batch is self-balancing (weak1 undoes
+          // hack's bump, weak2 undoes grow's bump, grow restores money), so
+          // the next batch sees pristine state.
           // ASSUMPTION: server is back to max money and min security
           target.hackDifficulty = target.minDifficulty;
           target.moneyAvailable = target.moneyMax;

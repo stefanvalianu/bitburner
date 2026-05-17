@@ -216,7 +216,7 @@ function simulateHWGW(
 
 // Spread-copy so applyHackingExp's mutations don't leak back to the caller.
 // `skills` and `exp` are mutated, so they need their own shallow copies too.
-function clonePlayer(originalPlayer: Player): Player {
+export function clonePlayer(originalPlayer: Player): Player {
   return {
     ...originalPlayer,
     skills: { ...originalPlayer.skills },
@@ -224,6 +224,6 @@ function clonePlayer(originalPlayer: Player): Player {
   };
 }
 
-function cloneServer(originalServer: Server): Server {
+export function cloneServer(originalServer: Server): Server {
   return { ...originalServer };
 }

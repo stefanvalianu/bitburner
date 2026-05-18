@@ -110,7 +110,7 @@
   "lib/util/tasks/definitions/ultrahacker/info.js": 1.6,
   "lib/util/tasks/definitions/ultrahacker/panel.js": 5.4,
   "lib/util/tasks/definitions/ultrahacker/simulationHelpers.js": 3.6,
-  "lib/util/tasks/definitions/ultrahacker/task.js": 8.1,
+  "lib/util/tasks/definitions/ultrahacker/task.js": 8.3,
   "lib/util/tasks/definitions/ultrahacker/threadCalculations.js": 3.7,
   "lib/util/tasks/taskManager.js": 5.4,
   "lib/util/tasks/types.js": 1.6,

@@ -84,6 +84,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   }
 
   protected async run_task(): Promise<void> {
+    this.cleanOrphanWorkers();
     while (true) {
       if (this.shouldShutdown) {
         this.teardown(true);
@@ -634,6 +635,25 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
     }
 
     return frame;
+  }
+
+  // Kill any orphan hack/grow/weaken workers on our allocated hosts before
+  // computing batches. Prior hacking-task sessions (or a hard dashboard
+  // restart) can leave workers running on rooted servers; our allocator's
+  // pool view doesn't see them, so leases sized against the pool overrun
+  // real free RAM and ns.exec returns 0 on the larger batches.
+  private cleanOrphanWorkers(): void {
+    const targets = new Set<string>([HACK_SCRIPT, GROW_SCRIPT, WEAKEN_SCRIPT]);
+    let killed = 0;
+    for (const slice of this.allocation.servers) {
+      for (const proc of this.ns.ps(slice.hostname)) {
+        if (targets.has(proc.filename)) {
+          this.ns.kill(proc.pid);
+          killed++;
+        }
+      }
+    }
+    if (killed > 0) this.log.info(`Cleaned ${killed} orphan worker(s) at startup`);
   }
 
   // Returns how much ram the batch frame actually uses

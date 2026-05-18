@@ -164,8 +164,8 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
         m.info.upgrades.length < this.normalEquipmentNames.length,
     );
 
-    // loop through IV, III, II, I and try purchasing stuff
-    for (let i = 4; i > 0; i--) {
+    // loop through IV, III, II and try purchasing stuff
+    for (let i = 4; i > 1; i--) {
       for (const member of membersWithoutAllEquipment) {
         if (i !== member.rank) continue;
 

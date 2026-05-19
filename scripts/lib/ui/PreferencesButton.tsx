@@ -132,9 +132,9 @@ export function PreferencesButton() {
               <Hint>{hackMinMoneyPctPreview}</Hint>
             </Row>
             <Hint>
-              Minimum % of moneyMax preserved per HWGW batch. Higher values steal less per batch
-              but tolerate more player-level drift before the cascade drains. Leave blank to use
-              the task's built-in default (75%).
+              Minimum % of moneyMax preserved per HWGW batch. Higher values steal less per batch but
+              tolerate more player-level drift before the cascade drains. Leave blank to use the
+              task's built-in default (75%).
             </Hint>
           </Col>
 

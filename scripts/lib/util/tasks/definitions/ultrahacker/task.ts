@@ -198,9 +198,17 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       // sizing from the current actual state. Without this, every remaining
       // HWGW hack op fires against a near-empty server while grow can't keep
       // up — the rest of the cascade is wasted work.
-      const liveTarget = this.ns.getServer(this.pipeline!.hostname) as Server;
-      if (this.isPipelineDrained(this.pipeline!, liveTarget)) {
-        this.repairDrainedPipeline(liveTarget);
+      //
+      // Skip when the user has configured an aggressive steal target
+      // (`hackMinimumMoneyPct <= DRAIN_RECOVERY_THRESHOLD`). In that mode
+      // the server legitimately cycles down to ~hackMinimumMoneyPct × max
+      // between batches, so live money near or below the repair threshold
+      // is *expected* — running repair would just churn healthy cascades.
+      if (hackMinimumMoneyPct > DRAIN_RECOVERY_THRESHOLD) {
+        const liveTarget = this.ns.getServer(this.pipeline!.hostname) as Server;
+        if (this.isPipelineDrained(this.pipeline!, liveTarget)) {
+          this.repairDrainedPipeline(liveTarget);
+        }
       }
 
       // 4. Greedy schedule pass: place as many batches as RAM allows.

@@ -12,7 +12,8 @@ import { serverDevourerTask } from "./server-devourer/info";
 import { serverShareTask } from "./server-share/info";
 import { ULTRAHACKER_TASK_ID, ultrahackerTask } from "./ultrahacker/info";
 import { UltrahackerPanel } from "./ultrahacker/panel";
-import { stockTraderTask } from "./stock-trader/info";
+import { STOCK_TRADER_TASK_ID, stockTraderTask } from "./stock-trader/info";
+import { StockTraderPanel } from "./stock-trader/panel";
 import { GANG_BANGER_TASK_ID, gangBangerTask } from "./gang-banger/info";
 import { GangBangerPanel } from "./gang-banger/panel";
 import { ULTRAHACKER_V2_TASK_ID, ultrahackerV2Task } from "./ultrahacker-v2/info";
@@ -52,6 +53,7 @@ export const TASK_CUSTOM_PANELS: Record<string, TaskCustomPanel> = {
   [ULTRAHACKER_V2_TASK_ID]: UltrahackerV2Panel,
   [ULTRAHACKER_TASK_ID]: UltrahackerPanel,
   [GANG_BANGER_TASK_ID]: GangBangerPanel,
+  [STOCK_TRADER_TASK_ID]: StockTraderPanel,
 };
 
 export function hasCustomPanel(id: string): boolean {

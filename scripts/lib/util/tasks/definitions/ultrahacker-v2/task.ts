@@ -228,6 +228,7 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
   // non-saturated primaries.
   private openAdditionalPipelinesIfRoom(ranked: ReturnType<typeof analyzeOptions>): void {
     const open = new Set(this.pipelines.map((p) => p.target));
+    const player = this.ns.getPlayer();
 
     // Always open the user-pinned target first if it exists and isn't open.
     // We keep this one even if we couldn't schedule a batch yet — the pin is
@@ -238,7 +239,6 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
       if (created) {
         open.add(this.userTarget);
         this.pipelines.unshift(created);
-        const player = this.ns.getPlayer();
         const depth = this.pipelineMaxDepth(created, player);
         while (created.inFlight.length < depth && this.tryScheduleOne(created)) {
           /* loop */
@@ -246,18 +246,33 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
       }
     }
 
-    // Then walk the ranked list. Auto-opened pipelines are only committed to
-    // this.pipelines if they manage to schedule at least one batch — otherwise
-    // we'd pollute the panel with depth-0 pipelines created against RAM
-    // fragments too small to fit their first HWGW batch. Re-try on the next
-    // cycle when RAM has changed.
+    // Then walk the ranked list. Two gates before opening a secondary:
+    //
+    // 1. **Every existing active pipeline must be at maxDepth.** If primary
+    //    is filling prep or is RAM-bound below maxDepth, surplus RAM stays
+    //    idle rather than going to a less-profitable secondary that would
+    //    compete with primary for hosts. This matches the rule that a
+    //    secondary only makes sense once primary genuinely can't use more.
+    // 2. **Auto-opened pipelines are only committed** if they manage to
+    //    schedule at least one batch. Without this, ranked targets whose
+    //    minimum batch RAM exceeds the leftover slivers would pile up as
+    //    depth-0 entries on every cycle.
+    //
+    // Closing / healing pipelines are excluded from the saturation check —
+    // they're not scheduling new batches anyway, so their depth is frozen.
     for (const option of ranked) {
       if (this.pipelines.length >= MAX_PIPELINES) break;
       if (open.has(option.hostname)) continue;
       if (!this.allocator.peekTopHost()) return; // no RAM left
+
+      const active = this.pipelines.filter((p) => !p.closing && !p.healing);
+      const allSaturated = active.every(
+        (p) => p.inFlight.length >= this.pipelineMaxDepth(p, player),
+      );
+      if (!allSaturated) return;
+
       const created = this.openPipeline(option.hostname);
       if (!created) continue;
-      const player = this.ns.getPlayer();
       const depth = this.pipelineMaxDepth(created, player);
       while (created.inFlight.length < depth && this.tryScheduleOne(created)) {
         /* loop */

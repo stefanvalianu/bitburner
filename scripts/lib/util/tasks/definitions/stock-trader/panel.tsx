@@ -52,10 +52,7 @@ export const StockTraderPanel: TaskCustomPanel = () => {
   const totals = taskState.totals;
 
   const portfolioValue = positions.reduce((s, p) => s + p.shares * p.bidPrice, 0);
-  const unrealized = positions.reduce(
-    (s, p) => s + (p.bidPrice - p.avgPrice) * p.shares,
-    0,
-  );
+  const unrealized = positions.reduce((s, p) => s + (p.bidPrice - p.avgPrice) * p.shares, 0);
   // Net P&L includes commissions paid for currently-open positions, which
   // are sunk costs that won't appear in `realizedPnL` until those positions
   // close. Subtracting them gives an honest "what would I have if I sold
@@ -86,18 +83,22 @@ export const StockTraderPanel: TaskCustomPanel = () => {
           valueColor={pnlColor(pnlPerHour, theme)}
         />
         <StatRow label="session" value={formatDuration(sessionMs)} />
-        <StatRow label="portfolio" value={formatMoney(ns,portfolioValue)} valueColor={colors.money} />
+        <StatRow
+          label="portfolio"
+          value={formatMoney(ns, portfolioValue)}
+          valueColor={colors.money}
+        />
         <StatRow
           label="unrealized"
-          value={formatMoney(ns,unrealized)}
+          value={formatMoney(ns, unrealized)}
           valueColor={pnlColor(unrealized, theme)}
         />
         <StatRow
           label="realized"
-          value={formatMoney(ns,totals.realizedPnL)}
+          value={formatMoney(ns, totals.realizedPnL)}
           valueColor={pnlColor(totals.realizedPnL, theme)}
         />
-        <StatRow label="commissions" value={formatMoney(ns,totals.commissionsPaid)} />
+        <StatRow label="commissions" value={formatMoney(ns, totals.commissionsPaid)} />
         <StatRow
           label="W/L"
           value={`${totals.winningTrades}/${totals.losingTrades}${
@@ -110,7 +111,12 @@ export const StockTraderPanel: TaskCustomPanel = () => {
 
       <PositionsTable ns={ns} positions={positions} theme={theme} />
       <OpportunitiesTable ns={ns} opportunities={opportunities} theme={theme} />
-      <RecentActionsList ns={ns} actions={recentActions} lastTickAt={taskState.lastTickAt} theme={theme} />
+      <RecentActionsList
+        ns={ns}
+        actions={recentActions}
+        lastTickAt={taskState.lastTickAt}
+        theme={theme}
+      />
     </Col>
   );
 };
@@ -142,7 +148,10 @@ function PositionsTable({ ns, positions, theme }: PositionsTableProps) {
   return (
     <Col gap={space.xs}>
       <span style={{ color: colors.muted, fontSize: "0.85em" }}>holdings</span>
-      <TableHeader columns={["sym", "shares", "avg", "bid", "P&L", "P&L %", "fcst", "vol"]} theme={theme} />
+      <TableHeader
+        columns={["sym", "shares", "avg", "bid", "P&L", "P&L %", "fcst", "vol"]}
+        theme={theme}
+      />
       {positions.map((p) => {
         const pnl = (p.bidPrice - p.avgPrice) * p.shares;
         const pnlPct = p.avgPrice > 0 ? (p.bidPrice - p.avgPrice) / p.avgPrice : 0;
@@ -155,7 +164,7 @@ function PositionsTable({ ns, positions, theme }: PositionsTableProps) {
               { value: ns.format.number(p.shares, 0) },
               { value: `$${ns.format.number(p.avgPrice, 2)}` },
               { value: `$${ns.format.number(p.bidPrice, 2)}` },
-              { value: formatMoney(ns,pnl), color: pnlColor(pnl, theme) },
+              { value: formatMoney(ns, pnl), color: pnlColor(pnl, theme) },
               { value: ns.format.percent(pnlPct, 2), color: pnlColor(pnl, theme) },
               { value: ns.format.number(p.forecast, 3), color: forecastColor(p.forecast, theme) },
               { value: ns.format.percent(p.volatility, 2) },
@@ -222,9 +231,7 @@ function RecentActionsList({ ns, actions, lastTickAt, theme }: RecentActionsList
       {slice.map((a, i) => (
         <Row key={i} gap={space.sm} style={{ fontSize: "0.85em" }}>
           <span style={{ color: colors.muted, minWidth: 56 }}>{ageLabel(a.ts)}</span>
-          <span
-            style={{ color: a.kind === "buy" ? colors.warn : colors.accent, minWidth: 32 }}
-          >
+          <span style={{ color: a.kind === "buy" ? colors.warn : colors.accent, minWidth: 32 }}>
             {a.kind.toUpperCase()}
           </span>
           <span style={{ color: colors.fg, minWidth: 40 }}>{a.sym}</span>
@@ -232,7 +239,7 @@ function RecentActionsList({ ns, actions, lastTickAt, theme }: RecentActionsList
             {ns.format.number(a.shares, 0)} @ ${ns.format.number(a.price, 2)}
           </span>
           {a.kind === "sell" && (
-            <span style={{ color: pnlColor(a.pnl, theme) }}>{formatMoney(ns,a.pnl)}</span>
+            <span style={{ color: pnlColor(a.pnl, theme) }}>{formatMoney(ns, a.pnl)}</span>
           )}
         </Row>
       ))}

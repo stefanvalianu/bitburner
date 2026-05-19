@@ -30,7 +30,15 @@ export interface MarketView {
 
 export type TradeAction =
   | { kind: "buy"; sym: string; shares: number; price: number; cost: number; ts: number }
-  | { kind: "sell"; sym: string; shares: number; price: number; gain: number; pnl: number; ts: number };
+  | {
+      kind: "sell";
+      sym: string;
+      shares: number;
+      price: number;
+      gain: number;
+      pnl: number;
+      ts: number;
+    };
 
 export interface StockTraderTotals {
   realizedPnL: number;

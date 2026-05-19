@@ -28,11 +28,7 @@ export function computeProfitPotential(forecast: number, volatility: number): nu
   return 2 * Math.abs(forecast - 0.5) * volatility;
 }
 
-export function planTrades(
-  market: MarketSnapshot[],
-  cash: number,
-  cfg: StrategyConfig,
-): Intent[] {
+export function planTrades(market: MarketSnapshot[], cash: number, cfg: StrategyConfig): Intent[] {
   const intents: Intent[] = [];
 
   // 1. Exit any held positions whose forecast has crossed the exit floor.

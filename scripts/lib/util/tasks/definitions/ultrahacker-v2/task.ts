@@ -10,8 +10,8 @@ import { BaseSpawnerTask } from "../../baseSpawnerTask";
 import { Lease, RAM_EPS } from "../../allocator";
 import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "../../../script/constants";
 import { tryFindGrowWeakSplit, tryFindHackWeakGrowWeakSplit } from "./threadCalculations";
-import { applyGrow, applyHackingExp, applyWeak } from "./simulationHelpers";
-import { analyzeOptions } from "./analyzeOptions";
+import { applyGrow, applyWeak } from "./simulationHelpers";
+import { analyzeOptions, isHackableServer } from "./analyzeOptions";
 import { getPortData, HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 
 // number of milliseconds between scheduled operation landings within a batch
@@ -230,12 +230,14 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
     const open = new Set(this.pipelines.map((p) => p.target));
 
     // Always open the user-pinned target first if it exists and isn't open.
+    // We keep this one even if we couldn't schedule a batch yet — the pin is
+    // user intent, and we want it visible in the UI so the user knows we're
+    // tracking it.
     if (this.userTarget && !open.has(this.userTarget)) {
       const created = this.openPipeline(this.userTarget);
       if (created) {
         open.add(this.userTarget);
         this.pipelines.unshift(created);
-        // Take a swing at filling it before considering additional targets.
         const player = this.ns.getPlayer();
         const depth = this.pipelineMaxDepth(created, player);
         while (created.inFlight.length < depth && this.tryScheduleOne(created)) {
@@ -244,30 +246,35 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
       }
     }
 
-    // Then walk the ranked list adding pipelines while RAM permits.
+    // Then walk the ranked list. Auto-opened pipelines are only committed to
+    // this.pipelines if they manage to schedule at least one batch — otherwise
+    // we'd pollute the panel with depth-0 pipelines created against RAM
+    // fragments too small to fit their first HWGW batch. Re-try on the next
+    // cycle when RAM has changed.
     for (const option of ranked) {
       if (this.pipelines.length >= MAX_PIPELINES) break;
       if (open.has(option.hostname)) continue;
       if (!this.allocator.peekTopHost()) return; // no RAM left
-      // Only open if a previous pipeline saturated, signalled by "we still have
-      // RAM and none of the current pipelines wanted another batch this cycle".
-      // The simplest proxy: if peekTopHost still returns RAM after step 6's
-      // fill, there's surplus. Try opening this target.
       const created = this.openPipeline(option.hostname);
       if (!created) continue;
-      this.pipelines.push(created);
-      open.add(option.hostname);
       const player = this.ns.getPlayer();
       const depth = this.pipelineMaxDepth(created, player);
       while (created.inFlight.length < depth && this.tryScheduleOne(created)) {
         /* loop */
       }
+      if (created.inFlight.length === 0) continue; // nothing took; skip and free the slot
+      this.pipelines.push(created);
+      open.add(option.hostname);
     }
   }
 
   private openPipeline(targetHostname: string): Pipeline | undefined {
     const server = this.ns.getServer(targetHostname) as Server;
-    if (!server || server.moneyMax === undefined || server.moneyMax <= 0) return undefined;
+    // Match analyzeOptions' filter exactly. Skipping this gate would let a
+    // degenerate server (purchased, no admin, undefined moneyAvailable, etc.)
+    // reach simulateHWGW, where applyHack would propagate NaN into
+    // formulas.hacking.growThreads and throw.
+    if (!server || !isHackableServer(server)) return undefined;
     return {
       target: targetHostname,
       simServer: cloneServer(server),
@@ -303,6 +310,18 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
     // If we're already healing and the in-flight queue has drained, rebase.
     if (pipeline.healing && pipeline.inFlight.length === 0) {
       const fresh = this.ns.getServer(pipeline.target) as Server;
+      // If the target has degraded out of hackability between heal-start and
+      // rebase (e.g., player lost admin), don't seed simServer with possibly
+      // NaN/undefined fields — mark closing instead and let reconcile drop
+      // it. The next analyzeOptions cycle will exclude this hostname anyway.
+      if (!isHackableServer(fresh)) {
+        pipeline.closing = true;
+        pipeline.healing = false;
+        this.log.warn(
+          `[ultrahacker] ${pipeline.target} no longer hackable on rebase; closing pipeline`,
+        );
+        return;
+      }
       pipeline.simServer = cloneServer(fresh);
       pipeline.nextScheduledFinish = 0;
       pipeline.recentBatches = [];
@@ -372,9 +391,27 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
     // load-bearing; HWGW happens to be idempotent (it always normalizes to
     // min/max at the end), but committing only on full success keeps the
     // invariant uniform.
-    const player = this.ns.getPlayer();
+    //
+    // Capture immutable snapshots of the real op-call state too. Batches
+    // overlap by far more than BATCH_FRAME_OFFSET_MS, so by the time this
+    // batch's scripts actually call ns.hack/grow/weaken, prior in-flight
+    // batches haven't resolved yet — the real server/player state at op-call
+    // time is approximately the snapshot, not the simulation's post-batch
+    // state. findOptimalBatchFrame uses planServer for *sizing* state, and
+    // the snapshots for op-duration formula reads. Mirrors v1's discipline at
+    // ultrahacker/task.ts:185-208.
+    const livePlayer = this.ns.getPlayer();
+    const liveServer = this.ns.getServer(pipeline.target) as Server;
+    const originalPlayer = clonePlayer(livePlayer);
+    const originalTarget = cloneServer(liveServer);
     const planServer = cloneServer(pipeline.simServer);
-    const frame = this.findOptimalBatchFrame(top.ram, top.cores, planServer, player);
+    const frame = this.findOptimalBatchFrame(
+      top.ram,
+      top.cores,
+      planServer,
+      originalTarget,
+      originalPlayer,
+    );
     if (!frame) return false;
 
     const frameRam = this.calculateBatchFrameRam(frame);
@@ -557,13 +594,25 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
   // ---------------------------------------------------------------------
 
   // Find the largest batch frame we can fit given the maxRam and cores
-  // constraints, and advance the pipeline's simServer for the next plan.
-  // Mutates `target` (the pipeline's simServer) and `player`.
+  // constraints, and advance `target` (planServer) for the next plan.
+  //
+  // Mutates `target` (the pipeline's sizing state). `originalTarget` and
+  // `originalPlayer` are read-only snapshots of the real op-call state —
+  // used for every duration formula (weakenTime / growTime / hackTime) and
+  // passed through to the thread-calc helpers. See tryScheduleOne's call
+  // site for the rationale: batches overlap, so prior in-flight effects
+  // haven't resolved at the new batch's op-call time, and the snapshot
+  // approximates the real game state at that moment.
+  //
+  // No applyHackingExp calls — v1 removed these for the same reason (see
+  // ultrahacker/task.ts:519-522). Per-batch XP doesn't match reality at
+  // op-call time and shrinks predicted durations, corrupting the schedule.
   private findOptimalBatchFrame(
     hostMaxRam: number,
     hostCores: number,
     target: Server,
-    player: Player,
+    originalTarget: Server,
+    originalPlayer: Player,
   ): BatchFrame | undefined {
     let frame = {
       purpose: "HWGW",
@@ -585,55 +634,71 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
 
     const weakSecurityDecreasePerThread = this.ns.formulas.hacking.weakenEffect(1, hostCores);
 
-    // INVARIANT: each case reads all formula values (durations, XP) against
-    // the pre-batch state of `target`/`player` BEFORE applying mutations.
-    // In real execution every script in a batch launches when the server is
-    // at min security and (for HWGW) max money — durations are locked at
-    // launch, so the formula reads happen against that pristine state.
     switch (frame.purpose) {
       case "W": {
-        frame.weakThreads1 = Math.ceil(
+        const targetWeak = Math.ceil(
           (target.hackDifficulty! - target.minDifficulty!) / weakSecurityDecreasePerThread,
         );
-        const weakRamNeeded = frame.weakThreads1 * this.weakRam;
-        if (weakRamNeeded > hostMaxRam) {
-          frame.weakThreads1 = Math.floor(hostMaxRam / this.weakRam);
-        }
+        const partial = targetWeak * this.weakRam > hostMaxRam;
+        frame.weakThreads1 = partial ? Math.floor(hostMaxRam / this.weakRam) : targetWeak;
         if (frame.weakThreads1 === 0) return undefined;
-        frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
-        applyHackingExp(this.ns, target, player, frame.weakThreads1);
+        // Duration read against the snapshot (real op-call state).
+        frame.weakTime1 = this.ns.formulas.hacking.weakenTime(originalTarget, originalPlayer);
         applyWeak(this.ns, target, frame.weakThreads1, hostCores);
+        // FP-residue guard: if the thread count was sized to reach min (i.e.
+        // not RAM-truncated), force the sim state to exactly min so the next
+        // plan doesn't loop on a `min + epsilon` value and schedule a
+        // 1-thread W batch.
+        if (!partial) target.hackDifficulty = target.minDifficulty!;
         break;
       }
       case "GW": {
-        const split = tryFindGrowWeakSplit(this.ns, hostMaxRam, hostCores, player, target);
+        const split = tryFindGrowWeakSplit(this.ns, hostMaxRam, hostCores, originalPlayer, target);
         if (!split) return undefined;
         frame.growThreads = split.growThreads;
         frame.weakThreads1 = split.weakThreads;
-        frame.growTime = this.ns.formulas.hacking.growTime(target, player);
-        frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
-        applyHackingExp(this.ns, target, player, frame.growThreads);
-        applyHackingExp(this.ns, target, player, frame.weakThreads1);
-        applyGrow(this.ns, target, player, frame.growThreads, hostCores, true);
+        // Durations against the snapshot. In the W → GW transition, `target`
+        // has been simulated down to min security, but in reality those W
+        // weakens haven't resolved at the GW grow's op-call time, so the
+        // real server security is still ~the snapshot's.
+        frame.growTime = this.ns.formulas.hacking.growTime(originalTarget, originalPlayer);
+        frame.weakTime1 = this.ns.formulas.hacking.weakenTime(originalTarget, originalPlayer);
+        // Detect "intended full" GW: if growThreads >= maxGrowThreadsNeeded,
+        // the grow was sized to reach moneyMax. Force-clamp money to
+        // moneyMax after applyGrow to absorb formula FP residue and prevent
+        // a follow-up 1-thread GW batch.
+        const maxGrow = this.ns.formulas.hacking.growThreads(
+          target,
+          originalPlayer,
+          target.moneyMax!,
+          hostCores,
+        );
+        applyGrow(this.ns, target, originalPlayer, frame.growThreads, hostCores, true);
         // weak1 is sized to undo grow's security increase; assume back at min.
         target.hackDifficulty = target.minDifficulty;
+        if (frame.growThreads >= maxGrow) target.moneyAvailable = target.moneyMax;
         break;
       }
       case "HWGW": {
-        const split = tryFindHackWeakGrowWeakSplit(this.ns, hostMaxRam, hostCores, player, target);
+        const split = tryFindHackWeakGrowWeakSplit(
+          this.ns,
+          hostMaxRam,
+          hostCores,
+          originalPlayer,
+          target,
+        );
         if (!split) return undefined;
         frame.hackThreads = split.hackThreads;
         frame.weakThreads1 = split.weak1Threads;
         frame.growThreads = split.growThreads;
         frame.weakThreads2 = split.weak2Threads;
-        frame.hackTime = this.ns.formulas.hacking.hackTime(target, player);
-        frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
-        frame.growTime = this.ns.formulas.hacking.growTime(target, player);
-        frame.weakTime2 = this.ns.formulas.hacking.weakenTime(target, player);
-        applyHackingExp(this.ns, target, player, frame.hackThreads);
-        applyHackingExp(this.ns, target, player, frame.weakThreads1);
-        applyHackingExp(this.ns, target, player, frame.growThreads);
-        applyHackingExp(this.ns, target, player, frame.weakThreads2);
+        // Durations against the snapshot. HWGW is self-balancing, so target
+        // and originalTarget happen to agree on security/money — reading
+        // from the snapshot is consistent with W/GW and avoids future drift.
+        frame.hackTime = this.ns.formulas.hacking.hackTime(originalTarget, originalPlayer);
+        frame.weakTime1 = this.ns.formulas.hacking.weakenTime(originalTarget, originalPlayer);
+        frame.growTime = this.ns.formulas.hacking.growTime(originalTarget, originalPlayer);
+        frame.weakTime2 = this.ns.formulas.hacking.weakenTime(originalTarget, originalPlayer);
         // HWGW is self-balancing — assume back at min/max for next plan.
         target.hackDifficulty = target.minDifficulty;
         target.moneyAvailable = target.moneyMax;
@@ -715,6 +780,16 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
 
 function cloneServer(s: Server): Server {
   return { ...s };
+}
+
+// Spread-copy player, including the nested objects that applyGrow / formula
+// reads care about. Mirror of the helper in v1's threadCalculations.ts.
+function clonePlayer(p: Player): Player {
+  return {
+    ...p,
+    skills: { ...p.skills },
+    exp: { ...p.exp },
+  };
 }
 
 export async function main(ns: NS): Promise<void> {

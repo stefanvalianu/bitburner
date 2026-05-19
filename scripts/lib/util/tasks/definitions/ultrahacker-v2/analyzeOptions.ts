@@ -2,20 +2,29 @@ import { NS, Player, Server } from "@ns";
 import { ServerInfo } from "../../../dashboardTypes";
 import { ServerAnalysis } from "./info";
 
+// Predicate for "can this server be the subject of a HWGW pipeline?".
+// Mirrors the filter analyzeOptions used inline previously; exported so the
+// task code can apply the same gate when opening a pipeline directly (e.g. a
+// user-pinned target, or a fresh ns.getServer read during heal-rebase). Any
+// path that hands a server to thread-calc helpers must run this first —
+// otherwise simulateHWGW / tryFindGrowWeakSplit can propagate NaN into
+// formulas.hacking.growThreads, which throws.
+export function isHackableServer(s: Server): boolean {
+  return (
+    !s.purchasedByPlayer &&
+    !!s.hasAdminRights &&
+    !!s.moneyAvailable &&
+    !!s.hackDifficulty &&
+    !!s.minDifficulty &&
+    !!s.moneyMax &&
+    s.moneyMax > 0
+  );
+}
+
 // Returns a list of options, sorted with the most profitable one at the top
 export function analyzeOptions(ns: NS, player: Player, allServers: ServerInfo[]): ServerAnalysis[] {
   // identify all the options and simulate them in optimal conditions
-  const targets = allServers
-    .filter(
-      (s) =>
-        !s.purchasedByPlayer &&
-        s.hasAdminRights &&
-        s.moneyAvailable &&
-        s.hackDifficulty &&
-        s.moneyMax &&
-        s.moneyMax > 0,
-    )
-    .map((s) => getOptimalServer(s));
+  const targets = allServers.filter(isHackableServer).map((s) => getOptimalServer(s));
 
   let options = targets.map(
     (t) =>

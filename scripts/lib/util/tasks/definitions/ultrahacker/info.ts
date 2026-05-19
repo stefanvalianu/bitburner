@@ -20,28 +20,41 @@ export interface ServerAnalysis {
   xpPerSecond: number;
 }
 
-export type FramePurpose = "W" | "GW" | "HWGW";
-
 export interface UltrahackerTaskState extends TaskState {
-  targetOptions: ServerAnalysis[];
-
-  // actual target we're attacking
+  // active pipeline target the task is currently scheduling batches against
   target: string;
 
-  // hostname of the target the user has chosen
+  // hostname of the target the user has pinned (undefined = auto-select)
   userTarget?: string | undefined;
 
-  // visualize the batch types being placed on available leases
-  batches: FramePurpose[];
+  // Ranked list of hackable servers. Computed in the task (which is already
+  // paying RAM for ns.formulas / ns.getPlayer) and shipped here so the panel
+  // can render the table without referencing NS APIs itself.
+  targetOptions: ServerAnalysis[];
 
-  // raw server status for the current target, sampled at patch time
-  targetCurrentSecurity: number;
-  targetMinSecurity: number;
-  targetCurrentMoney: number;
-  targetMaxMoney: number;
+  // Epoch ms when the current target's pipeline was created (reset on
+  // re-target). 0 when no pipeline is active.
+  pipelineStartedAt: number;
 
-  // epoch time when we expect this recent frame to be finished
-  estimatedFinishTime: number;
+  // Epoch ms when the FIRST scheduled batch of this pipeline lands its first
+  // operation. 0 until the first batch is scheduled; frozen thereafter. Panel
+  // uses this to show "first $/xp in T seconds" during pipeline warm-up.
+  firstLandingTime: number;
+
+  // Epoch ms when the MOST RECENTLY scheduled batch lands its first operation.
+  // Updates every burst. (latestLandingTime - now) is the pipeline's
+  // lookahead depth.
+  latestLandingTime: number;
+
+  // In-flight batch counts: active = against current target, draining =
+  // leftovers from prior targets that we let complete naturally.
+  inFlightCount: number;
+  drainingCount: number;
+
+  // Epoch ms of the main loop's last tick. Heartbeat — panel can flag the
+  // task as stalled if (now - lastTickAt) grows beyond the expected poll
+  // interval.
+  lastTickAt: number;
 }
 
 export interface UserCommunicationRequest {

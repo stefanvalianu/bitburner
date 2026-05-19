@@ -39,11 +39,18 @@ export function tryFindGrowWeakSplit(
   // - split needs to guarantee that after the operations, server will remain at min security
   if (growRam + weakRam > maxRam) return undefined;
 
-  const maxGrowThreadsNeeded = ns.formulas.hacking.growThreads(
-    originalTarget,
-    originalPlayer,
-    originalTarget.moneyMax!,
-    cores,
+  // Ceil grow-thread counts so the integer thread count we hand to ns.exec
+  // never falls short of the simulated effect. The formula returns a float;
+  // truncating (or treating it as float and letting ns.exec round it down)
+  // systematically under-grows by a fraction of a thread per batch, which
+  // compounds across a long cascade until the server drifts toward $0.
+  const maxGrowThreadsNeeded = Math.ceil(
+    ns.formulas.hacking.growThreads(
+      originalTarget,
+      originalPlayer,
+      originalTarget.moneyMax!,
+      cores,
+    ),
   );
   const weakSecurityChangePerThread = ns.formulas.hacking.weakenEffect(1, cores);
 
@@ -181,8 +188,12 @@ function simulateHWGW(
   applyWeak(ns, target, weak1Threads, cores);
   applyHackingExp(ns, target, player, weak1Threads);
 
-  // simulate the grow
-  const growThreads = ns.formulas.hacking.growThreads(target, player, target.moneyMax!, cores);
+  // simulate the grow. Ceil — see tryFindGrowWeakSplit for the rationale:
+  // float thread counts under-grow when ns.exec receives them, which
+  // compounds across the cascade and drives money toward $0.
+  const growThreads = Math.ceil(
+    ns.formulas.hacking.growThreads(target, player, target.moneyMax!, cores),
+  );
   applyGrow(ns, target, player, growThreads, cores, true);
   applyHackingExp(ns, target, player, growThreads);
 

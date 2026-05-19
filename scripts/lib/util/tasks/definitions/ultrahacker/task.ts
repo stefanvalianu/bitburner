@@ -19,6 +19,15 @@ const BATCH_FRAME_OFFSET_MS = 50;
 // delays, not by the tick rate.
 const POLL_INTERVAL_MS = 2000;
 
+// Trip-wire for drain detection. If the pipeline believes it's at steady-state
+// HWGW (post-state at min security & max money — i.e. we've been scheduling
+// HWGW frames whose net effect is no-op) but the REAL server money has fallen
+// below this fraction of max, then sizing has drifted: in-flight HWGW batches
+// are hacking against a depleted server and grow ops can't keep up. Abort the
+// in-flight batches and rebuild against current actual state, which will pick
+// up GW frames to refill before resuming HWGW.
+const DRAIN_RECOVERY_THRESHOLD = 0.2;
+
 type FramePurpose = "W" | "GW" | "HWGW";
 
 interface BatchFrame {
@@ -54,6 +63,14 @@ interface PipelineState {
   // Epoch ms when the MOST RECENTLY scheduled batch lands its first op.
   // Updated on every successful schedule.
   latestLandingTime: number;
+
+  // Epoch ms when the FIRST HWGW batch of this pipeline lands its hack op.
+  // 0 until an HWGW frame is scheduled. Used to gate drain detection — we
+  // can't meaningfully compare "post-state at max money" against the live
+  // server until an HWGW hack has actually fired, otherwise we'd loop on the
+  // warm-up state right after a swap or repair (post is at max because we
+  // just sized HWGW frames, but their grows haven't landed yet).
+  firstHwgwLandingTime: number;
 
   // Mutated "post-pipeline" expected state — what we expect the server to look
   // like after all currently-in-flight batches resolve. This is the SIZING
@@ -128,6 +145,17 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       this.reap(this.pipeline!.inFlight);
       this.reap(this.draining);
 
+      // 3b. Drain detection: if the active pipeline thinks it's in
+      // steady-state HWGW but the server has been bled below
+      // DRAIN_RECOVERY_THRESHOLD, kill the in-flight HWGW batches and rebuild
+      // sizing from the current actual state. Without this, every remaining
+      // HWGW hack op fires against a near-empty server while grow can't keep
+      // up — the rest of the cascade is wasted work.
+      const liveTarget = this.ns.getServer(this.pipeline!.hostname) as Server;
+      if (this.isPipelineDrained(this.pipeline!, liveTarget)) {
+        this.repairDrainedPipeline(liveTarget);
+      }
+
       // 4. Greedy schedule pass: place as many batches as RAM allows.
       this.scheduleAsMuchAsPossible(this.pipeline!, player);
 
@@ -167,11 +195,53 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       startedAt: Date.now(),
       firstLandingTime: 0,
       latestLandingTime: 0,
+      firstHwgwLandingTime: 0,
       postSecurity: server.hackDifficulty!,
       postMoney: server.moneyAvailable!,
       nextFinishTime: Date.now(),
       inFlight: [],
     };
+  }
+
+  // True when an HWGW batch has actually fired its hack op against the live
+  // server AND the live money is well below maxMoney. Gated on
+  // firstHwgwLandingTime so we don't loop on the warm-up state: right after
+  // a swap or repair the burst will schedule GW (refill) followed by HWGW
+  // (post-state advances to max), but those HWGW frames don't land for
+  // ~hackTime. Until at least one of them has fired, low live money is the
+  // expected starting state — not a drain. The repair resets
+  // firstHwgwLandingTime, so detection stays disarmed across the entire
+  // recovery window until the new cascade's first HWGW lands.
+  private isPipelineDrained(pipeline: PipelineState, liveTarget: Server): boolean {
+    if (pipeline.firstHwgwLandingTime === 0) return false;
+    if (Date.now() < pipeline.firstHwgwLandingTime) return false;
+    const liveMoney = liveTarget.moneyAvailable ?? 0;
+    return liveMoney < pipeline.maxMoney * DRAIN_RECOVERY_THRESHOLD;
+  }
+
+  // Kill every in-flight batch in the active pipeline and reset sizing state
+  // from the live server. Keep `startedAt` — we're still attached to the same
+  // target, just rebuilding the cascade. firstLandingTime resets to 0 so the
+  // panel reflects "warming up" again.
+  private repairDrainedPipeline(liveTarget: Server): void {
+    if (!this.pipeline) return;
+    const killed = this.pipeline.inFlight.length;
+    for (const entry of this.pipeline.inFlight) {
+      for (const pid of entry.pids) {
+        if (this.ns.isRunning(pid)) this.ns.kill(pid);
+      }
+      this.allocator.return(entry.lease.leaseId);
+    }
+    this.log.warn(
+      `Drain detected on ${this.pipeline.hostname}: $${liveTarget.moneyAvailable} / $${this.pipeline.maxMoney}. Killed ${killed} in-flight batch(es); rebuilding pipeline.`,
+    );
+    this.pipeline.firstLandingTime = 0;
+    this.pipeline.latestLandingTime = 0;
+    this.pipeline.firstHwgwLandingTime = 0;
+    this.pipeline.postSecurity = liveTarget.hackDifficulty!;
+    this.pipeline.postMoney = liveTarget.moneyAvailable!;
+    this.pipeline.nextFinishTime = Date.now();
+    this.pipeline.inFlight = [];
   }
 
   // For each entry in `inflight`: if every pid has exited, return its lease
@@ -263,6 +333,9 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       const thisLandingTime = pipeline.nextFinishTime;
       if (pipeline.firstLandingTime === 0) pipeline.firstLandingTime = thisLandingTime;
       pipeline.latestLandingTime = thisLandingTime;
+      if (frame.purpose === "HWGW" && pipeline.firstHwgwLandingTime === 0) {
+        pipeline.firstHwgwLandingTime = thisLandingTime;
+      }
 
       this.advancePipelineState(pipeline, frame, top.cores, currentTarget, currentPlayer);
     }

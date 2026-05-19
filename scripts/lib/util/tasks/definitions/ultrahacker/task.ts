@@ -19,13 +19,18 @@ const BATCH_FRAME_OFFSET_MS = 50;
 // delays, not by the tick rate.
 const POLL_INTERVAL_MS = 2000;
 
-// Trip-wire for drain detection. If the pipeline believes it's at steady-state
-// HWGW (post-state at min security & max money — i.e. we've been scheduling
-// HWGW frames whose net effect is no-op) but the REAL server money has fallen
-// below this fraction of max, then sizing has drifted: in-flight HWGW batches
-// are hacking against a depleted server and grow ops can't keep up. Abort the
-// in-flight batches and rebuild against current actual state, which will pick
-// up GW frames to refill before resuming HWGW.
+// Catastrophe net for drain detection. Once an HWGW batch has had its hack
+// op fire (gated by `firstHwgwLandingTime`), a drop of the live server below
+// this fraction of `moneyMax` triggers `repairDrainedPipeline` — kill the
+// in-flight batches and rebuild against current actual state (which will run
+// W/GW frames to refill before resuming HWGW).
+//
+// Defensive sizing (HACK_MINIMUM_MONEY_PCT = 0.75, GROW_THREAD_SAFETY = 1.05)
+// combined with the future-player projection should keep money at ~98% under
+// normal load — this threshold is intentionally permissive so the repair only
+// fires when something genuinely unexpected has happened (outside
+// participation, large prediction failures, etc.) rather than as a routine
+// part of the cascade.
 const DRAIN_RECOVERY_THRESHOLD = 0.2;
 
 type FramePurpose = "W" | "GW" | "HWGW";
@@ -103,6 +108,19 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   // their leases as their pids complete.
   private draining: InflightBatch[] = [];
 
+  // Player XP samples for projecting the player's skill forward to batch
+  // hack-fire time. The real `ns.hack` outcome (money stolen) is computed at
+  // op-completion, not op-call, so sizing hackPercent against the player's
+  // skill at *scheduling time* under-counts how much hack will steal —
+  // hack effectiveness scales with `player.skills.hacking` but grow does not
+  // (grow uses `player.mults.hacking_grow`), so the asymmetry compounds into
+  // a slow drain. By sampling exp.hacking each tick and computing an xp/ms
+  // rate, we can project the player forward by ~hackTime when sizing a
+  // batch.
+  // Both 0 means no sample yet — first tick after start records the baseline.
+  private lastXpSample = 0;
+  private lastXpSampleAt = 0;
+
   constructor(ns: NS) {
     super(ns, ULTRAHACKER_TASK_ID);
 
@@ -131,6 +149,20 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
 
       // 2. Reconcile active pipeline target.
       const player = this.ns.getPlayer();
+      const tickNow = Date.now();
+      // xp/ms gained since last tick. Used to project the player's skill
+      // forward to a batch's hack-fire time when sizing. First tick after
+      // startup (or a re-target if we ever reset samples) records the
+      // baseline and uses rate=0 — predictions are no-ops until the second
+      // tick supplies a delta.
+      let xpRatePerMs = 0;
+      if (this.lastXpSampleAt > 0) {
+        const dt = tickNow - this.lastXpSampleAt;
+        if (dt > 0) xpRatePerMs = (player.exp.hacking - this.lastXpSample) / dt;
+      }
+      this.lastXpSample = player.exp.hacking;
+      this.lastXpSampleAt = tickNow;
+
       const options = analyzeOptions(this.ns, player, this.snapshot.allServers);
       const desired = this.userTarget ?? options[0]?.hostname;
       if (!desired) {
@@ -157,7 +189,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       }
 
       // 4. Greedy schedule pass: place as many batches as RAM allows.
-      this.scheduleAsMuchAsPossible(this.pipeline!, player);
+      this.scheduleAsMuchAsPossible(this.pipeline!, player, xpRatePerMs);
 
       // 5. Publish state. The panel must NOT call ns.formulas / ns.getPlayer
       // itself (each NS reference inflates the panel script's static RAM
@@ -277,8 +309,14 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   // Burst-schedule pass: fill the allocator until either no host has enough
   // RAM for a complete batch frame, or sizing returns undefined. The
   // player snapshot is taken once at the top of the tick (run_task) and
-  // passed in here — fresh enough across a single burst.
-  private scheduleAsMuchAsPossible(pipeline: PipelineState, currentPlayer: Player): void {
+  // passed in here — fresh enough across a single burst. `xpRatePerMs` is
+  // the empirical XP-gain rate measured across the previous tick; used to
+  // project the player's skill forward to each batch's hack-fire time.
+  private scheduleAsMuchAsPossible(
+    pipeline: PipelineState,
+    currentPlayer: Player,
+    xpRatePerMs: number,
+  ): void {
     while (true) {
       const top = this.allocator.peekTopHost();
       if (!top) break;
@@ -287,12 +325,35 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       // read against fresh server state.
       const currentTarget = this.ns.getServer(pipeline.hostname) as Server;
 
+      // Project the player's hacking skill forward to hack-fire time. The
+      // real `ns.hack` outcome (money stolen) is computed when the operation
+      // completes — i.e. ~hackTime in the future for the next batch. Because
+      // hackPercent scales with `player.skills.hacking` but grow does not,
+      // sizing hackThreads against the CURRENT skill under-counts how much
+      // real hack will steal and causes the cascade to drain. Project xp
+      // forward, recompute skill, and pass this `predictedPlayer` into
+      // sizing functions that read hackPercent. Op-duration formulas still
+      // use `currentPlayer` because Bitburner locks those at op-call time
+      // (= now), not at op-completion.
+      const projectedHackTime = this.ns.formulas.hacking.hackTime(currentTarget, currentPlayer);
+      const projectedExp = currentPlayer.exp.hacking + xpRatePerMs * projectedHackTime;
+      const projectedSkill = this.ns.formulas.skills.calculateSkill(
+        projectedExp,
+        currentPlayer.mults.hacking,
+      );
+      const predictedPlayer: Player = {
+        ...currentPlayer,
+        skills: { ...currentPlayer.skills, hacking: projectedSkill },
+        exp: { ...currentPlayer.exp, hacking: projectedExp },
+      };
+
       const frame = this.findOptimalBatchFrame(
         top.ram,
         top.cores,
         pipeline,
         currentTarget,
         currentPlayer,
+        predictedPlayer,
       );
       if (!frame) break;
 
@@ -555,25 +616,34 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   // PURE — does not mutate pipeline state. Caller invokes
   // `advancePipelineState` after a successful schedule.
   //
-  // INVARIANT (carried from the round-based version):
+  // INVARIANTS:
   // - Thread counts size against `sizingTarget` (current server data
   //   overridden with the pipeline's post-state). This expresses "after all
   //   currently-in-flight batches resolve, the server will look like this —
   //   size threads for that state."
-  // - Op-duration formulas read against `(currentTarget, currentPlayer)`.
-  //   `currentTarget` is a fresh ns.getServer per batch; `currentPlayer` is
-  //   sampled once at the top of the tick. By the time this batch's
-  //   hack/grow/weaken actually fires (after its additionalMsec), prior
-  //   in-flight batches have NOT resolved (they overlap), so the real
-  //   op-call-time state ≈ now ≈ (currentTarget, currentPlayer).
-  // - `currentPlayer` is NOT augmented with simulated XP from prior batches —
-  //   that drift caused the original timing bug.
+  // - **Op-duration formulas** (hackTime/growTime/weakenTime) read against
+  //   `(currentTarget, currentPlayer)`. The game locks each operation's
+  //   duration at *op-call time* (when ns.hack/grow/weaken is invoked, which
+  //   is approximately now), so using the current snapshot here matches
+  //   reality.
+  // - **Outcome formulas** (hackPercent inside `tryFindHackWeakGrowWeakSplit`)
+  //   read against `(sizingTarget, predictedPlayer)`. The game computes the
+  //   amount of money stolen at *op-completion time* (~hackTime from now),
+  //   by which point the player has earned XP from in-flight ops and their
+  //   skill level is higher than `currentPlayer.skills.hacking`. Sizing
+  //   hack-threads against the *predicted* level keeps the per-batch steal
+  //   at the intended fraction instead of compounding into a slow drain.
+  //   `predictedPlayer` is built by the caller from xpRatePerMs × hackTime.
+  // - `currentPlayer` is NOT augmented with intra-batch XP either — that
+  //   drift caused the original op-duration bug (the game locks durations at
+  //   call time, so the player skill at op-call time is what matters).
   private findOptimalBatchFrame(
     hostMaxRam: number,
     hostCores: number,
     pipeline: PipelineState,
     currentTarget: Server,
     currentPlayer: Player,
+    predictedPlayer: Player,
   ): BatchFrame | undefined {
     const sizingTarget: Server = {
       ...currentTarget,
@@ -616,27 +686,36 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       }
 
       case "GW": {
+        // GW outcome sizing — `growThreads` depends on `player.mults.hacking_grow`,
+        // not `player.skills.hacking`, so `predictedPlayer` vs `currentPlayer`
+        // is a no-op here. Passing `predictedPlayer` for symmetry with HWGW.
         const split = tryFindGrowWeakSplit(
           this.ns,
           hostMaxRam,
           hostCores,
-          currentPlayer,
+          predictedPlayer,
           sizingTarget,
         );
         if (!split) return undefined;
         frame.growThreads = split.growThreads;
         frame.weakThreads1 = split.weakThreads;
+        // Op-duration: locked at call time → currentPlayer.
         frame.growTime = this.ns.formulas.hacking.growTime(currentTarget, currentPlayer);
         frame.weakTime1 = this.ns.formulas.hacking.weakenTime(currentTarget, currentPlayer);
         break;
       }
 
       case "HWGW": {
+        // HWGW outcome sizing — `hackPercent` (which gates the
+        // `maxHackThreadsForSafety` calculation inside) scales with
+        // `player.skills.hacking`, so passing the *projected* skill here is
+        // what addresses the drain: sizing matches the steal that will
+        // actually happen at op-completion time.
         const split = tryFindHackWeakGrowWeakSplit(
           this.ns,
           hostMaxRam,
           hostCores,
-          currentPlayer,
+          predictedPlayer,
           sizingTarget,
         );
         if (!split) return undefined;
@@ -644,6 +723,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         frame.weakThreads1 = split.weak1Threads;
         frame.growThreads = split.growThreads;
         frame.weakThreads2 = split.weak2Threads;
+        // Op-durations: locked at call time → currentPlayer.
         frame.hackTime = this.ns.formulas.hacking.hackTime(currentTarget, currentPlayer);
         frame.weakTime1 = this.ns.formulas.hacking.weakenTime(currentTarget, currentPlayer);
         frame.growTime = this.ns.formulas.hacking.growTime(currentTarget, currentPlayer);

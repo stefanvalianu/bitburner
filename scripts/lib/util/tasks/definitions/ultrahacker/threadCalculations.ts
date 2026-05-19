@@ -2,6 +2,13 @@ import { NS, Player, Server } from "@ns";
 import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "../../../script/constants";
 import { applyGrow, applyHack, applyHackingExp, applyWeak } from "./simulationHelpers";
 
+// ideally, do not allow a single hack to take a machine lower than
+// this % of its max money. This will not always be possible (super
+// high levels, etc) but this is aspirationally the ideal amount.
+// the absolute MINIMUM number of hack threads has to be 1, and it
+// might be possible that 1 thread goes below this percentage.
+export const HACK_MINIMUM_MONEY_PCT = 0.66;
+
 export interface GrowWeakSplit {
   growThreads: number;
   weakThreads: number;
@@ -104,6 +111,26 @@ export function tryFindHackWeakGrowWeakSplit(
     cores,
   );
 
+  // Both quantities must be expressed in the same units before we compare or
+  // divide: hackPercent is a fraction removed per thread (e.g. 0.05 = 5%
+  // stolen), while growPercent is a multiplier per thread (e.g. 1.005 = +0.5%
+  // added). Subtracting 1 from the multiplier yields the comparable "fraction
+  // added per thread".
+  const growFractionPerThread = estimatedGrowPercentagePerThread - 1;
+
+  // Cap initial hackThreads so a single batch never drains the server below
+  // HACK_MINIMUM_MONEY_PCT of max. Hack effectiveness scales with player skill
+  // at op-finish time, but grow effectiveness depends only on static
+  // augmentation mults — so a batch sized close to 100% drain is fragile: any
+  // upward XP drift makes real hack over-steal while real grow recovers no
+  // extra, and the error compounds across batches until money pins at 0.
+  // Keeping a buffer (default ~34% drain) bounds per-batch error to a level
+  // the GW recovery frame can absorb.
+  const maxHackThreadsForSafety = Math.max(
+    1,
+    Math.floor((1 - HACK_MINIMUM_MONEY_PCT) / hackPercentagePerThread),
+  );
+
   // HYPOTHESIS: the optimal amount to threads to use for hacking a server is either:
   // - 1 thread, if it would take multiple grow threads to recover the money
   // - however many threads it takes to bring the server to a money level that can be recovered in 1 grow
@@ -114,7 +141,7 @@ export function tryFindHackWeakGrowWeakSplit(
     weak2Threads: 0,
   };
 
-  if (hackPercentagePerThread > estimatedGrowPercentagePerThread) {
+  if (hackPercentagePerThread > growFractionPerThread) {
     // 1 hack will require multiple grows to repair
     // let's simulate it on a server
     proposal = simulateHWGW(ns, 1, cores, originalTarget, originalPlayer);
@@ -124,9 +151,10 @@ export function tryFindHackWeakGrowWeakSplit(
     // xp gains from hack and weaken, let's try for a safe assumption
     // that grow will only get better, so whatever we can compute for
     // current grow is valid.
+    const seed = Math.max(1, Math.floor(growFractionPerThread / hackPercentagePerThread));
     proposal = simulateHWGW(
       ns,
-      Math.max(1, Math.floor(estimatedGrowPercentagePerThread / hackPercentagePerThread)),
+      Math.min(seed, maxHackThreadsForSafety),
       cores,
       originalTarget,
       originalPlayer,

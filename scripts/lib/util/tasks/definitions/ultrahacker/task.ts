@@ -21,13 +21,6 @@ import { getPortData, HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 // number of miliseconds to aim for between batched operations
 const BATCH_FRAME_OFFSET_MS = 50;
 
-// ideally, do not allow a single hack to take a machine lower than
-// this % of its max money. This will not always be possible (super
-// high levels, etc) but this is aspirationally the ideal amount.
-// the absolute MINIMUM number of hack threads has to be 1, and it
-// might be possible that 1 thread goes below this percentage.
-export const HACK_MINIMUM_MONEY_PCT = 0.66;
-
 interface BatchFrame {
   // how many hack threads this frame will require
   hackThreads: number;

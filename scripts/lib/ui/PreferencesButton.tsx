@@ -21,6 +21,7 @@ export function PreferencesButton() {
   const [autobuyServers, setAutobuyServers] = useState<boolean>(false);
   const [autobuyHacknet, setAutobuyHacknet] = useState<boolean>(false);
   const [gangClashThresholdInput, setGangClashThresholdInput] = useState<string>("");
+  const [hackMinMoneyPctInput, setHackMinMoneyPctInput] = useState<string>("");
 
   const openModal = () => {
     setReservedMoneyInput(String(preferences.reservedMoney));
@@ -31,6 +32,12 @@ export function PreferencesButton() {
         ? String(preferences.gangClashWinThreshold)
         : "",
     );
+    // Stored as a fraction (0.0-1.0); display as a percentage (0-100).
+    setHackMinMoneyPctInput(
+      preferences.hackMinimumMoneyPct !== undefined
+        ? String(Math.round(preferences.hackMinimumMoneyPct * 100))
+        : "",
+    );
     setOpen(true);
   };
 
@@ -38,12 +45,14 @@ export function PreferencesButton() {
     const parsed = Number(reservedMoneyInput);
     const reservedMoney = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
     const gangClashWinThreshold = parseGangClashThreshold(gangClashThresholdInput);
+    const hackMinimumMoneyPct = parseHackMinMoneyPct(hackMinMoneyPctInput);
     setPreferences({
       ...preferences,
       reservedMoney,
       autobuyServers,
       autobuyHacknet,
       gangClashWinThreshold,
+      hackMinimumMoneyPct,
     });
     setOpen(false);
   };
@@ -57,6 +66,14 @@ export function PreferencesButton() {
   const gangThresholdPreview =
     parseGangClashThreshold(gangClashThresholdInput) !== undefined
       ? `${parseGangClashThreshold(gangClashThresholdInput)}%`
+      : "task default";
+
+  const hackMinMoneyPctPreviewFraction = parseHackMinMoneyPct(hackMinMoneyPctInput);
+  const hackMinMoneyPctPreview =
+    hackMinMoneyPctPreviewFraction !== undefined
+      ? `keep ≥ ${Math.round(hackMinMoneyPctPreviewFraction * 100)}% (steal ≤ ${Math.round(
+          (1 - hackMinMoneyPctPreviewFraction) * 100,
+        )}%)`
       : "task default";
 
   return (
@@ -102,6 +119,26 @@ export function PreferencesButton() {
           </Col>
 
           <Col gap={space.sm}>
+            <SectionHeading>Hack minimum money</SectionHeading>
+            <Row gap={space.sm} style={{ alignItems: "center" }}>
+              <NumberInput
+                value={hackMinMoneyPctInput}
+                onChange={setHackMinMoneyPctInput}
+                min={0}
+                max={99}
+                placeholder="blank = task default"
+              />
+              <span style={{ color: colors.muted }}>%</span>
+              <Hint>{hackMinMoneyPctPreview}</Hint>
+            </Row>
+            <Hint>
+              Minimum % of moneyMax preserved per HWGW batch. Higher values steal less per batch
+              but tolerate more player-level drift before the cascade drains. Leave blank to use
+              the task's built-in default (75%).
+            </Hint>
+          </Col>
+
+          <Col gap={space.sm}>
             <SectionHeading>Auto-purchasing</SectionHeading>
             <CheckboxRow
               checked={autobuyServers}
@@ -129,6 +166,16 @@ function parseGangClashThreshold(input: string): number | undefined {
   const parsed = Number(input);
   if (!Number.isFinite(parsed) || parsed < 1 || parsed > 100) return undefined;
   return parsed;
+}
+
+// UI value is a percentage (0-99); stored as a fraction (0.0-0.99). Blank /
+// invalid / out-of-range → undefined (ultrahacker falls back to its built-in
+// HACK_MINIMUM_MONEY_PCT default).
+function parseHackMinMoneyPct(input: string): number | undefined {
+  if (input.trim() === "") return undefined;
+  const parsed = Number(input);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 99) return undefined;
+  return parsed / 100;
 }
 
 interface CheckboxRowProps {

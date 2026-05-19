@@ -119,12 +119,19 @@ export function tryFindGrowWeakSplit(
 // Attempts to find a HWGW split of threads given the constraints. Does
 // NOT modify the original player/server objects.
 // Returns undefined on failure.
+//
+// `hackMinimumMoneyPct` is the minimum fraction of `moneyMax` the batch
+// must preserve — i.e. hack threads are sized to steal at most
+// `(1 - hackMinimumMoneyPct)` of max. Exposed as a parameter (rather than
+// reading the module constant directly) so the dashboard preference can
+// override it at runtime.
 export function tryFindHackWeakGrowWeakSplit(
   ns: NS,
   maxRam: number,
   cores: number,
   originalPlayer: Player,
   originalTarget: Server,
+  hackMinimumMoneyPct: number,
 ): HackWeakGrowWeakSplit | undefined {
   const growRam = ns.getScriptRam(GROW_SCRIPT);
   const weakRam = ns.getScriptRam(WEAKEN_SCRIPT);
@@ -147,7 +154,7 @@ export function tryFindHackWeakGrowWeakSplit(
   // the GW recovery frame can absorb.
   const maxHackThreadsForSafety = Math.max(
     1,
-    Math.floor((1 - HACK_MINIMUM_MONEY_PCT) / hackPercentagePerThread),
+    Math.floor((1 - hackMinimumMoneyPct) / hackPercentagePerThread),
   );
 
   // Always seed at the safety cap: it is the throughput target. The RAM-fit

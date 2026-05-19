@@ -3,7 +3,11 @@ import { UltrahackerTaskState, ULTRAHACKER_TASK_ID, UserCommunicationRequest } f
 import { BaseSpawnerTask } from "../../baseSpawnerTask";
 import { Lease, RAM_EPS } from "../../allocator";
 import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "../../../script/constants";
-import { tryFindGrowWeakSplit, tryFindHackWeakGrowWeakSplit } from "./threadCalculations";
+import {
+  HACK_MINIMUM_MONEY_PCT,
+  tryFindGrowWeakSplit,
+  tryFindHackWeakGrowWeakSplit,
+} from "./threadCalculations";
 import { applyGrow, applyWeak } from "./simulationHelpers";
 import { analyzeOptions } from "./analyzeOptions";
 import { getPortData, HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
@@ -163,7 +167,18 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       this.lastXpSample = player.exp.hacking;
       this.lastXpSampleAt = tickNow;
 
-      const options = analyzeOptions(this.ns, player, this.snapshot.allServers);
+      // User-configurable "minimum money fraction preserved per HWGW batch".
+      // Falls back to the module default if the preference is unset. Read
+      // once per tick; passed into both target ranking and per-batch sizing.
+      const hackMinimumMoneyPct =
+        this.snapshot.preferences.hackMinimumMoneyPct ?? HACK_MINIMUM_MONEY_PCT;
+
+      const options = analyzeOptions(
+        this.ns,
+        player,
+        this.snapshot.allServers,
+        hackMinimumMoneyPct,
+      );
       const desired = this.userTarget ?? options[0]?.hostname;
       if (!desired) {
         await this.ns.sleep(POLL_INTERVAL_MS);
@@ -189,7 +204,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       }
 
       // 4. Greedy schedule pass: place as many batches as RAM allows.
-      this.scheduleAsMuchAsPossible(this.pipeline!, player, xpRatePerMs);
+      this.scheduleAsMuchAsPossible(this.pipeline!, player, xpRatePerMs, hackMinimumMoneyPct);
 
       // 5. Publish state. The panel must NOT call ns.formulas / ns.getPlayer
       // itself (each NS reference inflates the panel script's static RAM
@@ -312,10 +327,13 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   // passed in here — fresh enough across a single burst. `xpRatePerMs` is
   // the empirical XP-gain rate measured across the previous tick; used to
   // project the player's skill forward to each batch's hack-fire time.
+  // `hackMinimumMoneyPct` (from preferences, fraction 0.0-1.0) controls the
+  // per-batch steal target.
   private scheduleAsMuchAsPossible(
     pipeline: PipelineState,
     currentPlayer: Player,
     xpRatePerMs: number,
+    hackMinimumMoneyPct: number,
   ): void {
     while (true) {
       const top = this.allocator.peekTopHost();
@@ -354,6 +372,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         currentTarget,
         currentPlayer,
         predictedPlayer,
+        hackMinimumMoneyPct,
       );
       if (!frame) break;
 
@@ -644,6 +663,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
     currentTarget: Server,
     currentPlayer: Player,
     predictedPlayer: Player,
+    hackMinimumMoneyPct: number,
   ): BatchFrame | undefined {
     const sizingTarget: Server = {
       ...currentTarget,
@@ -717,6 +737,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
           hostCores,
           predictedPlayer,
           sizingTarget,
+          hackMinimumMoneyPct,
         );
         if (!split) return undefined;
         frame.hackThreads = split.hackThreads;

@@ -22,26 +22,43 @@ export interface ServerAnalysis {
 
 export type FramePurpose = "W" | "GW" | "HWGW";
 
-export interface UltrahackerV2TaskState extends TaskState {
-  targetOptions: ServerAnalysis[];
-
-  // actual target we're attacking
+// One in-flight pipeline against a single target. Raw observed values only;
+// the panel derives percentages, remaining time, etc.
+export interface PipelineSnapshot {
   target: string;
 
-  // hostname of the target the user has chosen
-  userTarget?: string | undefined;
+  // number of batches currently in flight on this pipeline
+  inFlightCount: number;
 
-  // visualize the batch types being placed on available leases
-  batches: FramePurpose[];
+  // target depth for HWGW (= floor(weakTime / 50ms), capped)
+  maxDepth: number;
 
-  // raw server status for the current target, sampled at patch time
+  // ordered, oldest-first; UI draws the strip of colored boxes
+  recentBatches: FramePurpose[];
+
+  // observed server state at patch time
   targetCurrentSecurity: number;
   targetMinSecurity: number;
   targetCurrentMoney: number;
   targetMaxMoney: number;
 
-  // epoch time when we expect this recent frame to be finished
-  estimatedFinishTime: number;
+  // epoch ms when the soonest in-flight batch should finish; UI computes
+  // "remaining" from this
+  soonestFinishEpoch: number;
+
+  // true while we've stopped scheduling and are draining in-flight batches
+  // before rebasing simServer from the real server
+  healing: boolean;
+}
+
+export interface UltrahackerV2TaskState extends TaskState {
+  targetOptions: ServerAnalysis[];
+
+  // hostname of the target the user has pinned; takes priority
+  userTarget?: string | undefined;
+
+  // one snapshot per active pipeline, ordered by priority (primary first)
+  pipelines: PipelineSnapshot[];
 }
 
 export interface UserCommunicationRequest {
@@ -51,7 +68,8 @@ export interface UserCommunicationRequest {
 
 export const ultrahackerV2Task: TaskDefinition = {
   id: ULTRAHACKER_V2_TASK_ID,
-  description: "Hacking controller to use in endgame. Updated with the ability to target multiple servers at once.",
+  description:
+    "Hacking controller to use in endgame. Updated with the ability to target multiple servers at once.",
   category: "hacking",
   icon: "🏅",
   autostart: false,

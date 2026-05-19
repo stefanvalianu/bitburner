@@ -15,6 +15,7 @@ import {
   ULTRAHACKER_V2_TASK_ID,
   UserCommunicationRequest,
   type FramePurpose,
+  type PipelineSnapshot,
   type ServerAnalysis,
   type UltrahackerV2TaskState,
 } from "./info";
@@ -24,7 +25,8 @@ type Theme = ReturnType<typeof useTheme>;
 const buildColumns = (
   ns: NS,
   colors: Theme["colors"],
-  target: string,
+  activeTargets: Set<string>,
+  primaryTarget: string,
 ): SortableColumn<ServerAnalysis>[] => [
   {
     key: "hostname",
@@ -33,7 +35,10 @@ const buildColumns = (
     align: "left",
     accessor: (r) => r.hostname,
     render: (r) => (
-      <span style={{ color: r.hostname === target ? colors.accent : colors.fg }}>{r.hostname}</span>
+      <span style={{ color: activeTargets.has(r.hostname) ? colors.accent : colors.fg }}>
+        {r.hostname}
+        {r.hostname === primaryTarget ? " ★" : ""}
+      </span>
     ),
   },
   {
@@ -80,35 +85,112 @@ const buildColumns = (
   },
 ];
 
+const colorForPurpose = (colors: Theme["colors"], p: FramePurpose): string => {
+  switch (p) {
+    case "W":
+      return colors.success;
+    case "GW":
+      return colors.money;
+    case "HWGW":
+      return colors.muted;
+  }
+};
+
+const PipelineRow = ({
+  pipeline,
+  colors,
+  ns,
+}: {
+  pipeline: PipelineSnapshot;
+  colors: Theme["colors"];
+  ns: NS;
+}) => {
+  const securityComplete = pipeline.targetCurrentSecurity <= pipeline.targetMinSecurity + 1e-6;
+  const moneyComplete = pipeline.targetCurrentMoney >= pipeline.targetMaxMoney - 1e-6;
+  const remainingMs = Math.max(0, pipeline.soonestFinishEpoch - Date.now());
+  const depthPct =
+    pipeline.maxDepth > 0
+      ? Math.min(100, Math.round((100 * pipeline.inFlightCount) / pipeline.maxDepth))
+      : 0;
+
+  return (
+    <Col gap={2} style={{ fontSize: "0.85em" }}>
+      <Row gap={12} style={{ alignItems: "center" }}>
+        <span style={{ color: colors.accent, minWidth: 140 }}>{pipeline.target}</span>
+        {pipeline.healing && (
+          <span style={{ color: colors.warn }} title="Healing: drift detected, draining batches">
+            healing
+          </span>
+        )}
+        {!securityComplete && (
+          <span style={{ color: colors.muted }}>
+            sec:{" "}
+            <span style={{ color: colors.hack }}>
+              {ns.format.number(
+                (100 * pipeline.targetMinSecurity) / Math.max(1e-9, pipeline.targetCurrentSecurity),
+                0,
+              )}
+              %
+            </span>
+          </span>
+        )}
+        {!moneyComplete && (
+          <span style={{ color: colors.muted }}>
+            $:{" "}
+            <span style={{ color: colors.money }}>
+              {ns.format.number(
+                (100 * pipeline.targetCurrentMoney) / Math.max(1, pipeline.targetMaxMoney),
+                0,
+              )}
+              %
+            </span>
+          </span>
+        )}
+        <span style={{ color: colors.muted }}>
+          depth:{" "}
+          <span style={{ color: colors.fg }}>
+            {pipeline.inFlightCount}/{pipeline.maxDepth}
+          </span>{" "}
+          ({depthPct}%)
+        </span>
+        {remainingMs > 0 && (
+          <span style={{ color: colors.muted }}>
+            next: <span style={{ color: colors.fg }}>{ns.format.time(remainingMs)}</span>
+          </span>
+        )}
+      </Row>
+      {pipeline.recentBatches.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+          {pipeline.recentBatches.map((purpose, i) => (
+            <div
+              key={i}
+              title={purpose}
+              style={{
+                width: 6,
+                height: 6,
+                background: colorForPurpose(colors, purpose),
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </Col>
+  );
+};
+
 export const UltrahackerV2Panel: TaskCustomPanel = () => {
   const { colors, space } = useTheme();
   const ns = useNs();
   const { state } = useDashboardController();
 
-  const taskState = state.tasks[ULTRAHACKER_V2_TASK_ID] as unknown as UltrahackerV2TaskState | undefined;
+  const taskState = state.tasks[ULTRAHACKER_V2_TASK_ID] as unknown as
+    | UltrahackerV2TaskState
+    | undefined;
   const targetOptions = taskState?.targetOptions ?? [];
-  const target = taskState?.target ?? "";
+  const pipelines = taskState?.pipelines ?? [];
   const userTarget = taskState?.userTarget;
-  const batches = taskState?.batches ?? [];
-  const targetCurrentSecurity = taskState?.targetCurrentSecurity ?? 0;
-  const targetMinSecurity = taskState?.targetMinSecurity ?? 0;
-  const targetCurrentMoney = taskState?.targetCurrentMoney ?? 0;
-  const targetMaxMoney = taskState?.targetMaxMoney ?? 0;
-  const estimatedFinishTime = taskState?.estimatedFinishTime ?? 0;
-  const securityComplete = targetCurrentSecurity <= targetMinSecurity + 1e-6;
-  const moneyComplete = targetCurrentMoney >= targetMaxMoney - 1e-6;
-  const remainingMs = Math.max(0, estimatedFinishTime - Date.now());
-
-  const colorForPurpose = (p: FramePurpose): string => {
-    switch (p) {
-      case "W":
-        return colors.success;
-      case "GW":
-        return colors.money;
-      case "HWGW":
-        return colors.muted;
-    }
-  };
+  const primaryTarget = pipelines[0]?.target ?? "";
+  const activeTargets = new Set(pipelines.map((p) => p.target));
 
   if (targetOptions.length === 0) {
     return <span style={{ color: colors.muted }}>No analysis yet — first scan pending.</span>;
@@ -129,16 +211,14 @@ export const UltrahackerV2Panel: TaskCustomPanel = () => {
   };
 
   const renderAction = (row: ServerAnalysis): ReactNode => {
-    if (row.hostname === target) {
-      if (row.hostname === userTarget) {
-        return (
-          <Button onClick={handleUntarget}>
-            <UntargetIcon color={colors.warn} title={`Un-target ${row.hostname}`} size={10} />
-          </Button>
-        );
-      }
-      return null;
+    if (row.hostname === userTarget) {
+      return (
+        <Button onClick={handleUntarget}>
+          <UntargetIcon color={colors.warn} title={`Un-target ${row.hostname}`} size={10} />
+        </Button>
+      );
     }
+    if (activeTargets.has(row.hostname)) return null;
     return (
       <Button onClick={() => handleTarget(row.hostname)}>
         <TargetIcon color={colors.accent} title={`Target ${row.hostname}`} size={10} />
@@ -150,48 +230,23 @@ export const UltrahackerV2Panel: TaskCustomPanel = () => {
     <Col gap={space.sm}>
       <Row gap={space.lg} style={{ fontSize: "0.85em" }}>
         <span style={{ color: colors.muted }}>
-          Target: <span style={{ color: colors.accent }}>{target || "—"}</span>
-          {userTarget !== undefined && <span style={{ color: colors.muted }}> (user-pinned)</span>}
+          Pipelines: <span style={{ color: colors.fg }}>{pipelines.length}</span>
         </span>
-        {!securityComplete && (
+        {userTarget !== undefined && (
           <span style={{ color: colors.muted }}>
-            sec:{" "}
-            <span style={{ color: colors.hack }}>
-              {ns.format.number((100 * targetMinSecurity) / targetCurrentSecurity, 0)}%
-            </span>
+            pinned: <span style={{ color: colors.accent }}>{userTarget}</span>
           </span>
         )}
-        {!moneyComplete && (
-          <span style={{ color: colors.muted }}>
-            $:{" "}
-            <span style={{ color: colors.money }}>
-              {ns.format.number((100 * targetCurrentMoney) / targetMaxMoney, 0)}%
-            </span>
-          </span>
-        )}
-        <span style={{ color: colors.muted }}>
-          <span style={{ color: colors.fg }}>{ns.format.time(remainingMs)}</span> remaining
-        </span>
         <span style={{ color: colors.muted, marginLeft: "auto" }}>
           Options: <span style={{ color: colors.fg }}>{targetOptions.length}</span>
         </span>
       </Row>
 
-      {batches.length > 0 && (
+      {pipelines.length > 0 && (
         <Col gap={space.xs}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-            {batches.map((purpose, i) => (
-              <div
-                key={i}
-                title={purpose}
-                style={{
-                  width: 8,
-                  height: 8,
-                  background: colorForPurpose(purpose),
-                }}
-              />
-            ))}
-          </div>
+          {pipelines.map((p) => (
+            <PipelineRow key={p.target} pipeline={p} colors={colors} ns={ns} />
+          ))}
           <Row gap={space.md} style={{ fontSize: "0.75em" }}>
             {(["W", "GW", "HWGW"] as const).map((p) => (
               <span
@@ -203,7 +258,7 @@ export const UltrahackerV2Panel: TaskCustomPanel = () => {
                   color: colors.muted,
                 }}
               >
-                <span style={{ width: 8, height: 8, background: colorForPurpose(p) }} />
+                <span style={{ width: 8, height: 8, background: colorForPurpose(colors, p) }} />
                 {p}
               </span>
             ))}
@@ -212,11 +267,11 @@ export const UltrahackerV2Panel: TaskCustomPanel = () => {
       )}
 
       <SortableTable<ServerAnalysis>
-        columns={buildColumns(ns, colors, target)}
+        columns={buildColumns(ns, colors, activeTargets, primaryTarget)}
         rows={targetOptions}
         rowKey={(r) => r.hostname}
         actionColumn={{ width: 32, render: renderAction }}
-        isCurrent={(r) => r.hostname === target}
+        isCurrent={(r) => activeTargets.has(r.hostname)}
         collapsible
         defaultSort={{ column: "profitPerSecond", direction: "desc" }}
         emptyMessage="No current target — task may still be selecting."

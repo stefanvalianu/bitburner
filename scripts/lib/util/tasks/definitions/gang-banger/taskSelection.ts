@@ -67,8 +67,7 @@ export function assignOptimalGangTasks(ns: NS, members: Record<string, GangMembe
       !bestProductive ||
       (bestProductive.respect <= 0 && bestProductive.money <= 0) ||
       (stage === "recruiting" && bestProductive.task.name !== "Terrorism") ||
-      (stage === "growing" && member.rank < 3) ||
-      (stage === "money" && member.rank < 4);
+      (stage === "growing" && member.rank < 3);
 
     if (shouldTrain) {
       assignments.push({

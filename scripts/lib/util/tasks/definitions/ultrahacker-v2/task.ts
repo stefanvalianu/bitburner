@@ -4,8 +4,9 @@ import {
   ULTRAHACKER_V2_TASK_ID,
   UserCommunicationRequest,
   FramePurpose,
+  PipelineSnapshot,
 } from "./info";
-import { BaseSpawnerTask, TaskLease } from "../../baseSpawnerTask";
+import { BaseSpawnerTask } from "../../baseSpawnerTask";
 import { Lease, RAM_EPS } from "../../allocator";
 import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "../../../script/constants";
 import { tryFindGrowWeakSplit, tryFindHackWeakGrowWeakSplit } from "./threadCalculations";
@@ -13,54 +14,67 @@ import { applyGrow, applyHackingExp, applyWeak } from "./simulationHelpers";
 import { analyzeOptions } from "./analyzeOptions";
 import { getPortData, HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 
-// number of miliseconds to aim for between batched operations
+// number of milliseconds between scheduled operation landings within a batch
 const BATCH_FRAME_OFFSET_MS = 50;
 
 // ideally, do not allow a single hack to take a machine lower than
 // this % of its max money. This will not always be possible (super
 // high levels, etc) but this is aspirationally the ideal amount.
-// the absolute MINIMUM number of hack threads has to be 1, and it
-// might be possible that 1 thread goes below this percentage.
 export const HACK_MINIMUM_MONEY_PCT = 0.66;
 
+// upper safety bound on a pipeline's in-flight depth, regardless of weakTime
+const MAX_PIPELINE_DEPTH = 256;
+
+// most pipelines we'll keep open simultaneously
+const MAX_PIPELINES = 8;
+
+// recent batch purposes retained per pipeline for the UI strip
+const RECENT_BATCHES_KEEP = 200;
+
+// Drift tolerances. Checked only after an HWGW batch lands — at that
+// instant the real server should be back at min security / max money.
+const DRIFT_SEC_TOLERANCE = 0.5;
+const DRIFT_MONEY_FRACTION_TOLERANCE = 0.05;
+
+// Main loop pacing. We wake on the soonest in-flight finish but clamp into
+// this range so user requests and rank changes stay responsive.
+const MIN_POLL_MS = 50;
+const MAX_POLL_MS = 1000;
+
 interface BatchFrame {
-  // how many hack threads this frame will require
   hackThreads: number;
-
-  // how long hack is expected to take
   hackTime: number;
-
-  // how many grow threads this frame will require
   growThreads: number;
-
-  // how long grow is expected to take
   growTime: number;
-
-  // how many weak threads the first weak requires
   weakThreads1: number;
-
-  // how long the first weak is expected to take
   weakTime1: number;
-
-  // how many weak threads the second weak requires
   weakThreads2: number;
-
-  // how long the second weak time is expected to take
   weakTime2: number;
-
-  // simpler way to track the purpose of the frame
   purpose: FramePurpose;
 }
 
-interface BatchLease {
+interface InFlightBatch {
+  purpose: FramePurpose;
+  finishEpoch: number;
   lease: Lease;
-  batch: BatchFrame;
+  pids: number[];
 }
 
-interface BatchSchedule {
-  taskLeases: TaskLease[];
-
-  estimatedTime: number;
+interface Pipeline {
+  target: string;
+  simServer: Server;
+  inFlight: InFlightBatch[];
+  // epoch ms — when the last script of the most-recently-scheduled batch lands.
+  // 0 means uninitialized; the next schedule will bump it to now + firstFinishTime.
+  nextScheduledFinish: number;
+  // ring (oldest-first), bounded by RECENT_BATCHES_KEEP
+  recentBatches: FramePurpose[];
+  // when true, stop scheduling and wait for inFlight to drain, then rebase simServer
+  healing: boolean;
+  // when true, target is no longer in the keep-set; drain and remove
+  closing: boolean;
+  // set during reap when at least one HWGW batch's PIDs completed; gates drift check
+  hwgwLandedThisReap: boolean;
 }
 
 class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
@@ -69,6 +83,7 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
   private readonly weakRam: number;
 
   private userTarget: string | undefined = undefined;
+  private pipelines: Pipeline[] = [];
 
   constructor(ns: NS) {
     super(ns, ULTRAHACKER_V2_TASK_ID);
@@ -81,139 +96,394 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
   protected async run_task(): Promise<void> {
     while (true) {
       if (this.shouldShutdown) {
-        this.teardown(true);
+        this.tearDownAllPipelines(true);
         return;
       }
 
-      // figure out the best target (and consume user requests to change it)
-      const targetOptions = analyzeOptions(this.ns, this.ns.getPlayer(), this.snapshot.allServers);
-      const userRequest = getPortData<UserCommunicationRequest>(
-        this.ns,
-        HACKING_SYSTEM_COMMUNICATION_PORT,
-        true,
-      );
+      // 1. Consume any user pin/unpin request. We don't kill existing pipelines —
+      //    pinning just promotes a target. The keep-set step will close anything
+      //    that no longer qualifies, draining naturally.
+      this.handleUserRequest();
 
-      if (userRequest) {
-        this.userTarget = userRequest.targetServer;
-
-        // shut off currently running tasks abruptly
-        this.teardown();
+      // 2. Reap completed batches across all pipelines.
+      for (const pipeline of this.pipelines) {
+        this.reapPipeline(pipeline);
       }
 
-      const targetServer = this.ns.getServer(
-        this.userTarget ?? targetOptions[0].hostname,
-      ) as Server;
-
-      // For a single run of this hacker, we will fill up all available allocated slots
-      // with batch frames. We will not re-calculate new batches until all of these
-      // lease are empty, which means there might be a lot of downtime between target
-      // swaps. We might want to re-visit this and make this more responsive later.
-      // Note shutdown checks are periodically done in the base class' wait.
-      // This step is responsible both for finding all usable space using the allocator,
-      // and filling all of the space sequentially with batch frames that we want to
-      // execute to appropriately hack the server.
-      const batchLeases = this.getBatchLeases(targetServer.hostname);
-      if (batchLeases.length === 0) {
-        this.log.error(
-          `Tried computing batch leases but ended with nothing. Do we have enough RAM?`,
-        );
-        return;
+      // 3. Drift check + heal transition.
+      for (const pipeline of this.pipelines) {
+        this.checkDriftAndHeal(pipeline);
       }
 
-      // Then, we need to schedule all of these frames with appropriate deltas between
-      // each of the steps in the frame (grow/weaken/hack). This happens in 3 'waves' that
-      // are not discretely separated like they were in noform hacker. The first set of
-      // batch frames will attempt to bring the server to min security using only weaken
-      // batches. As soon as that's done (possibly in the same run of this cycle), we will
-      // begin growing the server using grow/weak batches. As soon as that's done, we will
-      // continuously use hack/weak/grow/weak batches. If all calculations are correct, once
-      // a server reaches max money, it should never regress into needing weak-only or
-      // grow-weak only batches.
-      const batchSchedule = this.scheduleBatches(batchLeases, targetServer.hostname);
-      if (batchSchedule.taskLeases.length !== batchLeases.length) {
-        this.log.error(
-          `Tried to schedule ${batchLeases.length} batches but ended with ${batchSchedule.taskLeases.length} tasks?`,
-        );
-        return;
+      // 4. Refresh target rankings.
+      const player = this.ns.getPlayer();
+      const ranked = analyzeOptions(this.ns, player, this.snapshot.allServers);
+
+      // 5. Reconcile open pipelines with the keep-set (user pin + top-N ranked).
+      this.reconcilePipelines(ranked);
+
+      // 6. Fill each pipeline up to its current maxDepth, in priority order.
+      //    Filling pipeline 0 first naturally gives the primary target the
+      //    largest hosts via the allocator's host ordering.
+      for (const pipeline of this.pipelines) {
+        if (pipeline.healing || pipeline.closing) continue;
+        const maxDepth = this.pipelineMaxDepth(pipeline, player);
+        while (pipeline.inFlight.length < maxDepth) {
+          if (!this.tryScheduleOne(pipeline)) break;
+        }
       }
 
-      // patch the state here so we can include our lease visualization
+      // 7. Open new pipelines for un-targeted top-ranked options if RAM remains.
+      this.openAdditionalPipelinesIfRoom(ranked);
+
+      // 8. Patch UI state.
       this.patchState({
-        targetOptions: targetOptions,
+        targetOptions: ranked,
         userTarget: this.userTarget,
-        target: targetServer.hostname,
-        batches: batchLeases.map((b) => b.batch.purpose),
-        targetCurrentSecurity: targetServer.hackDifficulty!,
-        targetMinSecurity: targetServer.minDifficulty!,
-        targetCurrentMoney: targetServer.moneyAvailable!,
-        targetMaxMoney: targetServer.moneyMax!,
-        estimatedFinishTime: Date.now() + batchSchedule.estimatedTime,
+        pipelines: this.pipelines.map((p) => this.snapshotPipeline(p, player)),
       });
 
-      // if we receive a port request, we'll exit the loop early
-      const shouldExitEarly = (): boolean => {
-        return this.ns.peek(HACKING_SYSTEM_COMMUNICATION_PORT) !== "NULL PORT DATA";
-      };
-
-      // Now we simply wait for our frames to be done, and this round of batches will be
-      // complete.
-      await this.waitAndFreeTaskLeases(batchSchedule.taskLeases, batchSchedule.estimatedTime, {
-        forceKillOnExit: true,
-        shouldExitEarly: shouldExitEarly,
-      });
+      // 9. Sleep until the soonest in-flight batch finishes — that's the next
+      //    time we'd have capacity to refill.
+      const sleepMs = this.computeSleepMs();
+      await this.ns.asleep(sleepMs);
     }
   }
 
-  // First, compute all of the batches we're going to run / get space for them.
-  private getBatchLeases(targetHostname: string): BatchLease[] {
-    let leases: BatchLease[] = [];
+  // ---------------------------------------------------------------------
+  // Lifecycle / reconciliation
+  // ---------------------------------------------------------------------
 
-    // These objects will be modified as necessary to properly simulate
-    // times, amounts, etc
-    let target = this.ns.getServer(targetHostname) as Server;
-    let player = this.ns.getPlayer();
+  private handleUserRequest(): void {
+    const req = getPortData<UserCommunicationRequest>(
+      this.ns,
+      HACKING_SYSTEM_COMMUNICATION_PORT,
+      true,
+    );
+    if (!req) return;
+    this.userTarget = req.targetServer;
+  }
 
-    while (true) {
-      // take a look at what we have available for our next lease. let's use it to figure out
-      // the biggest, meaningful batch we can fit on this lease. this has an upper limit
-      // since for a single batch, we only want as many hack threads
-      const top = this.allocator.peekTopHost();
-      if (!top) break;
+  // The keep-set is: userTarget (if any) + top-N ranked. Anything else gets
+  // marked closing and drained. Anything in keep-set that isn't open yet stays
+  // pending — it'll get opened by openAdditionalPipelinesIfRoom.
+  private reconcilePipelines(ranked: ReturnType<typeof analyzeOptions>): void {
+    const keep = new Set<string>();
+    if (this.userTarget) keep.add(this.userTarget);
+    for (let i = 0; i < Math.min(ranked.length, MAX_PIPELINES); i++) {
+      keep.add(ranked[i].hostname);
+    }
 
-      // computing the batch frame will also modify the player object with the assumption
-      // that the frame will be placed properly, so that the next calculation takes effect
-      // from that version of the player. the server object is similarly modified.
-      const batchFrame = this.findOptimalBatchFrame(top.ram, top.cores, target, player);
-      if (!batchFrame) break;
+    for (const pipeline of this.pipelines) {
+      if (!keep.has(pipeline.target)) pipeline.closing = true;
+    }
 
-      const batchFrameRam = this.calculateBatchFrameRam(batchFrame);
-      const lease = this.allocator.leaseUpTo(batchFrameRam);
-      // Epsilon-tolerant compare: leaseUpTo can hand back a value a hair below
-      // the request due to FP residue in the pool entry; treat that as success.
-      if (!lease || lease.ram + RAM_EPS < batchFrameRam) {
-        // this shouldn't happen. it would imply either there's a core bug or something else
-        // took resources from the allocator inbetween our peek and our lease call
-        this.log.error(
-          `Computed a batch frame using allocator.peek(), but were unable to actually reserve it.`,
-          batchFrame,
+    // Drop drained closing pipelines.
+    this.pipelines = this.pipelines.filter((p) => !(p.closing && p.inFlight.length === 0));
+
+    // Reorder: user-pinned target first, then by ranked profit order.
+    const rankIndex = new Map<string, number>();
+    ranked.forEach((r, i) => rankIndex.set(r.hostname, i));
+    this.pipelines.sort((a, b) => {
+      if (a.target === this.userTarget) return -1;
+      if (b.target === this.userTarget) return 1;
+      const ai = rankIndex.get(a.target) ?? Infinity;
+      const bi = rankIndex.get(b.target) ?? Infinity;
+      return ai - bi;
+    });
+  }
+
+  private openAdditionalPipelinesIfRoom(ranked: ReturnType<typeof analyzeOptions>): void {
+    const open = new Set(this.pipelines.map((p) => p.target));
+
+    // Always open the user-pinned target first if it exists and isn't open.
+    if (this.userTarget && !open.has(this.userTarget)) {
+      const created = this.openPipeline(this.userTarget);
+      if (created) {
+        open.add(this.userTarget);
+        this.pipelines.unshift(created);
+        // Take a swing at filling it before considering additional targets.
+        const player = this.ns.getPlayer();
+        const depth = this.pipelineMaxDepth(created, player);
+        while (created.inFlight.length < depth && this.tryScheduleOne(created)) {
+          /* loop */
+        }
+      }
+    }
+
+    // Then walk the ranked list adding pipelines while RAM permits.
+    for (const option of ranked) {
+      if (this.pipelines.length >= MAX_PIPELINES) break;
+      if (open.has(option.hostname)) continue;
+      if (!this.allocator.peekTopHost()) return; // no RAM left
+      // Only open if a previous pipeline saturated, signalled by "we still have
+      // RAM and none of the current pipelines wanted another batch this cycle".
+      // The simplest proxy: if peekTopHost still returns RAM after step 6's
+      // fill, there's surplus. Try opening this target.
+      const created = this.openPipeline(option.hostname);
+      if (!created) continue;
+      this.pipelines.push(created);
+      open.add(option.hostname);
+      const player = this.ns.getPlayer();
+      const depth = this.pipelineMaxDepth(created, player);
+      while (created.inFlight.length < depth && this.tryScheduleOne(created)) {
+        /* loop */
+      }
+    }
+  }
+
+  private openPipeline(targetHostname: string): Pipeline | undefined {
+    const server = this.ns.getServer(targetHostname) as Server;
+    if (!server || server.moneyMax === undefined || server.moneyMax <= 0) return undefined;
+    return {
+      target: targetHostname,
+      simServer: cloneServer(server),
+      inFlight: [],
+      nextScheduledFinish: 0,
+      recentBatches: [],
+      healing: false,
+      closing: false,
+      hwgwLandedThisReap: false,
+    };
+  }
+
+  // ---------------------------------------------------------------------
+  // Reap / drift / heal
+  // ---------------------------------------------------------------------
+
+  private reapPipeline(pipeline: Pipeline): void {
+    pipeline.hwgwLandedThisReap = false;
+    const stillRunning: InFlightBatch[] = [];
+    for (const batch of pipeline.inFlight) {
+      const someRunning = batch.pids.some((pid) => this.ns.isRunning(pid));
+      if (someRunning) {
+        stillRunning.push(batch);
+      } else {
+        this.allocator.return(batch.lease.leaseId);
+        if (batch.purpose === "HWGW") pipeline.hwgwLandedThisReap = true;
+      }
+    }
+    pipeline.inFlight = stillRunning;
+  }
+
+  private checkDriftAndHeal(pipeline: Pipeline): void {
+    // If we're already healing and the in-flight queue has drained, rebase.
+    if (pipeline.healing && pipeline.inFlight.length === 0) {
+      const fresh = this.ns.getServer(pipeline.target) as Server;
+      pipeline.simServer = cloneServer(fresh);
+      pipeline.nextScheduledFinish = 0;
+      pipeline.healing = false;
+      this.log.info(`[ultrahacker] rebased ${pipeline.target} after drift heal`);
+      return;
+    }
+
+    // Don't drift-check while already healing or closing.
+    if (pipeline.healing || pipeline.closing) return;
+
+    // Only check after an HWGW batch landed — at that instant the real server
+    // should be back at min security / max money, and divergence is meaningful.
+    if (!pipeline.hwgwLandedThisReap) return;
+
+    const real = this.ns.getServer(pipeline.target) as Server;
+    const dSec = (real.hackDifficulty ?? 0) - (real.minDifficulty ?? 0);
+    const dMoneyFraction =
+      ((real.moneyMax ?? 0) - (real.moneyAvailable ?? 0)) / Math.max(1, real.moneyMax ?? 1);
+
+    if (dSec > DRIFT_SEC_TOLERANCE || dMoneyFraction > DRIFT_MONEY_FRACTION_TOLERANCE) {
+      pipeline.healing = true;
+      this.log.warn(
+        `[ultrahacker] drift detected on ${pipeline.target}: dSec=${dSec.toFixed(3)} dMoney=${(dMoneyFraction * 100).toFixed(2)}%; draining ${pipeline.inFlight.length} batches`,
+      );
+    }
+  }
+
+  private tearDownAllPipelines(log: boolean): void {
+    let totalPids = 0;
+    let totalLeases = 0;
+    for (const pipeline of this.pipelines) {
+      for (const batch of pipeline.inFlight) {
+        for (const pid of batch.pids) {
+          if (this.ns.isRunning(pid)) {
+            this.ns.kill(pid);
+            totalPids++;
+          }
+        }
+        this.allocator.return(batch.lease.leaseId);
+        totalLeases++;
+      }
+      pipeline.inFlight = [];
+    }
+    this.pipelines = [];
+    if (log) {
+      this.log.info(`shutdown: killed ${totalPids} worker(s) across ${totalLeases} leases`);
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Scheduling
+  // ---------------------------------------------------------------------
+
+  private tryScheduleOne(pipeline: Pipeline): boolean {
+    const top = this.allocator.peekTopHost();
+    if (!top) return false;
+
+    const player = this.ns.getPlayer();
+    const frame = this.findOptimalBatchFrame(top.ram, top.cores, pipeline.simServer, player);
+    if (!frame) return false;
+
+    const frameRam = this.calculateBatchFrameRam(frame);
+    const lease = this.allocator.leaseUpTo(frameRam);
+    if (!lease || lease.ram + RAM_EPS < frameRam) {
+      if (lease) this.allocator.return(lease.leaseId);
+      return false;
+    }
+
+    // Ensure nextScheduledFinish is far enough in the future for this batch's
+    // earliest operation to start with a non-negative delay.
+    const minFinish = Date.now() + this.firstFinishTimeFor(frame);
+    if (pipeline.nextScheduledFinish < minFinish) {
+      pipeline.nextScheduledFinish = minFinish;
+    }
+
+    const launched: number[] = [];
+    let batchFinishEpoch: number;
+
+    switch (frame.purpose) {
+      case "W": {
+        const weakFinish = pipeline.nextScheduledFinish;
+        const weakDelay = Math.max(0, weakFinish - Date.now() - frame.weakTime1);
+        const pidWeak = this.runScript(
+          WEAKEN_SCRIPT,
+          lease,
+          frame.weakThreads1,
+          pipeline.target,
+          weakDelay,
         );
+        if (!pidWeak) return false;
+        launched.push(pidWeak);
+        batchFinishEpoch = weakFinish;
+        pipeline.nextScheduledFinish += BATCH_FRAME_OFFSET_MS;
         break;
       }
+      case "GW": {
+        const growFinish = pipeline.nextScheduledFinish;
+        const weakFinish = pipeline.nextScheduledFinish + BATCH_FRAME_OFFSET_MS;
+        const growDelay = Math.max(0, growFinish - Date.now() - frame.growTime);
+        const weakDelay = Math.max(0, weakFinish - Date.now() - frame.weakTime1);
 
-      leases.push({
-        lease: lease,
-        batch: batchFrame,
-      });
+        const pidGrow = this.runScript(
+          GROW_SCRIPT,
+          lease,
+          frame.growThreads,
+          pipeline.target,
+          growDelay,
+        );
+        if (!pidGrow) return false;
+        launched.push(pidGrow);
+
+        const pidWeak = this.runScript(
+          WEAKEN_SCRIPT,
+          lease,
+          frame.weakThreads1,
+          pipeline.target,
+          weakDelay,
+        );
+        if (!pidWeak) {
+          this.killLaunched(launched);
+          return false;
+        }
+        launched.push(pidWeak);
+        batchFinishEpoch = weakFinish;
+        pipeline.nextScheduledFinish += 2 * BATCH_FRAME_OFFSET_MS;
+        break;
+      }
+      case "HWGW": {
+        const hackFinish = pipeline.nextScheduledFinish;
+        const weak1Finish = pipeline.nextScheduledFinish + BATCH_FRAME_OFFSET_MS;
+        const growFinish = pipeline.nextScheduledFinish + 2 * BATCH_FRAME_OFFSET_MS;
+        const weak2Finish = pipeline.nextScheduledFinish + 3 * BATCH_FRAME_OFFSET_MS;
+
+        const hackDelay = Math.max(0, hackFinish - Date.now() - frame.hackTime);
+        const weak1Delay = Math.max(0, weak1Finish - Date.now() - frame.weakTime1);
+        const growDelay = Math.max(0, growFinish - Date.now() - frame.growTime);
+        const weak2Delay = Math.max(0, weak2Finish - Date.now() - frame.weakTime2);
+
+        const pidHack = this.runScript(
+          HACK_SCRIPT,
+          lease,
+          frame.hackThreads,
+          pipeline.target,
+          hackDelay,
+        );
+        if (!pidHack) return false;
+        launched.push(pidHack);
+
+        const pidWeak1 = this.runScript(
+          WEAKEN_SCRIPT,
+          lease,
+          frame.weakThreads1,
+          pipeline.target,
+          weak1Delay,
+        );
+        if (!pidWeak1) {
+          this.killLaunched(launched);
+          return false;
+        }
+        launched.push(pidWeak1);
+
+        const pidGrow = this.runScript(
+          GROW_SCRIPT,
+          lease,
+          frame.growThreads,
+          pipeline.target,
+          growDelay,
+        );
+        if (!pidGrow) {
+          this.killLaunched(launched);
+          return false;
+        }
+        launched.push(pidGrow);
+
+        const pidWeak2 = this.runScript(
+          WEAKEN_SCRIPT,
+          lease,
+          frame.weakThreads2,
+          pipeline.target,
+          weak2Delay,
+        );
+        if (!pidWeak2) {
+          this.killLaunched(launched);
+          return false;
+        }
+        launched.push(pidWeak2);
+
+        batchFinishEpoch = weak2Finish;
+        pipeline.nextScheduledFinish += 4 * BATCH_FRAME_OFFSET_MS;
+        break;
+      }
     }
 
-    return leases;
+    pipeline.inFlight.push({
+      purpose: frame.purpose,
+      finishEpoch: batchFinishEpoch,
+      lease,
+      pids: launched,
+    });
+    pipeline.recentBatches.push(frame.purpose);
+    if (pipeline.recentBatches.length > RECENT_BATCHES_KEEP) {
+      pipeline.recentBatches.shift();
+    }
+    return true;
   }
 
-  // Minimum value `nextFinishTime` must take for the first operation of `batch`
-  // to land with a non-negative delay. Each batch type has a different earliest
-  // operation: W is just weak, GW is grow, HWGW is hack. Computing this per
-  // batch (rather than once for batches[0]) is what lets the schedule survive a
-  // mixed-purpose list like [W, GW, HWGW] without delays clamping to 0.
+  private killLaunched(pids: number[]): void {
+    for (const pid of pids) {
+      if (this.ns.isRunning(pid)) this.ns.kill(pid);
+    }
+  }
+
+  // Minimum value `nextScheduledFinish - Date.now()` must take for the first
+  // operation of `batch` to land with a non-negative delay.
   private firstFinishTimeFor(batch: BatchFrame): number {
     switch (batch.purpose) {
       case "W":
@@ -234,212 +504,13 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
     }
   }
 
-  // Responsible for actually executing the batches and returning the
-  // TaskLease objects we'll wait on
-  private scheduleBatches(batches: BatchLease[], targetHostname: string): BatchSchedule {
-    let taskLeases: TaskLease[] = [];
+  // ---------------------------------------------------------------------
+  // Batch planning (same math as cohort code, just driven from simServer)
+  // ---------------------------------------------------------------------
 
-    let lastFinishTime = 0;
-    let nextFinishTime = 0;
-
-    for (const batch of batches) {
-      // Ensure nextFinishTime is large enough for THIS batch's first operation.
-      // Without this, e.g. a [W, HWGW] sequence sized for W would try to land
-      // HWGW's hack before hackTime has elapsed, and Math.max(0, …) would clamp
-      // the delay to 0 — desyncing the schedule.
-      nextFinishTime = Math.max(nextFinishTime, this.firstFinishTimeFor(batch.batch));
-
-      switch (batch.batch.purpose) {
-        case "W":
-          {
-            const targetWeakFinishTime = nextFinishTime;
-
-            const weakDelay = Math.max(0, targetWeakFinishTime - batch.batch.weakTime1);
-
-            const pidWeak = this.runScript(
-              WEAKEN_SCRIPT,
-              batch.lease,
-              batch.batch.weakThreads1,
-              targetHostname,
-              weakDelay,
-            );
-
-            if (!pidWeak) {
-              this.log.error(`Catastrophic failure; unable to run weak script in batch.`, batch);
-              continue;
-            }
-
-            taskLeases.push({
-              lease: batch.lease,
-              pids: [pidWeak],
-            });
-
-            lastFinishTime = targetWeakFinishTime;
-            nextFinishTime += BATCH_FRAME_OFFSET_MS;
-          }
-          break;
-
-        case "GW":
-          {
-            const targetGrowFinishTime = nextFinishTime;
-            const targetWeakFinishTime = nextFinishTime + BATCH_FRAME_OFFSET_MS;
-
-            const growDelay = Math.max(0, targetGrowFinishTime - batch.batch.growTime);
-            const weakDelay = Math.max(0, targetWeakFinishTime - batch.batch.weakTime1);
-
-            // Track PIDs so partial failure can kill orphans rather than leak them.
-            // runScript already returns the lease on failure, so we only need to
-            // clean up the PIDs of scripts that did launch.
-            const launched: number[] = [];
-
-            const pidGrow = this.runScript(
-              GROW_SCRIPT,
-              batch.lease,
-              batch.batch.growThreads,
-              targetHostname,
-              growDelay,
-            );
-
-            if (!pidGrow) {
-              this.log.error(`Catastrophic failure; unable to run grow script in batch.`, batch);
-              continue;
-            }
-            launched.push(pidGrow);
-
-            const pidWeak = this.runScript(
-              WEAKEN_SCRIPT,
-              batch.lease,
-              batch.batch.weakThreads1,
-              targetHostname,
-              weakDelay,
-            );
-
-            if (!pidWeak) {
-              this.log.error(
-                `Catastrophic failure; unable to run weak script in batch. Killing already-launched PIDs.`,
-                batch,
-              );
-              launched.forEach((p) => this.ns.kill(p));
-              continue;
-            }
-            launched.push(pidWeak);
-
-            taskLeases.push({
-              lease: batch.lease,
-              pids: launched,
-            });
-
-            lastFinishTime = targetWeakFinishTime;
-            nextFinishTime += 2 * BATCH_FRAME_OFFSET_MS;
-          }
-          break;
-
-        case "HWGW":
-          {
-            const targetHackFinishTime = nextFinishTime;
-            const targetWeak1FinishTime = nextFinishTime + BATCH_FRAME_OFFSET_MS;
-            const targetGrowFinishTime = nextFinishTime + 2 * BATCH_FRAME_OFFSET_MS;
-            const targetWeak2FinishTime = nextFinishTime + 3 * BATCH_FRAME_OFFSET_MS;
-
-            const hackDelay = Math.max(0, targetHackFinishTime - batch.batch.hackTime);
-            const weak1Delay = Math.max(0, targetWeak1FinishTime - batch.batch.weakTime1);
-            const growDelay = Math.max(0, targetGrowFinishTime - batch.batch.growTime);
-            const weak2Delay = Math.max(0, targetWeak2FinishTime - batch.batch.weakTime2);
-
-            const launched: number[] = [];
-
-            const pidHack = this.runScript(
-              HACK_SCRIPT,
-              batch.lease,
-              batch.batch.hackThreads,
-              targetHostname,
-              hackDelay,
-            );
-
-            if (!pidHack) {
-              this.log.error(`Catastrophic failure; unable to run hack script in batch.`, batch);
-              continue;
-            }
-            launched.push(pidHack);
-
-            const pidWeak1 = this.runScript(
-              WEAKEN_SCRIPT,
-              batch.lease,
-              batch.batch.weakThreads1,
-              targetHostname,
-              weak1Delay,
-            );
-
-            if (!pidWeak1) {
-              this.log.error(
-                `Catastrophic failure; unable to run weak 1 script in batch. Killing already-launched PIDs.`,
-                batch,
-              );
-              launched.forEach((p) => this.ns.kill(p));
-              continue;
-            }
-            launched.push(pidWeak1);
-
-            const pidGrow = this.runScript(
-              GROW_SCRIPT,
-              batch.lease,
-              batch.batch.growThreads,
-              targetHostname,
-              growDelay,
-            );
-
-            if (!pidGrow) {
-              this.log.error(
-                `Catastrophic failure; unable to run grow script in batch. Killing already-launched PIDs.`,
-                batch,
-              );
-              launched.forEach((p) => this.ns.kill(p));
-              continue;
-            }
-            launched.push(pidGrow);
-
-            const pidWeak2 = this.runScript(
-              WEAKEN_SCRIPT,
-              batch.lease,
-              batch.batch.weakThreads2,
-              targetHostname,
-              weak2Delay,
-            );
-
-            if (!pidWeak2) {
-              this.log.error(
-                `Catastrophic failure; unable to run weak 2 script in batch. Killing already-launched PIDs.`,
-                batch,
-              );
-              launched.forEach((p) => this.ns.kill(p));
-              continue;
-            }
-            launched.push(pidWeak2);
-
-            taskLeases.push({
-              lease: batch.lease,
-              pids: launched,
-            });
-
-            lastFinishTime = targetWeak2FinishTime;
-            nextFinishTime += 4 * BATCH_FRAME_OFFSET_MS;
-          }
-          break;
-      }
-    }
-
-    return {
-      taskLeases: taskLeases,
-      estimatedTime: lastFinishTime,
-    };
-  }
-
-  // Find the largest batch frame we can fit given the maxRam
-  // and cores constraints. Note the maxRam is NOT the maxRam
-  // of the server, but rather the maxRam we are allowed to
-  // use for this batch frame. This is so that we can ensure
-  // we fit this frame into our allocator's lease system.
-  // Returns undefined if a complete frame cannot be placed
+  // Find the largest batch frame we can fit given the maxRam and cores
+  // constraints, and advance the pipeline's simServer for the next plan.
+  // Mutates `target` (the pipeline's simServer) and `player`.
   private findOptimalBatchFrame(
     hostMaxRam: number,
     hostCores: number,
@@ -458,133 +529,73 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
       hackTime: 0,
     } as BatchFrame;
 
-    // first, determine the purpose of this frame.
     if (target.hackDifficulty! > target.minDifficulty!) {
-      // server is not at min security, it needs to be weakened
       frame.purpose = "W";
     } else if (target.moneyAvailable! < target.moneyMax!) {
-      // server is not at max money, it needs to be grown
       frame.purpose = "GW";
     }
 
-    // how much does 1 thread of weak() reduce security
     const weakSecurityDecreasePerThread = this.ns.formulas.hacking.weakenEffect(1, hostCores);
 
-    // INVARIANT: each case below reads all formula values (durations, XP)
-    // against the pre-batch state of `target` and `player` BEFORE applying
-    // any state mutations. In real execution every script in a batch launches
-    // when the server is at min security and (for HWGW) max money — durations
-    // and XP are locked at launch, so the formula reads must happen against
-    // that pristine state. Mutations come at the end, to advance the simulated
-    // state for the *next* batch.
+    // INVARIANT: each case reads all formula values (durations, XP) against
+    // the pre-batch state of `target`/`player` BEFORE applying mutations.
+    // In real execution every script in a batch launches when the server is
+    // at min security and (for HWGW) max money — durations are locked at
+    // launch, so the formula reads happen against that pristine state.
     switch (frame.purpose) {
-      // The weaken phase aims to bring the server to minimum security level. Once it reaches that state, all remaining
-      // frames must preserve this at the end of their run. If a frame that sufficiently weakens the server back to minimum
-      // phase cannot be created, then no frame can be created and we should return undefined.
-      // In this phase, only frame.weak1 is applied.
-      case "W":
-        {
-          // how many threads of weak() are needed to bring security to min
-          frame.weakThreads1 = Math.ceil(
-            (target.hackDifficulty! - target.minDifficulty!) / weakSecurityDecreasePerThread,
-          );
-          const weakRamNeeded = frame.weakThreads1 * this.weakRam;
-
-          if (weakRamNeeded > hostMaxRam) {
-            // too bad, do our best
-            frame.weakThreads1 = Math.floor(hostMaxRam / this.weakRam);
-          }
-
-          // seems basically impossible, but just to be safe
-          if (frame.weakThreads1 === 0) return undefined;
-
-          // Read time against pristine target.
-          frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
-
-          // Mutations for the next batch's simulated state: apply player XP,
-          // then drop server security toward min.
-          applyHackingExp(this.ns, target, player, frame.weakThreads1);
-          applyWeak(this.ns, target, frame.weakThreads1, hostCores);
+      case "W": {
+        frame.weakThreads1 = Math.ceil(
+          (target.hackDifficulty! - target.minDifficulty!) / weakSecurityDecreasePerThread,
+        );
+        const weakRamNeeded = frame.weakThreads1 * this.weakRam;
+        if (weakRamNeeded > hostMaxRam) {
+          frame.weakThreads1 = Math.floor(hostMaxRam / this.weakRam);
         }
+        if (frame.weakThreads1 === 0) return undefined;
+        frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
+        applyHackingExp(this.ns, target, player, frame.weakThreads1);
+        applyWeak(this.ns, target, frame.weakThreads1, hostCores);
         break;
-
-      // This phase is all about bringing the server to max money while maintaining its minimum security level.
-      // In this phase, frame.grow is applied, followed by frame.weak1.
-      case "GW":
-        {
-          const split = tryFindGrowWeakSplit(this.ns, hostMaxRam, hostCores, player, target);
-          if (!split) return undefined;
-
-          frame.growThreads = split.growThreads;
-          frame.weakThreads1 = split.weakThreads;
-
-          // Read both durations against the pristine target — both grow and
-          // weak1 launch when security is at min, so locking in their times
-          // here matches the real-world launch state.
-          frame.growTime = this.ns.formulas.hacking.growTime(target, player);
-          frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
-
-          // Mutations: apply XP from both ops, then advance money via grow.
-          // weak1 is sized to undo grow's security increase, so the server
-          // ends back at min security.
-          applyHackingExp(this.ns, target, player, frame.growThreads);
-          applyHackingExp(this.ns, target, player, frame.weakThreads1);
-          applyGrow(this.ns, target, player, frame.growThreads, hostCores, true);
-          // ASSUMPTION: server is back in min security state (no applyWeak)
-          target.hackDifficulty = target.minDifficulty;
-        }
+      }
+      case "GW": {
+        const split = tryFindGrowWeakSplit(this.ns, hostMaxRam, hostCores, player, target);
+        if (!split) return undefined;
+        frame.growThreads = split.growThreads;
+        frame.weakThreads1 = split.weakThreads;
+        frame.growTime = this.ns.formulas.hacking.growTime(target, player);
+        frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
+        applyHackingExp(this.ns, target, player, frame.growThreads);
+        applyHackingExp(this.ns, target, player, frame.weakThreads1);
+        applyGrow(this.ns, target, player, frame.growThreads, hostCores, true);
+        // weak1 is sized to undo grow's security increase; assume back at min.
+        target.hackDifficulty = target.minDifficulty;
         break;
-
-      // Get rich. In this phase, frame.hack, frame.weak1, frame.grow, and
-      // frame.weak2 all run as a single batch and the server is expected to
-      // end at the same state it started (min security, max money).
-      case "HWGW":
-        {
-          const split = tryFindHackWeakGrowWeakSplit(
-            this.ns,
-            hostMaxRam,
-            hostCores,
-            player,
-            target,
-          );
-          if (!split) return undefined;
-
-          frame.hackThreads = split.hackThreads;
-          frame.weakThreads1 = split.weak1Threads;
-          frame.growThreads = split.growThreads;
-          frame.weakThreads2 = split.weak2Threads;
-
-          // ASSUMPTION: changing the server's moneyAvailable does NOT impact
-          // grow time. The docs indicate this, but calling it out so anyone
-          // reading is aware.
-          // All four ops launch when the server is at min security and max
-          // money; their durations are locked at launch, so read them against
-          // the pristine target before any mutations.
-          frame.hackTime = this.ns.formulas.hacking.hackTime(target, player);
-          frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
-          frame.growTime = this.ns.formulas.hacking.growTime(target, player);
-          frame.weakTime2 = this.ns.formulas.hacking.weakenTime(target, player);
-
-          // Mutations: apply all four XP gains. We skip the intermediate
-          // applyHack/applyGrow security mutations because the batch is
-          // self-balancing — weak1 undoes hack's bump, weak2 undoes grow's
-          // bump, grow restores money. The next batch sees pristine state.
-          applyHackingExp(this.ns, target, player, frame.hackThreads);
-          applyHackingExp(this.ns, target, player, frame.weakThreads1);
-          applyHackingExp(this.ns, target, player, frame.growThreads);
-          applyHackingExp(this.ns, target, player, frame.weakThreads2);
-
-          // ASSUMPTION: server is back to max money and min security
-          target.hackDifficulty = target.minDifficulty;
-          target.moneyAvailable = target.moneyMax;
-        }
+      }
+      case "HWGW": {
+        const split = tryFindHackWeakGrowWeakSplit(this.ns, hostMaxRam, hostCores, player, target);
+        if (!split) return undefined;
+        frame.hackThreads = split.hackThreads;
+        frame.weakThreads1 = split.weak1Threads;
+        frame.growThreads = split.growThreads;
+        frame.weakThreads2 = split.weak2Threads;
+        frame.hackTime = this.ns.formulas.hacking.hackTime(target, player);
+        frame.weakTime1 = this.ns.formulas.hacking.weakenTime(target, player);
+        frame.growTime = this.ns.formulas.hacking.growTime(target, player);
+        frame.weakTime2 = this.ns.formulas.hacking.weakenTime(target, player);
+        applyHackingExp(this.ns, target, player, frame.hackThreads);
+        applyHackingExp(this.ns, target, player, frame.weakThreads1);
+        applyHackingExp(this.ns, target, player, frame.growThreads);
+        applyHackingExp(this.ns, target, player, frame.weakThreads2);
+        // HWGW is self-balancing — assume back at min/max for next plan.
+        target.hackDifficulty = target.minDifficulty;
+        target.moneyAvailable = target.moneyMax;
         break;
+      }
     }
 
     return frame;
   }
 
-  // Returns how much ram the batch frame actually uses
   private calculateBatchFrameRam(batch: BatchFrame): number {
     let usedRam = this.weakRam * batch.weakThreads1;
     if (batch.growThreads) usedRam += batch.growThreads * this.growRam;
@@ -592,6 +603,63 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
     if (batch.weakThreads2) usedRam += batch.weakThreads2 * this.weakRam;
     return usedRam;
   }
+
+  // ---------------------------------------------------------------------
+  // Pipeline depth + snapshot
+  // ---------------------------------------------------------------------
+
+  private pipelineMaxDepth(pipeline: Pipeline, player: Player): number {
+    // Depth is bounded by weakTime / BATCH_FRAME_OFFSET_MS — a pipeline with
+    // weakTime=4000ms can hold ~80 batches before they'd start overlapping.
+    // We use the simServer (at min/max) so depth reflects steady-state, not
+    // any in-progress prep state.
+    const optimal = cloneServer(pipeline.simServer);
+    optimal.hackDifficulty = optimal.minDifficulty;
+    optimal.moneyAvailable = optimal.moneyMax;
+    const weakTime = this.ns.formulas.hacking.weakenTime(optimal, player);
+    return Math.max(1, Math.min(MAX_PIPELINE_DEPTH, Math.floor(weakTime / BATCH_FRAME_OFFSET_MS)));
+  }
+
+  private snapshotPipeline(pipeline: Pipeline, player: Player): PipelineSnapshot {
+    const observed = this.ns.getServer(pipeline.target) as Server;
+    const soonest = pipeline.inFlight.length
+      ? pipeline.inFlight.reduce(
+          (min, b) => (b.finishEpoch < min ? b.finishEpoch : min),
+          pipeline.inFlight[0].finishEpoch,
+        )
+      : 0;
+    return {
+      target: pipeline.target,
+      inFlightCount: pipeline.inFlight.length,
+      maxDepth: this.pipelineMaxDepth(pipeline, player),
+      recentBatches: [...pipeline.recentBatches],
+      targetCurrentSecurity: observed.hackDifficulty ?? 0,
+      targetMinSecurity: observed.minDifficulty ?? 0,
+      targetCurrentMoney: observed.moneyAvailable ?? 0,
+      targetMaxMoney: observed.moneyMax ?? 0,
+      soonestFinishEpoch: soonest,
+      healing: pipeline.healing,
+    };
+  }
+
+  private computeSleepMs(): number {
+    let soonest = Infinity;
+    const now = Date.now();
+    for (const pipeline of this.pipelines) {
+      for (const batch of pipeline.inFlight) {
+        if (batch.finishEpoch < soonest) soonest = batch.finishEpoch;
+      }
+    }
+    if (soonest === Infinity) return MAX_POLL_MS;
+    const target = soonest - now;
+    if (target < MIN_POLL_MS) return MIN_POLL_MS;
+    if (target > MAX_POLL_MS) return MAX_POLL_MS;
+    return target;
+  }
+}
+
+function cloneServer(s: Server): Server {
+  return { ...s };
 }
 
 export async function main(ns: NS): Promise<void> {

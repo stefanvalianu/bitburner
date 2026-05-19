@@ -17,5 +17,5 @@
       "@ns": ["./NetscriptDefinitions.d.ts"]
     }
   },
-  "include": ["scripts/**/*", "tools/**/*", "NetscriptDefinitions.d.ts"]
+  "include": ["src/**/*", "tools/**/*", "NetscriptDefinitions.d.ts"]
 }

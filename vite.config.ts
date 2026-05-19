@@ -4,16 +4,16 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { writeFileSync } from "node:fs";
 
-// One Vite entry per source file so the dist/ tree mirrors scripts/.
+// One Vite entry per source file so the dist/ tree mirrors src/.
 // Bitburner's RAM accounting walks `import` chains across files, so we
 // deliberately do NOT collapse multiple files into a single bundle —
 // that would shift RAM costs in non-obvious ways.
 const root = fileURLToPath(new URL(".", import.meta.url));
 const entries = Object.fromEntries(
   glob
-    .sync("scripts/**/*.{ts,tsx,js,jsx}")
+    .sync("src/**/*.{ts,tsx,js,jsx}")
     .map((file) => [
-      file.slice("scripts/".length).replace(/\.(ts|tsx|js|jsx)$/, ""),
+      file.slice("src/".length).replace(/\.(ts|tsx|js|jsx)$/, ""),
       resolve(root, file),
     ]),
 );
@@ -53,7 +53,7 @@ export default defineConfig({
     target: "es2022",
     minify: false,
     sourcemap: false,
-    // Each scripts/ file is a Bitburner script — its `export async function main`
+    // Each src/ file is a Bitburner script — its `export async function main`
     // is invoked by the game, not by another module. Without this, Rollup
     // tree-shakes the export away and emits an empty file.
     rollupOptions: {

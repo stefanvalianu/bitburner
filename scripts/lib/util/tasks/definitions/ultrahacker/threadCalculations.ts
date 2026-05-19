@@ -103,20 +103,6 @@ export function tryFindHackWeakGrowWeakSplit(
   // - split needs to guarantee that after the operations, server will remain at min security and max money
 
   const hackPercentagePerThread = ns.formulas.hacking.hackPercent(originalTarget, originalPlayer);
-  // this is an estimate because in reality, by the time we grow() the player will have gained some XP and would be better
-  const estimatedGrowPercentagePerThread = ns.formulas.hacking.growPercent(
-    originalTarget,
-    1,
-    originalPlayer,
-    cores,
-  );
-
-  // Both quantities must be expressed in the same units before we compare or
-  // divide: hackPercent is a fraction removed per thread (e.g. 0.05 = 5%
-  // stolen), while growPercent is a multiplier per thread (e.g. 1.005 = +0.5%
-  // added). Subtracting 1 from the multiplier yields the comparable "fraction
-  // added per thread".
-  const growFractionPerThread = estimatedGrowPercentagePerThread - 1;
 
   // Cap initial hackThreads so a single batch never drains the server below
   // HACK_MINIMUM_MONEY_PCT of max. Hack effectiveness scales with player skill
@@ -131,35 +117,11 @@ export function tryFindHackWeakGrowWeakSplit(
     Math.floor((1 - HACK_MINIMUM_MONEY_PCT) / hackPercentagePerThread),
   );
 
-  // HYPOTHESIS: the optimal amount to threads to use for hacking a server is either:
-  // - 1 thread, if it would take multiple grow threads to recover the money
-  // - however many threads it takes to bring the server to a money level that can be recovered in 1 grow
-  let proposal: HackWeakGrowWeakSplit = {
-    hackThreads: 0,
-    weak1Threads: 0,
-    growThreads: 0,
-    weak2Threads: 0,
-  };
-
-  if (hackPercentagePerThread > growFractionPerThread) {
-    // 1 hack will require multiple grows to repair
-    // let's simulate it on a server
-    proposal = simulateHWGW(ns, 1, cores, originalTarget, originalPlayer);
-  } else {
-    // 1 grow can recover the amount of money drained by many hacks
-    // since we can't easily predict the state of the grow AFTER the
-    // xp gains from hack and weaken, let's try for a safe assumption
-    // that grow will only get better, so whatever we can compute for
-    // current grow is valid.
-    const seed = Math.max(1, Math.floor(growFractionPerThread / hackPercentagePerThread));
-    proposal = simulateHWGW(
-      ns,
-      Math.min(seed, maxHackThreadsForSafety),
-      cores,
-      originalTarget,
-      originalPlayer,
-    );
-  }
+  // Always seed at the safety cap: it is the throughput target. The RAM-fit
+  // loop below trims downward when a host can't fit the batch; there is no
+  // upside to seeding smaller, since the seed is also the ceiling (the loop
+  // only decrements).
+  let proposal = simulateHWGW(ns, maxHackThreadsForSafety, cores, originalTarget, originalPlayer);
 
   // TODO - switch this to binary search for finding optimal slot
   while (proposal.hackThreads >= 1) {

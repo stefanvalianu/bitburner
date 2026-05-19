@@ -1,4 +1,4 @@
-import { GangGenInfo, GangMemberInfo, GangTaskStats, NS } from "@ns";
+import { GangGenInfo, GangTaskStats, NS } from "@ns";
 import { GangMember, MemberRank } from "./info";
 
 const MAX_GANG_MEMBERS = 12;
@@ -60,9 +60,14 @@ export function assignOptimalGangTasks(ns: NS, members: Record<string, GangMembe
   for (const member of latestMembers) {
     const bestProductive = pickBestProductiveTask(ns, gangInfo, member, productiveTasks, stage);
 
+    // if we're in the recruiting stage, only terrorism-doers are relevant
+    // if we're past recruiting, bring members to r3
+    // in the money stage, bring members to r4
     const shouldTrain =
-      member.rank === 1 &&
-      (!bestProductive || (bestProductive.respect <= 0 && bestProductive.money <= 0));
+      !bestProductive ||
+      (bestProductive.respect <= 0 && bestProductive.money <= 0) ||
+      (stage === "recruiting" && bestProductive.task.name !== "Terrorism") ||
+      (stage === "growing" && member.rank < 3);
 
     if (shouldTrain) {
       assignments.push({

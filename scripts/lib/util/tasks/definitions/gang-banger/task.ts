@@ -24,7 +24,7 @@ const ASC_MULTS: Record<MemberRank, number> = {
   1: 1.6,
   2: 1.26,
   3: 1.15,
-  4: 1.5,
+  4: 2,
 };
 
 // Slum Snakes rule!
@@ -98,27 +98,32 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
         gang: this.ns.gang.getGangInformation(),
       });
 
-      // track stuff for managing territory warfare.
-      // for the most part, this part is responsible for
-      // blocking until the next tick and continuing like
-      // normal, or if we're in a war window, ensuring that
-      // we set members to territory warfare, waiting for
-      // the war tick, then setting them back to their
-      // previous tasks. NOTE this is also responsible for
-      // enabling clashes when the chance to win is high
-      // enough
-      const warCycleUpdate = await continueOrFightWar(
-        this.ns,
-        lastProcessedCycles,
-        cyclesSinceTerritoryPowerUpdate,
-        inWarWindow,
-        preWarTasks,
-        this.snapshot?.preferences?.gangClashWinThreshold,
-      );
-      lastProcessedCycles = warCycleUpdate.lastProcessedCycles;
-      cyclesSinceTerritoryPowerUpdate = warCycleUpdate.cyclesSinceTerritoryPowerUpdate;
-      inWarWindow = warCycleUpdate.inWarWindow;
-      preWarTasks = warCycleUpdate.preWarTasks;
+      if (this.ns.gang.getGangInformation().territory === 1) {
+        // we own all the land, peace on earth
+        await this.ns.asleep(10_000);
+      } else {
+        // track stuff for managing territory warfare.
+        // for the most part, this part is responsible for
+        // blocking until the next tick and continuing like
+        // normal, or if we're in a war window, ensuring that
+        // we set members to territory warfare, waiting for
+        // the war tick, then setting them back to their
+        // previous tasks. NOTE this is also responsible for
+        // enabling clashes when the chance to win is high
+        // enough
+        const warCycleUpdate = await continueOrFightWar(
+          this.ns,
+          lastProcessedCycles,
+          cyclesSinceTerritoryPowerUpdate,
+          inWarWindow,
+          preWarTasks,
+          this.snapshot?.preferences?.gangClashWinThreshold,
+        );
+        lastProcessedCycles = warCycleUpdate.lastProcessedCycles;
+        cyclesSinceTerritoryPowerUpdate = warCycleUpdate.cyclesSinceTerritoryPowerUpdate;
+        inWarWindow = warCycleUpdate.inWarWindow;
+        preWarTasks = warCycleUpdate.preWarTasks;
+      }
     }
   }
 
@@ -159,8 +164,8 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
         m.info.upgrades.length < this.normalEquipmentNames.length,
     );
 
-    // loop through IV, III, II, I and try purchasing stuff
-    for (let i = 4; i > 0; i--) {
+    // loop through IV, III, II and try purchasing stuff
+    for (let i = 4; i > 1; i--) {
       for (const member of membersWithoutAllEquipment) {
         if (i !== member.rank) continue;
 
@@ -229,7 +234,7 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
 
   private getMemberAscensionMultiplier(member: GangMemberInfo): number {
     return Math.min(
-      member.agi_asc_mult,
+      //member.agi_asc_mult, // we omit agility because it seems to always be significantly lower than the other asc multipliers, greatly slowing down asc timings
       member.def_asc_mult,
       member.dex_asc_mult,
       member.str_asc_mult,
@@ -241,7 +246,8 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
 
     if (!multGains) return 1;
 
-    return Math.min(multGains.str, multGains.def, multGains.dex, multGains.agi);
+    // we omit agility because it seems to always be significantly lower than the other asc multipliers, greatly slowing down asc timings
+    return Math.min(multGains.str, multGains.def, multGains.dex);
   }
 }
 

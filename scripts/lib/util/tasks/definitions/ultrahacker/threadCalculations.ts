@@ -1,6 +1,37 @@
 import { NS, Player, Server } from "@ns";
 import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "../../../script/constants";
-import { applyGrow, applyHack, applyHackingExp, applyWeak } from "./simulationHelpers";
+import { applyGrow, applyHack, applyWeak } from "./simulationHelpers";
+
+// ideally, do not allow a single hack to take a machine lower than
+// this % of its max money. This will not always be possible (super
+// high levels, etc) but this is aspirationally the ideal amount.
+// the absolute MINIMUM number of hack threads has to be 1, and it
+// might be possible that 1 thread goes below this percentage.
+//
+// 25% steal (HACK_MINIMUM_MONEY_PCT = 0.75) leaves ~13 points of head-room
+// before the 0.85 drain threshold trips, giving the per-batch level-drift
+// error (real hack scales with player.skills.hacking, real grow does not —
+// see findOptimalBatchFrame in task.ts) enough margin to absorb without
+// compounding into a runaway drain. Throughput at endgame is RAM-bound
+// (we run more in-flight HWGW frames), so the per-batch steal drop nets to
+// approximately unchanged $/s.
+export const HACK_MINIMUM_MONEY_PCT = 0.75;
+
+// Multiplier applied to every computed grow-thread count. Two overlapping
+// reasons for safety padding here:
+//   1. `formulas.hacking.growThreads` can under-predict by 1–3% due to the
+//      "+1/thread linear component" quirk (GitHub bitburner #2678 — the
+//      formula returns a multiplier, not a percentage, and treats the
+//      additive term inconsistently with the multiplicative term).
+//   2. Player skill at op-fire time is higher than at sizing time (XP from
+//      prior batches' completions accumulates in-pipeline). Although the
+//      pipeline-level prediction in task.ts compensates for this on the
+//      hack side, residual drift from outside participation (other tasks
+//      hacking the same target) or jittery XP rates can still under-grow.
+// Over-growing is safe: applyGrow clamps at moneyMax. The weak2 thread
+// count is recomputed against the inflated growThreads so security still
+// returns exactly to min.
+export const GROW_THREAD_SAFETY = 1.05;
 
 export interface GrowWeakSplit {
   growThreads: number;
@@ -32,11 +63,20 @@ export function tryFindGrowWeakSplit(
   // - split needs to guarantee that after the operations, server will remain at min security
   if (growRam + weakRam > maxRam) return undefined;
 
-  const maxGrowThreadsNeeded = ns.formulas.hacking.growThreads(
-    originalTarget,
-    originalPlayer,
-    originalTarget.moneyMax!,
-    cores,
+  // Ceil grow-thread counts so the integer thread count we hand to ns.exec
+  // never falls short of the simulated effect. The formula returns a float;
+  // truncating (or treating it as float and letting ns.exec round it down)
+  // systematically under-grows by a fraction of a thread per batch, which
+  // compounds across a long cascade until the server drifts toward $0. The
+  // GROW_THREAD_SAFETY pad adds a small uniform margin on top of that — see
+  // the constant's comment for the two underlying reasons.
+  const maxGrowThreadsNeeded = Math.ceil(
+    ns.formulas.hacking.growThreads(
+      originalTarget,
+      originalPlayer,
+      originalTarget.moneyMax!,
+      cores,
+    ) * GROW_THREAD_SAFETY,
   );
   const weakSecurityChangePerThread = ns.formulas.hacking.weakenEffect(1, cores);
 
@@ -79,12 +119,19 @@ export function tryFindGrowWeakSplit(
 // Attempts to find a HWGW split of threads given the constraints. Does
 // NOT modify the original player/server objects.
 // Returns undefined on failure.
+//
+// `hackMinimumMoneyPct` is the minimum fraction of `moneyMax` the batch
+// must preserve — i.e. hack threads are sized to steal at most
+// `(1 - hackMinimumMoneyPct)` of max. Exposed as a parameter (rather than
+// reading the module constant directly) so the dashboard preference can
+// override it at runtime.
 export function tryFindHackWeakGrowWeakSplit(
   ns: NS,
   maxRam: number,
   cores: number,
   originalPlayer: Player,
   originalTarget: Server,
+  hackMinimumMoneyPct: number,
 ): HackWeakGrowWeakSplit | undefined {
   const growRam = ns.getScriptRam(GROW_SCRIPT);
   const weakRam = ns.getScriptRam(WEAKEN_SCRIPT);
@@ -96,42 +143,25 @@ export function tryFindHackWeakGrowWeakSplit(
   // - split needs to guarantee that after the operations, server will remain at min security and max money
 
   const hackPercentagePerThread = ns.formulas.hacking.hackPercent(originalTarget, originalPlayer);
-  // this is an estimate because in reality, by the time we grow() the player will have gained some XP and would be better
-  const estimatedGrowPercentagePerThread = ns.formulas.hacking.growPercent(
-    originalTarget,
+
+  // Cap initial hackThreads so a single batch never drains the server below
+  // HACK_MINIMUM_MONEY_PCT of max. Hack effectiveness scales with player skill
+  // at op-finish time, but grow effectiveness depends only on static
+  // augmentation mults — so a batch sized close to 100% drain is fragile: any
+  // upward XP drift makes real hack over-steal while real grow recovers no
+  // extra, and the error compounds across batches until money pins at 0.
+  // Keeping a buffer (default ~34% drain) bounds per-batch error to a level
+  // the GW recovery frame can absorb.
+  const maxHackThreadsForSafety = Math.max(
     1,
-    originalPlayer,
-    cores,
+    Math.floor((1 - hackMinimumMoneyPct) / hackPercentagePerThread),
   );
 
-  // HYPOTHESIS: the optimal amount to threads to use for hacking a server is either:
-  // - 1 thread, if it would take multiple grow threads to recover the money
-  // - however many threads it takes to bring the server to a money level that can be recovered in 1 grow
-  let proposal: HackWeakGrowWeakSplit = {
-    hackThreads: 0,
-    weak1Threads: 0,
-    growThreads: 0,
-    weak2Threads: 0,
-  };
-
-  if (hackPercentagePerThread > estimatedGrowPercentagePerThread) {
-    // 1 hack will require multiple grows to repair
-    // let's simulate it on a server
-    proposal = simulateHWGW(ns, 1, cores, originalTarget, originalPlayer);
-  } else {
-    // 1 grow can recover the amount of money drained by many hacks
-    // since we can't easily predict the state of the grow AFTER the
-    // xp gains from hack and weaken, let's try for a safe assumption
-    // that grow will only get better, so whatever we can compute for
-    // current grow is valid.
-    proposal = simulateHWGW(
-      ns,
-      Math.max(1, Math.floor(estimatedGrowPercentagePerThread / hackPercentagePerThread)),
-      cores,
-      originalTarget,
-      originalPlayer,
-    );
-  }
+  // Always seed at the safety cap: it is the throughput target. The RAM-fit
+  // loop below trims downward when a host can't fit the batch; there is no
+  // upside to seeding smaller, since the seed is also the ceiling (the loop
+  // only decrements).
+  let proposal = simulateHWGW(ns, maxHackThreadsForSafety, cores, originalTarget, originalPlayer);
 
   // TODO - switch this to binary search for finding optimal slot
   while (proposal.hackThreads >= 1) {
@@ -180,21 +210,37 @@ function simulateHWGW(
 
   const weakSecurityChangePerThread = ns.formulas.hacking.weakenEffect(1, cores);
 
+  // NOTE on player mutation:
+  //   Earlier revisions of this function called `applyHackingExp(ns, target,
+  //   player, threads)` between each op, intending to predict the player's
+  //   skill at successive op-fire times. That prediction was dead code: of
+  //   the four formula calls used below, NONE depend on `player.skills.hacking`
+  //   — `weakenEffect` takes only (threads, cores); `growThreads` is gated by
+  //   `player.mults.hacking_grow` (a static augmentation multiplier, not the
+  //   skill); `growthAnalyzeSecurity` takes no player at all.
+  //   Future-player prediction happens at the pipeline level instead — the
+  //   `originalPlayer` passed in here has already been projected forward to
+  //   hack-fire time by `scheduleAsMuchAsPossible` so that `hackPercent` (and
+  //   therefore `tryFindHackWeakGrowWeakSplit`'s maxHackThreadsForSafety
+  //   calculation that gates the recursion into this function) is sized
+  //   against the level the player WILL have when hack actually fires.
+
   // simulate the hack — reduces moneyAvailable and bumps hackDifficulty
   applyHack(ns, target, player, hackThreads);
-  applyHackingExp(ns, target, player, hackThreads);
 
   // simulate the weak1
   const weak1Threads = Math.ceil(
     (target.hackDifficulty! - target.minDifficulty!) / weakSecurityChangePerThread,
   );
   applyWeak(ns, target, weak1Threads, cores);
-  applyHackingExp(ns, target, player, weak1Threads);
 
-  // simulate the grow
-  const growThreads = ns.formulas.hacking.growThreads(target, player, target.moneyMax!, cores);
+  // simulate the grow. Ceil + GROW_THREAD_SAFETY pad — see the constant's
+  // comment for the rationale (float under-grow + formula quirk + residual
+  // level drift).
+  const growThreads = Math.ceil(
+    ns.formulas.hacking.growThreads(target, player, target.moneyMax!, cores) * GROW_THREAD_SAFETY,
+  );
   applyGrow(ns, target, player, growThreads, cores, true);
-  applyHackingExp(ns, target, player, growThreads);
 
   // and now the last weak2. Pass undefined for host so the analyze function
   // doesn't cap based on the real server's current money — at simulation time
@@ -203,7 +249,6 @@ function simulateHWGW(
   const weak2Threads = Math.ceil(
     ns.growthAnalyzeSecurity(growThreads, undefined, cores) / weakSecurityChangePerThread,
   );
-  applyHackingExp(ns, target, player, weak2Threads);
 
   // state doesn't matter anymore, this is what we need (target/player is a cloned object)
   return {
@@ -216,7 +261,7 @@ function simulateHWGW(
 
 // Spread-copy so applyHackingExp's mutations don't leak back to the caller.
 // `skills` and `exp` are mutated, so they need their own shallow copies too.
-function clonePlayer(originalPlayer: Player): Player {
+export function clonePlayer(originalPlayer: Player): Player {
   return {
     ...originalPlayer,
     skills: { ...originalPlayer.skills },
@@ -224,6 +269,6 @@ function clonePlayer(originalPlayer: Player): Player {
   };
 }
 
-function cloneServer(originalServer: Server): Server {
+export function cloneServer(originalServer: Server): Server {
   return { ...originalServer };
 }

@@ -35,12 +35,21 @@ export function analyzeOptions(ns: NS, player: Player, allServers: ServerInfo[])
   return options;
 }
 
+// Mirrors HACK_MINIMUM_MONEY_PCT in task.ts. Duplicated here to avoid an
+// analyzeOptions → task → analyzeOptions import cycle.
+const HACK_MINIMUM_MONEY_PCT = 0.66;
+
 function profitCalculation(ns: NS, server: Server, player: Player): number {
   const time = approximateBatchTime(ns, server, player);
   const chance = ns.formulas.hacking.hackChance(server, player);
-  const money = ns.formulas.hacking.hackPercent(server, player) * server.moneyMax!;
+  // tryFindHackWeakGrowWeakSplit sizes hack threads so each batch steals
+  // approximately (1 - HACK_MINIMUM_MONEY_PCT) of moneyMax regardless of the
+  // per-thread hackPercent. Using hackPercent here would under-rate targets
+  // where per-thread hackPercent is low — we just use more hack threads to
+  // hit the same fraction of moneyMax.
+  const moneyPerBatch = (1 - HACK_MINIMUM_MONEY_PCT) * server.moneyMax!;
 
-  return chance * (money / time) * 1000;
+  return chance * (moneyPerBatch / time) * 1000;
 }
 
 // XP per second (per-thread) for one continuous HWGW batch. Each of the four

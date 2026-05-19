@@ -17,6 +17,11 @@ import { getPortData, HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 // number of milliseconds between scheduled operation landings within a batch
 const BATCH_FRAME_OFFSET_MS = 50;
 
+// HWGW advances `nextScheduledFinish` by this many ms per batch — the spacing
+// between consecutive batch landings in steady state. Used as the depth divisor
+// for pipelines (depth = floor(weakTime / HWGW_BATCH_INTERVAL_MS)).
+const HWGW_BATCH_INTERVAL_MS = 4 * BATCH_FRAME_OFFSET_MS;
+
 // ideally, do not allow a single hack to take a machine lower than
 // this % of its max money. This will not always be possible (super
 // high levels, etc) but this is aspirationally the ideal amount.
@@ -100,9 +105,9 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
         return;
       }
 
-      // 1. Consume any user pin/unpin request. We don't kill existing pipelines —
-      //    pinning just promotes a target. The keep-set step will close anything
-      //    that no longer qualifies, draining naturally.
+      // 1. Consume any user pin/unpin request. A new pin marks every other
+      //    pipeline as closing (drain, no kill); pin-clear hands control back
+      //    to auto-ranking without closing anything.
       this.handleUserRequest();
 
       // 2. Reap completed batches across all pipelines.
@@ -118,6 +123,17 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
       // 4. Refresh target rankings.
       const player = this.ns.getPlayer();
       const ranked = analyzeOptions(this.ns, player, this.snapshot.allServers);
+
+      // 4a. Validate the user pin against the ranked set. analyzeOptions
+      // already filters for admin / non-purchased / moneyMax > 0, so anything
+      // not present is unhackable. Log and clear rather than loop on a target
+      // we can never open a pipeline for.
+      if (this.userTarget && !ranked.some((r) => r.hostname === this.userTarget)) {
+        this.log.warn(
+          `[ultrahacker] pinned target ${this.userTarget} is not in ranked options; clearing pin`,
+        );
+        this.userTarget = undefined;
+      }
 
       // 5. Reconcile open pipelines with the keep-set (user pin + top-N ranked).
       this.reconcilePipelines(ranked);
@@ -161,7 +177,18 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
       true,
     );
     if (!req) return;
-    this.userTarget = req.targetServer;
+    const newTarget = req.targetServer;
+
+    // A new pin (a defined target distinct from the prior pin) means
+    // "concentrate on this one" — drain every other pipeline. Pin-clear
+    // (undefined) returns control to auto-ranking and must NOT close
+    // anything.
+    if (newTarget !== undefined && newTarget !== this.userTarget) {
+      for (const p of this.pipelines) {
+        if (p.target !== newTarget) p.closing = true;
+      }
+    }
+    this.userTarget = newTarget;
   }
 
   // The keep-set is: userTarget (if any) + top-N ranked. Anything else gets
@@ -193,6 +220,12 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
     });
   }
 
+  // INVARIANT: must run AFTER step 6 (fill existing pipelines to maxDepth).
+  // We open a new pipeline whenever allocator.peekTopHost() still returns
+  // something, and rely on step 6 having already drained that RAM into every
+  // existing pipeline that wanted it. Reorder this loop or add an early-exit
+  // upstream and you'll silently start opening secondaries against
+  // non-saturated primaries.
   private openAdditionalPipelinesIfRoom(ranked: ReturnType<typeof analyzeOptions>): void {
     const open = new Set(this.pipelines.map((p) => p.target));
 
@@ -272,6 +305,7 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
       const fresh = this.ns.getServer(pipeline.target) as Server;
       pipeline.simServer = cloneServer(fresh);
       pipeline.nextScheduledFinish = 0;
+      pipeline.recentBatches = [];
       pipeline.healing = false;
       this.log.info(`[ultrahacker] rebased ${pipeline.target} after drift heal`);
       return;
@@ -280,14 +314,19 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
     // Don't drift-check while already healing or closing.
     if (pipeline.healing || pipeline.closing) return;
 
-    // Only check after an HWGW batch landed — at that instant the real server
-    // should be back at min security / max money, and divergence is meaningful.
+    // Only check after an HWGW batch landed — at that instant simServer
+    // should match the real server, and any gap is meaningful drift.
     if (!pipeline.hwgwLandedThisReap) return;
 
+    // Compare to simServer (not min/max) so we also catch external
+    // interference: a manual terminal hack/grow, another script touching
+    // the target, etc. In steady-state HWGW simServer == min/max so this is
+    // a strict generalization of the min/max check.
     const real = this.ns.getServer(pipeline.target) as Server;
-    const dSec = (real.hackDifficulty ?? 0) - (real.minDifficulty ?? 0);
+    const dSec = Math.abs((real.hackDifficulty ?? 0) - (pipeline.simServer.hackDifficulty ?? 0));
     const dMoneyFraction =
-      ((real.moneyMax ?? 0) - (real.moneyAvailable ?? 0)) / Math.max(1, real.moneyMax ?? 1);
+      Math.abs((real.moneyAvailable ?? 0) - (pipeline.simServer.moneyAvailable ?? 0)) /
+      Math.max(1, real.moneyMax ?? 1);
 
     if (dSec > DRIFT_SEC_TOLERANCE || dMoneyFraction > DRIFT_MONEY_FRACTION_TOLERANCE) {
       pipeline.healing = true;
@@ -327,8 +366,15 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
     const top = this.allocator.peekTopHost();
     if (!top) return false;
 
+    // Plan against a clone so a mid-batch schedule failure (e.g. lease retry,
+    // runScript failure) doesn't leave pipeline.simServer mutated past reality.
+    // For W (security lowered) and GW (money raised) the mutation is
+    // load-bearing; HWGW happens to be idempotent (it always normalizes to
+    // min/max at the end), but committing only on full success keeps the
+    // invariant uniform.
     const player = this.ns.getPlayer();
-    const frame = this.findOptimalBatchFrame(top.ram, top.cores, pipeline.simServer, player);
+    const planServer = cloneServer(pipeline.simServer);
+    const frame = this.findOptimalBatchFrame(top.ram, top.cores, planServer, player);
     if (!frame) return false;
 
     const frameRam = this.calculateBatchFrameRam(frame);
@@ -469,6 +515,8 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
       lease,
       pids: launched,
     });
+    // Commit the simulated state for the next plan now that everything launched.
+    pipeline.simServer = planServer;
     pipeline.recentBatches.push(frame.purpose);
     if (pipeline.recentBatches.length > RECENT_BATCHES_KEEP) {
       pipeline.recentBatches.shift();
@@ -609,15 +657,22 @@ class UltrahackerV2Task extends BaseSpawnerTask<UltrahackerV2TaskState> {
   // ---------------------------------------------------------------------
 
   private pipelineMaxDepth(pipeline: Pipeline, player: Player): number {
-    // Depth is bounded by weakTime / BATCH_FRAME_OFFSET_MS — a pipeline with
-    // weakTime=4000ms can hold ~80 batches before they'd start overlapping.
-    // We use the simServer (at min/max) so depth reflects steady-state, not
-    // any in-progress prep state.
+    // Depth = floor(weakTime / HWGW_BATCH_INTERVAL_MS). Each HWGW batch
+    // occupies 200ms of pipeline time (4 ops × 50ms), so weakTime=4000ms holds
+    // ~20 in flight at steady state. Using BATCH_FRAME_OFFSET_MS (50ms) here
+    // would 4× overstate capacity, holding RAM for scripts that just sleep on
+    // additionalMsec.
+    //
+    // Prep batches (W = 50ms, GW = 100ms) could in principle stack denser, but
+    // prep is short-lived; the conservative HWGW cap is the right tradeoff.
+    //
+    // weakTime is read against the simServer forced to min/max so we get the
+    // steady-state bound, independent of any in-progress prep state.
     const optimal = cloneServer(pipeline.simServer);
     optimal.hackDifficulty = optimal.minDifficulty;
     optimal.moneyAvailable = optimal.moneyMax;
     const weakTime = this.ns.formulas.hacking.weakenTime(optimal, player);
-    return Math.max(1, Math.min(MAX_PIPELINE_DEPTH, Math.floor(weakTime / BATCH_FRAME_OFFSET_MS)));
+    return Math.max(1, Math.min(MAX_PIPELINE_DEPTH, Math.floor(weakTime / HWGW_BATCH_INTERVAL_MS)));
   }
 
   private snapshotPipeline(pipeline: Pipeline, player: Player): PipelineSnapshot {

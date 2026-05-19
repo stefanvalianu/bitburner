@@ -154,7 +154,18 @@ export function tryFindHackWeakGrowWeakSplit(
         (proposal.weak1Threads + proposal.weak2Threads) * weakRam <=
       maxRam
     ) {
-      // great, we found a batch that works to grow the server to SOME amount while maintaining min security
+      // Drift cushion: bolt on one extra weak2 thread if there's slack.
+      // Absorbs floating-point imprecision in growAmount / weakenEffect so
+      // steady-state HWGW doesn't gradually push security above min and
+      // trigger heal cycles.
+      if (
+        proposal.hackThreads * hackRam +
+          proposal.growThreads * growRam +
+          (proposal.weak1Threads + proposal.weak2Threads + 1) * weakRam <=
+        maxRam
+      ) {
+        proposal.weak2Threads += 1;
+      }
       return proposal;
     }
 

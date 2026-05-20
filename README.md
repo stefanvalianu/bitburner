@@ -26,7 +26,7 @@ Scripts/features to be used within the game [Bitburner](https://github.com/bitbu
 
 - `/tools` are scripts to aid in local development, not relevant for actual gameplay.
 - `/NetscriptDefinitions.d.ts` the synchronized NS SDK from the game.
-- `/src` contains the game-relevant scripts
+- `/src` contains the game-relevant scripts.
   - `/features` has features that are meant for UX/rendering. These components would have React dependnecies.
   - `/common` has common code/helpers that are meant to be shared between the UX stack (`/features`) and the task stack (`/tasks`)
   - `/tasks/TASK-NAME` contains task-specific logic. Tasks have their own opinionated sub-structure that must be followed

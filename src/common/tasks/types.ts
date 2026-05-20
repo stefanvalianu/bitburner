@@ -1,4 +1,4 @@
-import { DashboardState } from "@repo/features/dashboardTypes";
+import { GameInfo } from "@repo/common/info/gameInfo";
 
 export type TaskId = string;
 
@@ -88,5 +88,5 @@ export interface TaskDefinition {
   // Useful for doing things like checking for Formulas.exe, etc.
   // Returns undefined when requirements are met, a string explanation
   // of what isn't met when requirements are not met.
-  checkRequirements?: (state: DashboardState) => string | undefined;
+  checkRequirements?: (gameInfo: GameInfo) => string | undefined;
 }

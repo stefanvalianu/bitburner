@@ -7,7 +7,7 @@ import {
   TradeAction,
   PositionView,
   MarketView,
-} from "./info";
+} from "../public/info";
 import { Intent, MarketSnapshot, computeProfitPotential, planTrades } from "./strategy";
 
 class StockTraderTask extends BaseTask<StockTraderTaskState> {

@@ -10,8 +10,8 @@ import { serverBuyerTask } from "./server-buyer/info";
 import { serverShareTask } from "./server-share/public/info";
 import { ULTRAHACKER_TASK_ID, ultrahackerTask } from "./ultrahacker/public/info";
 import { UltrahackerPanel } from "./ultrahacker/public/panel";
-import { STOCK_TRADER_TASK_ID, stockTraderTask } from "./stock-trader/info";
-import { StockTraderPanel } from "./stock-trader/panel";
+import { STOCK_TRADER_TASK_ID, stockTraderTask } from "./stock-trader/public/info";
+import { StockTraderPanel } from "./stock-trader/public/panel";
 import { GANG_BANGER_TASK_ID, gangBangerTask } from "./gang-banger/public/info";
 import { GangBangerPanel } from "./gang-banger/public/panel";
 

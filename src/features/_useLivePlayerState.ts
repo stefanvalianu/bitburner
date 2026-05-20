@@ -1,3 +1,4 @@
+/*
 import { useState, useEffect } from "react";
 import { getPortData, PLAYER_STATE_PORT } from "@repo/common/ports";
 import { useNs } from "./ns/NsProvider";
@@ -16,3 +17,4 @@ export function useLivePlayerState(fallback: PlayerMonitorTaskState): PlayerMoni
   }, [ns]);
   return snap;
 }
+*/

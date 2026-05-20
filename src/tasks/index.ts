@@ -6,9 +6,7 @@ import { INFILTRATOR_TASK_ID, infiltratorTask } from "./infiltrator/info";
 import { InfiltratorPanel } from "./infiltrator/panel";
 import { NOFORM_HACKER_TASK_ID, noformHackerTask } from "./noform-hacker/info";
 import { NoformHackerPanel } from "./noform-hacker/panel";
-import { playerMonitorTask } from "./player-monitor/info";
 import { serverBuyerTask } from "./server-buyer/info";
-import { serverDevourerTask } from "./server-devourer/info";
 import { serverShareTask } from "./server-share/public/info";
 import { ULTRAHACKER_TASK_ID, ultrahackerTask } from "./ultrahacker/public/info";
 import { UltrahackerPanel } from "./ultrahacker/public/panel";
@@ -24,11 +22,9 @@ export const ALL_TASKS: TaskDefinition[] = [
   infiltratorTask,
   infiltrationSolverTask,
   stockTraderTask,
-  playerMonitorTask,
   serverBuyerTask,
   ultrahackerTask,
   noformHackerTask,
-  serverDevourerTask,
   serverShareTask,
 ];
 

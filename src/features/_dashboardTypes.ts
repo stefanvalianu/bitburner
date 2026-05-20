@@ -1,3 +1,4 @@
+/*
 import { Server } from "@ns";
 import { TaskId, TaskState } from "@repo/common/tasks/types";
 
@@ -15,32 +16,6 @@ export type ServerInfo = Server & {
   // this to clip the leaf column's vertical line to the top half.
   isLastSibling: boolean;
 };
-
-export interface DashboardPreferences {
-  // Money the dashboard will refuse to spend below. Purchasing tasks consult
-  // this threshold; 0 means "spend freely".
-  reservedMoney: number;
-
-  // Whether to auto-purchase servers using the server task.
-  autobuyServers: boolean;
-
-  // Whether to auto-purchase hacknet servers and their upgrades.
-  autobuyHacknet: boolean;
-
-  // Number (1-100) representing the minimum win% required
-  // to enable gang clashes as part of the war ticks.
-  // Undefined = use task default
-  gangClashWinThreshold?: number | undefined;
-
-  // Fraction (0.0-1.0) of `moneyMax` to preserve on hack targets between
-  // batches — i.e. each HWGW batch is sized to steal at most
-  // `(1 - hackMinimumMoneyPct)` of max money. Higher values steal less per
-  // batch but tolerate more player-level drift before the cascade drains.
-  // Undefined = use the ultrahacker default (HACK_MINIMUM_MONEY_PCT in
-  // threadCalculations.ts). Stored as fraction, not percentage, to match
-  // the underlying constant.
-  hackMinimumMoneyPct?: number | undefined;
-}
 
 export interface DashboardState {
   // simple incremental tick counter; can easily bind to control re-renders
@@ -89,11 +64,4 @@ export interface DashboardController {
   // fresh once they've terminated.
   reallocate: () => void;
 }
-
-export const DEFAULT_PREFERENCES: DashboardPreferences = {
-  reservedMoney: 0,
-  autobuyServers: false,
-  autobuyHacknet: false,
-  gangClashWinThreshold: undefined,
-  hackMinimumMoneyPct: undefined,
-};
+*/

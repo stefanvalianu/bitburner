@@ -3,7 +3,7 @@ import { Row } from "@repo/features/components/Row";
 import { StatRow } from "@repo/features/components/StatRow";
 import { useNs } from "@repo/features/ns/NsProvider";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
-import { useDashboardController } from "@repo/features/useDashboardController";
+import { useDashboardController } from "@repo/features/app/useDashboardController";
 import { TaskCustomPanel } from "@repo/tasks";
 import { useRef, useState, RefObject, useLayoutEffect } from "react";
 import { GANG_BANGER_TASK_ID } from "./info";

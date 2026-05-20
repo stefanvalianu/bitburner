@@ -1,5 +1,5 @@
 import type { NS } from "@ns";
-import { createLogger, type Logger } from "@repo/features/logging/log";
+import { createLogger, type Logger } from "@repo/features/logging/useLogger";
 import { TASK_EVENTS_PORT, DASHBOARD_STATE_PORT, getPortData } from "@repo/common/ports";
 import type { Allocation, TaskEvent, TaskId, TaskState } from "@repo/common/tasks/types";
 import { DashboardState, DEFAULT_PREFERENCES } from "@repo/features/dashboardTypes";

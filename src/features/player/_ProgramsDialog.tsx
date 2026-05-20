@@ -1,9 +1,10 @@
+/*
 import { Check } from "@repo/features/components/Check";
 import { Col } from "@repo/features/components/Col";
 import { Row } from "@repo/features/components/Row";
 import { SectionHeading } from "@repo/features/components/SectionHeading";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
-import { useDashboardController } from "@repo/features/useDashboardController";
+import { useDashboardController } from "@repo/features/app/useDashboardController";
 
 interface BoolRowProps {
   label: string;
@@ -51,3 +52,4 @@ export function ProgramsDialog() {
     </Row>
   );
 }
+*/

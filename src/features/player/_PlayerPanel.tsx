@@ -1,3 +1,4 @@
+/*
 import { useRef, useState, type ReactNode } from "react";
 import type { NS, Player } from "@ns";
 import { Button } from "@repo/features/components/Button";
@@ -9,8 +10,8 @@ import { Row } from "@repo/features/components/Row";
 import { SectionHeading } from "@repo/features/components/SectionHeading";
 import { Spinner } from "@repo/features/components/Spinner";
 import { StatRow } from "@repo/features/components/StatRow";
-import { useDashboardController } from "@repo/features/useDashboardController";
-import { usePreferences } from "@repo/features/usePreferences";
+import { useDashboardController } from "@repo/features/app/useDashboardController";
+import { usePreferences } from "@repo/features/preferences/PreferencesProvider";
 import { ProgramsDialog } from "@repo/features/player/ProgramsDialog";
 import { useLivePlayerState } from "@repo/features/useLivePlayerState";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
@@ -274,3 +275,4 @@ function ShoppingList({ inventory }: { inventory: Inventory }) {
     </Col>
   );
 }
+*/

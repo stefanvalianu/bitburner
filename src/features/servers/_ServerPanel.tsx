@@ -1,6 +1,7 @@
+/*
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { useLogger } from "@repo/features/logging/log";
+import { useLogger } from "@repo/features/logging/useLogger";
 import { Button } from "@repo/features/components/Button";
 import { Col } from "@repo/features/components/Col";
 import { Hint } from "@repo/features/components/Hint";
@@ -11,8 +12,8 @@ import { Row } from "@repo/features/components/Row";
 import { SectionHeading } from "@repo/features/components/SectionHeading";
 import { Spinner } from "@repo/features/components/Spinner";
 import { StatRow } from "@repo/features/components/StatRow";
-import { useDashboardController } from "@repo/features/useDashboardController";
-import { usePreferences } from "@repo/features/usePreferences";
+import { useDashboardController } from "@repo/features/app/useDashboardController";
+import { usePreferences } from "@repo/features/preferences/PreferencesProvider";
 import { Modal } from "@repo/features/components/Modal";
 import { ServerMapDialog } from "@repo/features/servers/ServerMapDialog";
 import { SERVER_PURCHASE_COMMUNICATION_PORT } from "@repo/common/ports";
@@ -428,3 +429,4 @@ function PreferenceRadio({ value, current, onChange, label, hint }: PreferenceRa
     </label>
   );
 }
+*/

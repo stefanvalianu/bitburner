@@ -5,6 +5,7 @@
 //  this dashboard state.
 // --------------------------------------------------------------------------------
 
+/*
 import {
   createContext,
   useCallback,
@@ -22,11 +23,11 @@ import {
   DashboardPreferences,
   DashboardState,
   ServerInfo,
-} from "./dashboardTypes";
+} from "../dashboardTypes";
 import { TaskManager } from "@repo/common/tasks/taskManager";
-import { useLogger } from "./logging/log";
-import { usePreferences } from "./usePreferences";
-import { useNs } from "./ns/NsProvider";
+import { useLogger } from "../logging/useLogger";
+import { usePreferences } from "../preferences/PreferencesProvider";
+import { useNs } from "../ns/NsProvider";
 
 // The interval that the entire dashboard system refreshes at. This controls
 // sub-behaviors like task management/kickoff, etc.
@@ -196,3 +197,4 @@ export function useDashboardController(): DashboardController {
   if (!v) throw new Error("useDashboardController must be used inside <DashboardStateContext>");
   return v;
 }
+*/

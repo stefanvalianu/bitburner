@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { SERVER_SHARE_TASK_ID } from "./public/info";
+import { SERVER_SHARE_TASK_ID } from "../public/info";
 import { BaseSpawnerTask, TaskLease } from "../../../../../common/tasks/baseSpawnerTask";
 import { Lease } from "../../../../../common/tasks/allocator";
 

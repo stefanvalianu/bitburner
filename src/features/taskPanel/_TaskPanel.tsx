@@ -1,3 +1,4 @@
+/*
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@repo/features/components/Button";
 import { Col } from "@repo/features/components/Col";
@@ -6,7 +7,7 @@ import { BracesIcon, PinIcon, PowerIcon, ShuffleIcon } from "@repo/features/comp
 import { Modal } from "@repo/features/components/Modal";
 import { Panel } from "@repo/features/components/Panel";
 import { Row } from "@repo/features/components/Row";
-import { useDashboardController } from "@repo/features/useDashboardController";
+import { useDashboardController } from "@repo/features/app/useDashboardController";
 import {
   ALL_TASKS,
   hasCustomPanel,
@@ -545,7 +546,7 @@ function AllocationDetails({ slot, def }: { slot: TaskState; def: TaskDefinition
       {def && <span style={{ color: theme.colors.primary }}>{def.description}</span>}
       <Row gap={theme.spacing.lg}>
         <span style={{ color: theme.colors.secondary }}>
-          Controller pid: <span style={{ color: theme.colors.primary }}>{slot.pid ?? "—"}</span>
+          Controller pid: <span style={{ color: theme.colors.primary }}>{slot.pid ?? "—"}</span>TaskPanel
         </span>
         <span style={{ color: theme.colors.secondary }}>
           Host: <span style={{ color: theme.colors.primary }}>{slot.host ?? "—"}</span>
@@ -594,3 +595,4 @@ function AllocationDetails({ slot, def }: { slot: TaskState; def: TaskDefinition
     </Col>
   );
 }
+*/

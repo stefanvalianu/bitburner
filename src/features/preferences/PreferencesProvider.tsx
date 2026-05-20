@@ -18,26 +18,27 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from "react";
-import { DEFAULT_PREFERENCES, type DashboardPreferences } from "./dashboardTypes";
-import { useNs } from "./ns/NsProvider";
+import { useNs } from "@repo/features/ns/NsProvider";
+import { DEFAULT_PREFERENCES, UserPreferences } from "@repo/common/preferences";
 
 const PREFERENCES_FILE = ".state/preferences.json";
 
 export interface PreferencesController {
-  preferences: DashboardPreferences;
-  setPreferences: (next: DashboardPreferences) => void;
-  // Latest-value handle for consumers that read preferences inside a stable
-  // setInterval/effect (DashboardControllerProvider) without rebuilding it
-  // every time the user edits a value.
-  preferencesRef: MutableRefObject<DashboardPreferences>;
+  preferences: UserPreferences;
+  setPreferences: (newPreferences: UserPreferences) => void;
+  preferencesRef: MutableRefObject<UserPreferences>;
 }
 
 const PreferencesContext = createContext<PreferencesController | null>(null);
 
-export function PreferencesProvider({ children }: { children: ReactNode }) {
+type Props = {
+  children: ReactNode;
+}
+
+export function PreferencesProvider({ children }: Props) {
   const ns = useNs();
 
-  const [preferences, setPreferencesState] = useState<DashboardPreferences>(() => {
+  const [preferences, setPreferencesState] = useState<UserPreferences>(() => {
     const raw = ns.read(PREFERENCES_FILE);
     if (!raw) return DEFAULT_PREFERENCES;
     try {
@@ -49,20 +50,20 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  const preferencesRef = useRef<DashboardPreferences>(preferences);
+  const preferencesRef = useRef<UserPreferences>(preferences);
   useEffect(() => {
     preferencesRef.current = preferences;
   }, [preferences]);
 
   const setPreferences = useCallback(
-    (next: DashboardPreferences) => {
+    (next: UserPreferences) => {
       ns.write(PREFERENCES_FILE, JSON.stringify(next), "w");
       setPreferencesState(next);
     },
     [ns],
   );
 
-  const value = useMemo(
+  const value = useMemo<PreferencesController>(
     () => ({ preferences, setPreferences, preferencesRef }),
     [preferences, setPreferences],
   );

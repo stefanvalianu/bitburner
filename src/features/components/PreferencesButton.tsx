@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { usePreferences } from "@repo/features/usePreferences";
+import { usePreferences } from "@repo/features/preferences/PreferencesProvider";
 import { Button } from "./Button";
 import { Col } from "./Col";
 import { Hint } from "./Hint";

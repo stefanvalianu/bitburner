@@ -9,7 +9,7 @@ import {
   TaskState,
 } from "./types";
 import { DashboardState } from "@repo/features/dashboardTypes";
-import { Logger } from "@repo/features/logging/log";
+import { Logger } from "@repo/features/logging/useLogger";
 import { TASK_EVENTS_PORT } from "@repo/common/ports";
 import { ALL_TASKS, TASK_BY_ID } from "@repo/lib/util/tasks/definitions/tasks";
 import { allocateAllTasks } from "./allocator";

@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type LogEntry, type LogLevel } from "./log";
 import { Badge } from "@repo/features/components/Badge";
 import { Col } from "@repo/features/components/Col";
 import { Row } from "@repo/features/components/Row";
 import { LOG_PORT } from "@repo/common/ports";
 import { useNs } from "@repo/features/ns/NsProvider";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
+import { LogLevel, LogEntry } from "@repo/common/logger";
 
 const MAX_BUFFER = 250;
 const POLL_MS = 1000;
 
-const levelSeverity: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
+const levelSeverity: Record<LogLevel, number> = { info: 1, warn: 2, error: 3 };
 
 function ts(t: number): string {
   const d = new Date(t);

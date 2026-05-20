@@ -22,6 +22,16 @@ export const KILLSWITCH_PORT = 100;
 // Used by one of the various hacking system tasks.
 export const HACKING_SYSTEM_COMMUNICATION_PORT = 10;
 
+// Port used to store UX preferences for tasks to consume
+export const MAIN_PREFERENCES_PORT = 20;
+
+// Ports used by the info-miner task to post info snapshots for the main
+// dashboard (and potentially others) to consume
+export const PLAYER_INFO_PORT = 30;
+export const SERVER_INFO_PORT = 31;
+export const SLEEVE_INFO_PORT = 32;
+export const GANG_INFO_PORT = 33;
+
 export const SERVER_PURCHASE_COMMUNICATION_PORT = 11;
 
 // Ran on main dashboard start-up to avoid dirty state
@@ -33,11 +43,18 @@ export function clearPorts(ns: NS) {
   ns.clearPort(PLAYER_STATE_PORT);
   ns.clearPort(KILLSWITCH_PORT);
 
+  ns.clearPort(MAIN_PREFERENCES_PORT);
+
+  ns.clearPort(PLAYER_INFO_PORT);
+  ns.clearPort(SERVER_INFO_PORT);
+  ns.clearPort(SLEEVE_INFO_PORT);
+  ns.clearPort(GANG_INFO_PORT);
+
   // clear the task-specific ports too
   ns.clearPort(HACKING_SYSTEM_COMMUNICATION_PORT);
 }
 
-// Use consume if you want to destroy the data after reading (consume)
+// Use consume if you want to destroy the data after reading
 export function getPortData<TData>(
   ns: NS,
   portNumber: number,
@@ -48,7 +65,7 @@ export function getPortData<TData>(
 
   if (raw !== "NULL PORT DATA") {
     try {
-      data = JSON.parse(raw as string) as TData;
+      data = raw as TData;
     } catch {}
   }
   return data;
@@ -62,8 +79,8 @@ export function drainPortData<TData>(ns: NS, portNumber: number): TData[] | unde
   while (!portHandle.empty()) {
     let raw = portHandle.read();
     try {
-      const deserialized = JSON.parse(raw) as TData;
-      if (deserialized) response.push(deserialized);
+      const data = raw as TData;
+      if (data) response.push(data);
     } catch {}
   }
 

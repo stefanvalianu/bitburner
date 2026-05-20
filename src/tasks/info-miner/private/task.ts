@@ -1,11 +1,7 @@
 import { NS, Player } from "@ns";
-import { BaseTask } from "../../../../../common/tasks/baseTask";
-import {
-  PLAYER_MONITOR_FAST_REFRESH_FREQUENCY_MS,
-  PLAYER_MONITOR_TASK_ID,
-  PlayerMonitorTaskState,
-} from "./info";
+import { BaseTask } from "@repo/common/tasks/baseTask";
 import { PLAYER_STATE_PORT } from "../../../ports";
+import { INFO_MINER_TASK_ID } from "../public/info";
 
 const PORT_OPENER_KEYS = ["bruteSsh", "ftpCrack", "relaySmtp", "httpWorm", "sqlInject"] as const;
 
@@ -13,7 +9,7 @@ class PlayerMonitorTask extends BaseTask<PlayerMonitorTaskState> {
   private player: Player;
 
   constructor(ns: NS) {
-    super(ns, PLAYER_MONITOR_TASK_ID);
+    super(ns, INFO_MINER_TASK_ID);
 
     this.player = this.ns.getPlayer();
   }

@@ -1,5 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
 
 interface PanelProps {
   title?: ReactNode;
@@ -18,7 +18,7 @@ export function Panel({
   collapsible = false,
   defaultOpen = true,
 }: PanelProps) {
-  const { colors, fonts, space } = useTheme();
+  const theme = useTheme();
   const [open, setOpen] = useState(defaultOpen);
   const showHeader = title !== undefined || actions !== undefined;
   const showBody = !collapsible || open;
@@ -26,14 +26,14 @@ export function Panel({
   return (
     <div
       style={{
-        fontFamily: fonts.mono,
-        color: colors.fg,
-        border: `1px solid ${colors.border}`,
-        padding: space.md,
-        background: colors.surface,
+        fontFamily: theme.font.face,
+        color: theme.colors.primary,
+        border: `1px solid ${theme.colors.welllight}`,
+        padding: theme.spacing.md,
+        background: theme.colors.backgroundsecondary,
         display: "flex",
         flexDirection: "column",
-        gap: space.sm,
+        gap: theme.spacing.sm,
         minWidth: 280,
         ...style,
       }}
@@ -43,14 +43,14 @@ export function Panel({
           onClick={collapsible ? () => setOpen((o) => !o) : undefined}
           style={{
             fontWeight: "bold",
-            color: colors.fg,
-            paddingBottom: space.xs,
-            borderBottom: `1px solid ${colors.fgDim}`,
+            color: theme.colors.primary,
+            paddingBottom: theme.spacing.xs,
+            borderBottom: `1px solid ${theme.colors.primarydark}`,
             cursor: collapsible ? "pointer" : undefined,
             userSelect: collapsible ? "none" : undefined,
             display: "flex",
             alignItems: "center",
-            gap: space.sm,
+            gap: theme.spacing.sm,
           }}
         >
           {collapsible && <Chevron open={open} />}
@@ -58,7 +58,7 @@ export function Panel({
           {actions && (
             <div
               onClick={(e) => e.stopPropagation()}
-              style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: space.sm }}
+              style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: theme.spacing.sm }}
             >
               {actions}
             </div>
@@ -71,14 +71,14 @@ export function Panel({
 }
 
 function Chevron({ open }: { open: boolean }) {
-  const { colors } = useTheme();
+  const theme = useTheme();
   return (
     <svg
       width={10}
       height={10}
       viewBox="0 0 10 10"
       fill="none"
-      stroke={colors.fg}
+      stroke={theme.colors.primary}
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"

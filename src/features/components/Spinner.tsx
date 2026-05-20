@@ -1,8 +1,9 @@
-import { useTheme } from "./theme";
-
 // Animated dashed-arc spinner. Stroke uses the accent color when active,
 // muted when idle — so the same component reads as "working" or "at rest"
 // without the caller picking colors. Optional label sits beside the arc
+
+import { useTheme } from "../theme/ThemeProvider";
+
 // and scales with `size` so the pair stays visually balanced.
 export function Spinner({
   active,
@@ -13,8 +14,8 @@ export function Spinner({
   size?: number;
   label?: string;
 }) {
-  const { colors, fonts, space } = useTheme();
-  const stroke = active ? colors.accent : colors.muted;
+  const theme = useTheme();
+  const stroke = active ? theme.colors.info : theme.colors.secondary;
   const svg = (
     <svg width={size} height={size} viewBox="0 0 16 16" role="img" aria-hidden>
       <circle
@@ -46,8 +47,8 @@ export function Spinner({
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: space.xs,
-        fontFamily: fonts.mono,
+        gap: theme.spacing.xs,
+        fontFamily: theme.font.face,
         fontSize: size,
         lineHeight: 1,
         color: stroke,

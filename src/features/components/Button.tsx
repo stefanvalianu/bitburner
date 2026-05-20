@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
 
 interface ButtonProps {
   children: ReactNode;
@@ -9,31 +9,31 @@ interface ButtonProps {
 }
 
 export function Button({ children, onClick, variant = "default", disabled = false }: ButtonProps) {
-  const { colors, fonts, space } = useTheme();
+  const theme = useTheme();
   const active =
     variant === "warn"
-      ? colors.warn
+      ? theme.colors.warning
       : variant === "error"
-        ? colors.error
+        ? theme.colors.error
         : variant === "primary"
-          ? colors.accent
-          : colors.fg;
-  const c = disabled ? colors.muted : active;
+          ? theme.colors.info
+          : theme.colors.primary;
+  const c = disabled ? theme.colors.secondary : active;
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       style={{
-        fontFamily: fonts.mono,
-        background: disabled ? colors.well : colors.bg,
+        fontFamily: theme.font.face,
+        background: disabled ? theme.colors.well : theme.colors.backgroundprimary,
         color: c,
         border: `1px solid ${c}`,
-        padding: `${space.xs}px ${space.md}px`,
+        padding: `${theme.spacing.xs}px ${theme.spacing.md}px`,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.6 : 1,
         display: "inline-flex",
         alignItems: "center",
-        gap: space.sm,
+        gap: theme.spacing.sm,
       }}
     >
       {children}

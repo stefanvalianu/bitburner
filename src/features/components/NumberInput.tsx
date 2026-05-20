@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
 
 interface NumberInputProps {
   value: string;
@@ -21,7 +21,7 @@ export function NumberInput({
   placeholder,
   style,
 }: NumberInputProps) {
-  const { colors, space, fonts } = useTheme();
+  const theme = useTheme();
   return (
     <input
       type="number"
@@ -31,11 +31,11 @@ export function NumberInput({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       style={{
-        background: colors.surface,
-        color: colors.fg,
-        border: `1px solid ${colors.border}`,
-        padding: space.xs,
-        fontFamily: fonts.mono,
+        background: theme.colors.backgroundsecondary,
+        color: theme.colors.primary,
+        border: `1px solid ${theme.colors.welllight}`,
+        padding: theme.spacing.xs,
+        fontFamily: theme.font.face,
         fontSize: "1em",
         minWidth: 220,
         ...style,

@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
 
 interface RowProps {
   children: ReactNode;
@@ -9,15 +9,15 @@ interface RowProps {
 }
 
 export function Row({ children, gap, align = "center", style }: RowProps) {
-  const { colors, fonts, space } = useTheme();
+  const theme = useTheme();
   return (
     <div
       style={{
-        fontFamily: fonts.mono,
-        color: colors.fg,
+        fontFamily: theme.font.face,
+        color: theme.colors.primary,
         display: "flex",
         flexDirection: "row",
-        gap: gap ?? space.md,
+        gap: gap ?? theme.spacing.md,
         alignItems: align,
         ...style,
       }}

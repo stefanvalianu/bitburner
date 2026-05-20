@@ -1,8 +1,8 @@
-import { Check } from "../ui/Check";
-import { Col } from "../ui/Col";
-import { Row } from "../ui/Row";
-import { SectionHeading } from "../ui/SectionHeading";
-import { useTheme } from "../ui/theme";
+import { Check } from "../../features/components/Check";
+import { Col } from "../../features/components/Col";
+import { Row } from "../../features/components/Row";
+import { SectionHeading } from "../../features/components/SectionHeading";
+import { useTheme } from "../../features/theme/ThemeProvider";
 import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
 import { useDashboardController } from "../util/useDashboardController";
 
@@ -12,17 +12,17 @@ interface BoolRowProps {
 }
 
 function BoolRow({ label, ok }: BoolRowProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   return (
-    <Row gap={space.sm}>
+    <Row gap={theme.spacing.sm}>
       <Check ok={ok} />
-      <span style={{ color: ok ? colors.fg : colors.muted }}>{label}</span>
+      <span style={{ color: ok ? theme.colors.primary : theme.colors.secondary }}>{label}</span>
     </Row>
   );
 }
 
 export function ProgramsDialog() {
-  const { space } = useTheme();
+  const theme = useTheme();
   const { state } = useDashboardController();
   const playerState = getPlayerMonitorState(state);
 
@@ -33,7 +33,7 @@ export function ProgramsDialog() {
   const inv = playerState.inventory;
 
   return (
-    <Row gap={space.lg} style={{ alignItems: "flex-start" }}>
+    <Row gap={theme.spacing.lg} style={{ alignItems: "flex-start" }}>
       <Col gap={4}>
         <SectionHeading>General</SectionHeading>
         <BoolRow label="TOR router" ok={inv.hasRouter} />

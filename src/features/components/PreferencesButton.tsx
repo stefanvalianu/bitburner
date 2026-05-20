@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useNs } from "../util/ns";
-import { usePreferences } from "../util/usePreferences";
+import { usePreferences } from "../../lib/util/usePreferences";
 import { Button } from "./Button";
 import { Col } from "./Col";
 import { Hint } from "./Hint";
@@ -9,10 +8,11 @@ import { Modal } from "./Modal";
 import { NumberInput } from "./NumberInput";
 import { Row } from "./Row";
 import { SectionHeading } from "./SectionHeading";
-import { useTheme } from "./theme";
+import { useNs } from "../ns/NsProvider";
+import { useTheme } from "../theme/ThemeProvider";
 
 export function PreferencesButton() {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
   const { preferences, setPreferences } = usePreferences();
 
@@ -79,7 +79,7 @@ export function PreferencesButton() {
   return (
     <>
       <Button onClick={openModal}>
-        <WrenchIcon color={colors.fg} title="Preferences" />
+        <WrenchIcon color={theme.colors.primary} title="Preferences" />
         Preferences
       </Button>
       <Modal
@@ -88,20 +88,20 @@ export function PreferencesButton() {
         title="Preferences"
         actions={<Button onClick={save}>Save</Button>}
       >
-        <Col gap={space.lg}>
-          <Col gap={space.sm}>
+        <Col gap={theme.spacing.lg}>
+          <Col gap={theme.spacing.sm}>
             <SectionHeading>Reserved money</SectionHeading>
-            <Row gap={space.sm} style={{ alignItems: "center" }}>
-              <span style={{ color: colors.muted }}>$</span>
+            <Row gap={theme.spacing.sm} style={{ alignItems: "center" }}>
+              <span style={{ color: theme.colors.secondary }}>$</span>
               <NumberInput value={reservedMoneyInput} onChange={setReservedMoneyInput} />
               <Hint>{preview}</Hint>
             </Row>
             <Hint>Money the dashboard will refuse to spend below. 0 means spend freely.</Hint>
           </Col>
 
-          <Col gap={space.sm}>
+          <Col gap={theme.spacing.sm}>
             <SectionHeading>Gang clash win threshold</SectionHeading>
-            <Row gap={space.sm} style={{ alignItems: "center" }}>
+            <Row gap={theme.spacing.sm} style={{ alignItems: "center" }}>
               <NumberInput
                 value={gangClashThresholdInput}
                 onChange={setGangClashThresholdInput}
@@ -109,7 +109,7 @@ export function PreferencesButton() {
                 max={100}
                 placeholder="blank = task default"
               />
-              <span style={{ color: colors.muted }}>%</span>
+              <span style={{ color: theme.colors.secondary }}>%</span>
               <Hint>{gangThresholdPreview}</Hint>
             </Row>
             <Hint>
@@ -118,9 +118,9 @@ export function PreferencesButton() {
             </Hint>
           </Col>
 
-          <Col gap={space.sm}>
+          <Col gap={theme.spacing.sm}>
             <SectionHeading>Hack minimum money</SectionHeading>
-            <Row gap={space.sm} style={{ alignItems: "center" }}>
+            <Row gap={theme.spacing.sm} style={{ alignItems: "center" }}>
               <NumberInput
                 value={hackMinMoneyPctInput}
                 onChange={setHackMinMoneyPctInput}
@@ -128,7 +128,7 @@ export function PreferencesButton() {
                 max={99}
                 placeholder="blank = task default"
               />
-              <span style={{ color: colors.muted }}>%</span>
+              <span style={{ color: theme.colors.secondary }}>%</span>
               <Hint>{hackMinMoneyPctPreview}</Hint>
             </Row>
             <Hint>
@@ -138,7 +138,7 @@ export function PreferencesButton() {
             </Hint>
           </Col>
 
-          <Col gap={space.sm}>
+          <Col gap={theme.spacing.sm}>
             <SectionHeading>Auto-purchasing</SectionHeading>
             <CheckboxRow
               checked={autobuyServers}
@@ -186,21 +186,21 @@ interface CheckboxRowProps {
 }
 
 function CheckboxRow({ checked, onChange, label, hint }: CheckboxRowProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   return (
-    <Col gap={space.xs}>
+    <Col gap={theme.spacing.xs}>
       <label
-        style={{ display: "inline-flex", alignItems: "center", gap: space.sm, cursor: "pointer" }}
+        style={{ display: "inline-flex", alignItems: "center", gap: theme.spacing.sm, cursor: "pointer" }}
       >
         <input
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
-          style={{ accentColor: colors.accent, cursor: "pointer" }}
+          style={{ accentColor: theme.colors.info, cursor: "pointer" }}
         />
-        <span style={{ color: colors.fg }}>{label}</span>
+        <span style={{ color: theme.colors.primary }}>{label}</span>
       </label>
-      {hint && <Hint style={{ paddingLeft: space.lg }}>{hint}</Hint>}
+      {hint && <Hint style={{ paddingLeft: theme.spacing.lg }}>{hint}</Hint>}
     </Col>
   );
 }

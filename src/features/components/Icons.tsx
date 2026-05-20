@@ -272,3 +272,43 @@ export function MoneyBagIcon({ color, title = "Money", size }: NamedIconProps) {
     </Icon>
   );
 }
+
+
+export function PlusBoxIcon({ color }: { color: string }) {
+  return (
+    <svg
+      width={12}
+      height={12}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="2" y="2" width="12" height="12" rx="0.5" />
+      <path d="M5 8 H11" />
+      <path d="M8 5 V11" />
+    </svg>
+  );
+}
+
+export function MinusBoxIcon({ color }: { color: string }) {
+  return (
+    <svg
+      width={12}
+      height={12}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="2" y="2" width="12" height="12" rx="0.5" />
+      <path d="M5 8 H11" />
+    </svg>
+  );
+}

@@ -8,7 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
+import { ChevronDownIcon, ChevronUpIcon, MinusBoxIcon, PlusBoxIcon } from "./Icons";
 
 interface JsonViewProps {
   value: unknown;
@@ -45,7 +46,7 @@ const SearchContext = createContext<SearchContextValue>({
 });
 
 export function JsonView({ value, defaultExpandDepth = 1 }: JsonViewProps) {
-  const { fonts, space } = useTheme();
+  const theme = useTheme();
   const [openMap, setOpenMap] = useState<Map<string, boolean>>(new Map());
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(0);
@@ -128,7 +129,7 @@ export function JsonView({ value, defaultExpandDepth = 1 }: JsonViewProps) {
   );
 
   return (
-    <div style={{ fontFamily: fonts.mono, fontSize: 12, lineHeight: 1.5 }}>
+    <div style={{ fontFamily: theme.font.face, fontSize: 12, lineHeight: 1.5 }}>
       <ControlPanel
         query={query}
         onQueryChange={setQuery}
@@ -139,7 +140,7 @@ export function JsonView({ value, defaultExpandDepth = 1 }: JsonViewProps) {
         onExpandAll={expandAll}
         onCollapseAll={collapseAll}
       />
-      <div style={{ marginTop: space.sm }}>
+      <div style={{ marginTop: theme.spacing.sm }}>
         <OpenContext.Provider value={openCtx}>
           <SearchContext.Provider value={searchCtx}>
             <Node value={value} depth={0} path={[]} />
@@ -151,23 +152,23 @@ export function JsonView({ value, defaultExpandDepth = 1 }: JsonViewProps) {
 }
 
 function Node({ value, depth, path }: { value: unknown; depth: number; path: Path }) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const open = useContext(OpenContext);
   const { query } = useContext(SearchContext);
   const key = encodePath(path);
 
-  if (value === null) return <Highlighted text="null" color={colors.muted} query={query} />;
+  if (value === null) return <Highlighted text="null" color={theme.colors.secondary} query={query} />;
   if (value === undefined)
-    return <Highlighted text="undefined" color={colors.muted} query={query} />;
+    return <Highlighted text="undefined" color={theme.colors.secondary} query={query} />;
   if (typeof value === "string")
-    return <Highlighted text={JSON.stringify(value)} color={colors.success} query={query} />;
+    return <Highlighted text={JSON.stringify(value)} color={theme.colors.success} query={query} />;
   if (typeof value === "number")
-    return <Highlighted text={String(value)} color={colors.accent} query={query} />;
+    return <Highlighted text={String(value)} color={theme.colors.info} query={query} />;
   if (typeof value === "boolean")
-    return <Highlighted text={String(value)} color={colors.warn} query={query} />;
+    return <Highlighted text={String(value)} color={theme.colors.warning} query={query} />;
 
   if (Array.isArray(value)) {
-    if (value.length === 0) return <span style={{ color: colors.muted }}>[]</span>;
+    if (value.length === 0) return <span style={{ color: theme.colors.secondary }}>[]</span>;
     const isExpanded = open!.isOpen(key, depth);
     return (
       <span>
@@ -179,9 +180,9 @@ function Node({ value, depth, path }: { value: unknown; depth: number; path: Pat
         {isExpanded && (
           <div
             style={{
-              paddingLeft: space.md,
-              borderLeft: `1px solid ${colors.border}`,
-              marginLeft: space.xs,
+              paddingLeft: theme.spacing.md,
+              borderLeft: `1px solid ${theme.colors.welllight}`,
+              marginLeft: theme.spacing.xs,
             }}
           >
             {value.map((v, i) => (
@@ -192,7 +193,7 @@ function Node({ value, depth, path }: { value: unknown; depth: number; path: Pat
                 itemLabel={String(i)}
                 child={v}
                 depth={depth}
-                keyColor={colors.muted}
+                keyColor={theme.colors.secondary}
               />
             ))}
           </div>
@@ -203,7 +204,7 @@ function Node({ value, depth, path }: { value: unknown; depth: number; path: Pat
 
   if (typeof value === "object") {
     const entries = Object.entries(value as Record<string, unknown>);
-    if (entries.length === 0) return <span style={{ color: colors.muted }}>{`{}`}</span>;
+    if (entries.length === 0) return <span style={{ color: theme.colors.secondary }}>{`{}`}</span>;
     const isExpanded = open!.isOpen(key, depth);
     return (
       <span>
@@ -215,9 +216,9 @@ function Node({ value, depth, path }: { value: unknown; depth: number; path: Pat
         {isExpanded && (
           <div
             style={{
-              paddingLeft: space.md,
-              borderLeft: `1px solid ${colors.border}`,
-              marginLeft: space.xs,
+              paddingLeft: theme.spacing.md,
+              borderLeft: `1px solid ${theme.colors.welllight}`,
+              marginLeft: theme.spacing.xs,
             }}
           >
             {entries.map(([k, v]) => (
@@ -228,7 +229,7 @@ function Node({ value, depth, path }: { value: unknown; depth: number; path: Pat
                 itemLabel={k}
                 child={v}
                 depth={depth}
-                keyColor={colors.fg}
+                keyColor={theme.colors.primary}
               />
             ))}
           </div>
@@ -237,7 +238,7 @@ function Node({ value, depth, path }: { value: unknown; depth: number; path: Pat
     );
   }
 
-  return <Highlighted text={String(value)} color={colors.fg} query={query} />;
+  return <Highlighted text={String(value)} color={theme.colors.primary} query={query} />;
 }
 
 function ChildRow({
@@ -255,7 +256,7 @@ function ChildRow({
   depth: number;
   keyColor: string;
 }) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const { query, activeKey, registerRow } = useContext(SearchContext);
   const path = useMemo(() => [...parentPath, itemKey], [parentPath, itemKey]);
   const key = encodePath(path);
@@ -265,10 +266,10 @@ function ChildRow({
     <div
       ref={ref}
       style={{
-        background: isActive ? colors.well : undefined,
-        outline: isActive ? `1px solid ${colors.accent}` : undefined,
-        padding: isActive ? `0 ${space.xs}px` : undefined,
-        margin: isActive ? `0 -${space.xs}px` : undefined,
+        background: isActive ? theme.colors.well : undefined,
+        outline: isActive ? `1px solid ${theme.colors.info}` : undefined,
+        padding: isActive ? `0 ${theme.spacing.xs}px` : undefined,
+        margin: isActive ? `0 -${theme.spacing.xs}px` : undefined,
       }}
     >
       <Highlighted text={itemLabel} color={keyColor} query={query} />
@@ -279,7 +280,7 @@ function ChildRow({
 }
 
 function Highlighted({ text, color, query }: { text: string; color: string; query: string }) {
-  const { colors } = useTheme();
+  const theme = useTheme();
   if (!query) return <span style={{ color }}>{text}</span>;
   const lower = text.toLowerCase();
   const q = query.toLowerCase();
@@ -298,8 +299,8 @@ function Highlighted({ text, color, query }: { text: string; color: string; quer
       <span
         key={n++}
         style={{
-          background: colors.warn,
-          color: colors.bg,
+          background: theme.colors.warning,
+          color: theme.colors.backgroundprimary,
           fontWeight: 600,
           padding: "0 1px",
           borderRadius: 2,
@@ -314,9 +315,10 @@ function Highlighted({ text, color, query }: { text: string; color: string; quer
 }
 
 function Header({ label, open, onToggle }: { label: string; open: boolean; onToggle: () => void }) {
-  const { colors } = useTheme();
+  const theme = useTheme();
+
   return (
-    <span onClick={onToggle} style={{ cursor: "pointer", color: colors.muted, userSelect: "none" }}>
+    <span onClick={onToggle} style={{ cursor: "pointer", color: theme.colors.secondary, userSelect: "none" }}>
       <Caret open={open} />
       {label}
     </span>
@@ -324,14 +326,15 @@ function Header({ label, open, onToggle }: { label: string; open: boolean; onTog
 }
 
 function Caret({ open }: { open: boolean }) {
-  const { colors } = useTheme();
+  const theme = useTheme();
+
   return (
     <svg
       width={8}
       height={8}
       viewBox="0 0 10 10"
       fill="none"
-      stroke={colors.muted}
+      stroke={theme.colors.secondary}
       strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -368,7 +371,7 @@ function ControlPanel({
   onExpandAll,
   onCollapseAll,
 }: ControlPanelProps) {
-  const { colors, fonts, space } = useTheme();
+  const theme = useTheme();
   const noMatches = query !== "" && totalMatches === 0;
   const counter =
     query === "" ? "" : totalMatches === 0 ? "0 / 0" : `${matchIndex + 1} / ${totalMatches}`;
@@ -378,31 +381,31 @@ function ControlPanel({
         position: "sticky",
         top: 0,
         zIndex: 1,
-        fontFamily: fonts.mono,
+        fontFamily: theme.font.face,
         fontSize: 12,
         display: "flex",
         alignItems: "center",
-        gap: space.xs,
-        border: `1px solid ${colors.border}`,
-        background: colors.surface,
-        padding: `${space.xs}px ${space.sm}px`,
+        gap: theme.spacing.xs,
+        border: `1px solid ${theme.colors.welllight}`,
+        background: theme.colors.backgroundsecondary,
+        padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
       }}
     >
       <IconButton title="Expand all" onClick={onExpandAll}>
-        <PlusBoxIcon color={colors.muted} />
+        <PlusBoxIcon color={theme.colors.secondary} />
       </IconButton>
       <IconButton title="Collapse all" onClick={onCollapseAll}>
-        <MinusBoxIcon color={colors.muted} />
+        <MinusBoxIcon color={theme.colors.secondary} />
       </IconButton>
       <span
         style={{
           width: 1,
           alignSelf: "stretch",
-          background: colors.border,
-          margin: `0 ${space.xs}px`,
+          background: theme.colors.welllight,
+          margin: `0 ${theme.spacing.xs}px`,
         }}
       />
-      <span style={{ color: colors.accent, userSelect: "none" }}>/</span>
+      <span style={{ color: theme.colors.info, userSelect: "none" }}>/</span>
       <input
         type="text"
         value={query}
@@ -425,18 +428,18 @@ function ControlPanel({
         style={{
           flex: 1,
           minWidth: 120,
-          background: colors.bg,
-          color: noMatches ? colors.error : colors.fg,
-          border: `1px solid ${noMatches ? colors.error : colors.border}`,
-          fontFamily: fonts.mono,
+          background: theme.colors.backgroundprimary,
+          color: noMatches ? theme.colors.error : theme.colors.primary,
+          border: `1px solid ${noMatches ? theme.colors.error : theme.colors.welllight}`,
+          fontFamily: theme.font.face,
           fontSize: 12,
-          padding: `${space.xs}px ${space.sm}px`,
+          padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
           outline: "none",
         }}
       />
       <span
         style={{
-          color: noMatches ? colors.error : colors.muted,
+          color: noMatches ? theme.colors.error : theme.colors.secondary,
           minWidth: 56,
           textAlign: "right",
           userSelect: "none",
@@ -449,10 +452,10 @@ function ControlPanel({
         onClick={onPrev}
         disabled={totalMatches === 0}
       >
-        <ChevronUpIcon color={colors.muted} />
+        <ChevronUpIcon color={theme.colors.secondary} />
       </IconButton>
       <IconButton title="Next match (Enter)" onClick={onNext} disabled={totalMatches === 0}>
-        <ChevronDownIcon color={colors.muted} />
+        <ChevronDownIcon color={theme.colors.secondary} />
       </IconButton>
     </div>
   );
@@ -469,18 +472,18 @@ function IconButton({
   disabled?: boolean;
   children: ReactNode;
 }) {
-  const { colors, fonts, space } = useTheme();
+  const theme = useTheme();
   return (
     <button
       title={title}
       onClick={onClick}
       disabled={disabled}
       style={{
-        fontFamily: fonts.mono,
+        fontFamily: theme.font.face,
         background: "transparent",
-        color: colors.muted,
-        border: `1px solid ${colors.border}`,
-        padding: `${space.xs}px ${space.sm}px`,
+        color: theme.colors.secondary,
+        border: `1px solid ${theme.colors.welllight}`,
+        padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.4 : 1,
         display: "inline-flex",
@@ -490,81 +493,6 @@ function IconButton({
     >
       {children}
     </button>
-  );
-}
-
-function PlusBoxIcon({ color }: { color: string }) {
-  return (
-    <svg
-      width={12}
-      height={12}
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <rect x="2" y="2" width="12" height="12" rx="0.5" />
-      <path d="M5 8 H11" />
-      <path d="M8 5 V11" />
-    </svg>
-  );
-}
-
-function MinusBoxIcon({ color }: { color: string }) {
-  return (
-    <svg
-      width={12}
-      height={12}
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <rect x="2" y="2" width="12" height="12" rx="0.5" />
-      <path d="M5 8 H11" />
-    </svg>
-  );
-}
-
-function ChevronUpIcon({ color }: { color: string }) {
-  return (
-    <svg
-      width={10}
-      height={10}
-      viewBox="0 0 10 10"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M2 7 L5 3 L8 7" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon({ color }: { color: string }) {
-  return (
-    <svg
-      width={10}
-      height={10}
-      viewBox="0 0 10 10"
-      fill="none"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M2 3 L5 7 L8 3" />
-    </svg>
   );
 }
 

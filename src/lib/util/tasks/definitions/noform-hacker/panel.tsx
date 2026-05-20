@@ -1,12 +1,10 @@
 import type { ReactNode } from "react";
 import type { NS } from "@ns";
-import { Button } from "../../../../ui/Button";
-import { Col } from "../../../../ui/Col";
-import { HackIcon, LockIcon, MoneyBagIcon, TargetIcon, UntargetIcon } from "../../../../ui/Icons";
-import { Row } from "../../../../ui/Row";
-import { SortableColumn, SortableTable } from "../../../../ui/SortableTable";
-import { useTheme } from "../../../../ui/theme";
-import { useNs } from "../../../ns";
+import { Button } from "../../../../../features/components/Button";
+import { Col } from "../../../../../features/components/Col";
+import { HackIcon, LockIcon, MoneyBagIcon, TargetIcon, UntargetIcon } from "../../../../../features/components/Icons";
+import { Row } from "../../../../../features/components/Row";
+import { SortableColumn, SortableTable } from "../../../../../features/components/SortableTable";
 import { useDashboardController } from "../../../useDashboardController";
 import {
   NOFORM_HACKER_TASK_ID,
@@ -18,6 +16,8 @@ import {
 import { HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 import { formatDuration } from "../../../formatting";
 import { TaskCustomPanel } from "../tasks";
+import { useTheme } from "../../../../../features/theme/ThemeProvider";
+import { useNs } from "../../../../../features/ns/NsProvider";
 
 type Theme = ReturnType<typeof useTheme>;
 
@@ -39,7 +39,7 @@ const buildColumns = (
       return (
         <span
           style={{
-            color: isCurrent ? colors.accent : colors.fg,
+            color: isCurrent ? colors.info : colors.primary,
             display: "inline-flex",
             alignItems: "center",
             gap: 4,
@@ -47,12 +47,12 @@ const buildColumns = (
         >
           {r.hostname}
           {phase === "fix_security" && (
-            <LockIcon color={colors.accent} title={`${r.hostname}: lowering security`} />
+            <LockIcon color={colors.info} title={`${r.hostname}: lowering security`} />
           )}
           {phase === "fix_money" && (
-            <MoneyBagIcon color={colors.accent} title={`${r.hostname}: growing money`} />
+            <MoneyBagIcon color={colors.info} title={`${r.hostname}: growing money`} />
           )}
-          {phase === "hack" && <HackIcon color={colors.hack} title={`${r.hostname}: hacking`} />}
+          {phase === "hack" && <HackIcon color={colors.code} title={`${r.hostname}: hacking`} />}
         </span>
       );
     },
@@ -63,7 +63,7 @@ const buildColumns = (
     flex: 1,
     align: "right",
     accessor: (r) => r.hackChance,
-    render: (r) => <span style={{ color: colors.fg }}>{ns.format.percent(r.hackChance, 1)}</span>,
+    render: (r) => <span style={{ color: colors.primary }}>{ns.format.percent(r.hackChance, 1)}</span>,
   },
   {
     key: "maxMoney",
@@ -79,7 +79,7 @@ const buildColumns = (
     flex: 1,
     align: "right",
     accessor: (r) => r.maxTime,
-    render: (r) => <span style={{ color: colors.fg }}>{formatDuration(r.maxTime)}</span>,
+    render: (r) => <span style={{ color: colors.primary }}>{formatDuration(r.maxTime)}</span>,
   },
   {
     key: "profitScore",
@@ -87,12 +87,12 @@ const buildColumns = (
     flex: 1,
     align: "right",
     accessor: (r) => r.profitScore,
-    render: (r) => <span style={{ color: colors.fg }}>{ns.format.number(r.profitScore)}</span>,
+    render: (r) => <span style={{ color: colors.primary }}>{ns.format.number(r.profitScore)}</span>,
   },
 ];
 
 export const NoformHackerPanel: TaskCustomPanel = () => {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
   const { state } = useDashboardController();
 
@@ -104,7 +104,7 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
   const userTargets = taskState?.userTargets ?? [];
 
   if (!report || report.analysis.length === 0) {
-    return <span style={{ color: colors.muted }}>No analysis yet — first scan pending.</span>;
+    return <span style={{ color: theme.colors.secondary }}>No analysis yet — first scan pending.</span>;
   }
 
   const currentSet = new Set(currentTargets.map((t) => t.hostname));
@@ -145,7 +145,7 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
       if (isUserTarget) {
         return (
           <Button onClick={() => handleUntarget(row.hostname)}>
-            <UntargetIcon color={colors.warn} title={`Un-target ${row.hostname}`} size={10} />
+            <UntargetIcon color={theme.colors.warning} title={`Un-target ${row.hostname}`} size={10} />
           </Button>
         );
       }
@@ -153,26 +153,26 @@ export const NoformHackerPanel: TaskCustomPanel = () => {
     }
     return (
       <Button onClick={() => handleTarget(row.hostname)}>
-        <TargetIcon color={colors.accent} title={`Target ${row.hostname}`} size={10} />
+        <TargetIcon color={theme.colors.info} title={`Target ${row.hostname}`} size={10} />
       </Button>
     );
   };
 
   return (
-    <Col gap={space.sm}>
-      <Row gap={space.lg} style={{ fontSize: "0.85em" }}>
-        <span style={{ color: colors.muted }}>
-          Last scan: <span style={{ color: colors.fg }}>{ageLabel}</span>
+    <Col gap={theme.spacing.sm}>
+      <Row gap={theme.spacing.lg} style={{ fontSize: "0.85em" }}>
+        <span style={{ color: theme.colors.secondary }}>
+          Last scan: <span style={{ color: theme.colors.primary }}>{ageLabel}</span>
         </span>
-        <span style={{ color: colors.muted }}>
-          Targets: <span style={{ color: colors.accent }}>{currentTargets.length}</span>
-          <span style={{ color: colors.muted }}> / </span>
-          <span style={{ color: colors.fg }}>{totalCount}</span>
+        <span style={{ color: theme.colors.secondary }}>
+          Targets: <span style={{ color: theme.colors.info }}>{currentTargets.length}</span>
+          <span style={{ color: theme.colors.secondary }}> / </span>
+          <span style={{ color: theme.colors.primary }}>{totalCount}</span>
         </span>
       </Row>
 
       <SortableTable<ServerAnalysis>
-        columns={buildColumns(ns, colors, currentSet, phaseByHost)}
+        columns={buildColumns(ns, theme.colors, currentSet, phaseByHost)}
         rows={report.analysis}
         rowKey={(r) => r.hostname}
         actionColumn={{ width: 32, render: renderAction }}

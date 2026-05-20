@@ -1,4 +1,4 @@
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
 import { Row } from "./Row";
 
 interface StatRowProps {
@@ -12,11 +12,11 @@ interface StatRowProps {
 // pair spreads with `space-between`; in a content-width parent (e.g. a Row of
 // stats) they collapse adjacent with the configured gap.
 export function StatRow({ label, value, valueColor }: StatRowProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   return (
-    <Row gap={space.sm} style={{ justifyContent: "space-between" }}>
-      <span style={{ color: colors.muted }}>{label}</span>
-      <span style={{ color: valueColor ?? colors.fg, fontVariantNumeric: "tabular-nums" }}>
+    <Row gap={theme.spacing.sm} style={{ justifyContent: "space-between" }}>
+      <span style={{ color: theme.colors.secondary }}>{label}</span>
+      <span style={{ color: valueColor ?? theme.colors.primary, fontVariantNumeric: "tabular-nums" }}>
         {value}
       </span>
     </Row>

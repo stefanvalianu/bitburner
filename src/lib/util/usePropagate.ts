@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useDashboardController } from "./useDashboardController";
 import { useLogger } from "./logging/log";
-import { useNs } from "./ns";
+import { useNs } from "../../features/ns/NsProvider";
 
 function fmt(v: string): string {
   if (!v) return "none";

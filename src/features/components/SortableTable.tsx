@@ -3,7 +3,7 @@ import { Button } from "./Button";
 import { Col } from "./Col";
 import { ChevronDownIcon, ChevronUpDownIcon, ChevronUpIcon } from "./Icons";
 import { Row } from "./Row";
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
 
 type Align = "left" | "right";
 type SortDirection = "asc" | "desc";
@@ -45,7 +45,7 @@ export function SortableTable<T>({
   defaultSort,
   emptyMessage,
 }: SortableTableProps<T>) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const [sort, setSort] = useState<SortState>(defaultSort ?? null);
   const [expanded, setExpanded] = useState(false);
 
@@ -90,7 +90,7 @@ export function SortableTable<T>({
     const sortable = col.sortable !== false;
     const isActive = sortable && sort?.column === col.key;
     const direction = isActive ? sort!.direction : null;
-    const chevronColor = isActive ? colors.accent : colors.fgDim;
+    const chevronColor = isActive ? theme.colors.info : theme.colors.primarydark;
     const chevron = !sortable ? null : direction === "asc" ? (
       <ChevronUpIcon color={chevronColor} size={10} />
     ) : direction === "desc" ? (
@@ -103,7 +103,7 @@ export function SortableTable<T>({
         key={col.key}
         onClick={sortable ? () => handleHeaderClick(col.key) : undefined}
         style={{
-          color: isActive ? colors.fg : colors.muted,
+          color: isActive ? theme.colors.primary : theme.colors.secondary,
           flex: col.flex,
           display: "inline-flex",
           alignItems: "center",
@@ -123,12 +123,12 @@ export function SortableTable<T>({
   const collapseLabel = useTopN ? `Collapse to top ${collapsedRows}` : "Collapse to current";
 
   return (
-    <Col gap={space.xs}>
+    <Col gap={theme.spacing.xs}>
       <Row
-        gap={space.md}
+        gap={theme.spacing.md}
         style={{
-          borderBottom: `1px solid ${colors.fgDim}`,
-          paddingBottom: space.xs,
+          borderBottom: `1px solid ${theme.colors.primarydark}`,
+          paddingBottom: theme.spacing.xs,
           fontSize: "0.85em",
         }}
       >
@@ -137,11 +137,11 @@ export function SortableTable<T>({
       </Row>
       {visibleRows.length === 0 ? (
         emptyMessage ? (
-          <span style={{ color: colors.muted, fontSize: "0.85em" }}>{emptyMessage}</span>
+          <span style={{ color: theme.colors.secondary, fontSize: "0.85em" }}>{emptyMessage}</span>
         ) : null
       ) : (
         visibleRows.map((row) => (
-          <Row key={rowKey(row)} gap={space.md} style={{ fontSize: "0.85em" }}>
+          <Row key={rowKey(row)} gap={theme.spacing.md} style={{ fontSize: "0.85em" }}>
             {actionColumn && (
               <span
                 style={{
@@ -172,7 +172,7 @@ export function SortableTable<T>({
         ))
       )}
       {showToggle && (
-        <Row style={{ marginTop: space.xs }}>
+        <Row style={{ marginTop: theme.spacing.xs }}>
           <Button onClick={() => setExpanded((e) => !e)}>
             {expanded ? collapseLabel : `Show all (${rows.length})`}
           </Button>

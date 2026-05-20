@@ -15,7 +15,6 @@ import {
   type ReactNode,
 } from "react";
 import type { NS } from "@ns";
-import { useNs } from "./ns";
 import { TaskId } from "./tasks/types";
 import { DASHBOARD_STATE_PORT, getPortData } from "./ports";
 import {
@@ -27,6 +26,7 @@ import {
 import { TaskManager } from "./tasks/taskManager";
 import { useLogger } from "./logging/log";
 import { usePreferences } from "./usePreferences";
+import { useNs } from "../../features/ns/NsProvider";
 
 // The interval that the entire dashboard system refreshes at. This controls
 // sub-behaviors like task management/kickoff, etc.

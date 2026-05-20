@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { CopyIcon, DoorIcon, HackIcon, HardwareIcon, LockIcon, MoneyBagIcon } from "../ui/Icons";
-import { useTheme } from "../ui/theme";
+import { CopyIcon, DoorIcon, HackIcon, HardwareIcon, LockIcon, MoneyBagIcon } from "../../features/components/Icons";
 import { useDashboardController } from "../util/useDashboardController";
 import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
 import { ServerInfo } from "../util/dashboardTypes";
-import { useNs } from "../util/ns";
+import { useTheme } from "../../features/theme/ThemeProvider";
+import { useNs } from "../../features/ns/NsProvider";
 
 const INDENT_PX = 18;
 const ROW_HEIGHT = "1.6em";
@@ -16,7 +16,7 @@ const MONEY_NEAR_MAX_RATIO = 0.95;
 type RailKind = "none" | "full" | "elbow" | "tee";
 
 function RailColumn({ kind }: { kind: RailKind }) {
-  const { colors } = useTheme();
+  const theme = useTheme();
   if (kind === "none") {
     return (
       <span
@@ -49,7 +49,7 @@ function RailColumn({ kind }: { kind: RailKind }) {
           left: "50%",
           top: 0,
           bottom: verticalBottom,
-          borderLeft: `1px solid ${colors.fgDim}`,
+          borderLeft: `1px solid ${theme.colors.primarydark}`,
         }}
       />
       {showHorizontal && (
@@ -59,7 +59,7 @@ function RailColumn({ kind }: { kind: RailKind }) {
             left: "50%",
             right: 0,
             top: "50%",
-            borderTop: `1px solid ${colors.fgDim}`,
+            borderTop: `1px solid ${theme.colors.primarydark}`,
           }}
         />
       )}
@@ -113,11 +113,11 @@ function CopyPathButton({ text, color }: { text: string; color: string }) {
 }
 
 function LegendIcon({ icon, label }: { icon: ReactNode; label: string }) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: space.xs }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: theme.spacing.xs }}>
       {icon}
-      <span style={{ color: colors.fgDim }}>{label}</span>
+      <span style={{ color: theme.colors.primarydark }}>{label}</span>
     </span>
   );
 }
@@ -144,7 +144,7 @@ interface TopBarProps {
 }
 
 function TopBar({ query, onQueryChange, matchCount, hasQuery }: TopBarProps) {
-  const { colors, fonts, space } = useTheme();
+  const theme = useTheme();
   const noMatches = hasQuery && matchCount === 0;
   return (
     <div
@@ -154,10 +154,10 @@ function TopBar({ query, onQueryChange, matchCount, hasQuery }: TopBarProps) {
         zIndex: 1,
         display: "flex",
         alignItems: "center",
-        gap: space.md,
-        padding: `${space.sm}px ${space.md}px`,
-        background: colors.surface,
-        borderBottom: `1px solid ${colors.fgDim}`,
+        gap: theme.spacing.md,
+        padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+        background: theme.colors.backgroundsecondary,
+        borderBottom: `1px solid ${theme.colors.primarydark}`,
         fontSize: 12,
       }}
     >
@@ -165,24 +165,24 @@ function TopBar({ query, onQueryChange, matchCount, hasQuery }: TopBarProps) {
         style={{
           display: "flex",
           flexWrap: "wrap",
-          gap: space.lg,
+          gap: theme.spacing.lg,
           flex: 1,
           minWidth: 0,
         }}
       >
-        <LegendHostname color={colors.fg} label="nuked" />
-        <LegendHostname color={colors.muted} label="not nuked" />
-        <LegendHostname color={colors.accent} bold label="player-owned" />
+        <LegendHostname color={theme.colors.primary} label="nuked" />
+        <LegendHostname color={theme.colors.secondary} label="not nuked" />
+        <LegendHostname color={theme.colors.info} bold label="player-owned" />
         <LegendIcon
-          icon={<HardwareIcon color={colors.error} title="RAM warning" />}
+          icon={<HardwareIcon color={theme.colors.error} title="RAM warning" />}
           label={`ram ≥ ${RAM_WARN_THRESHOLD * 100}%`}
         />
         <LegendIcon
-          icon={<LockIcon color={colors.success} title="Min security" />}
+          icon={<LockIcon color={theme.colors.success} title="Min security" />}
           label="min security"
         />
         <LegendIcon
-          icon={<MoneyBagIcon color={colors.warn} title="Max money" />}
+          icon={<MoneyBagIcon color={theme.colors.warning} title="Max money" />}
           label="max money"
         />
       </div>
@@ -204,19 +204,19 @@ function TopBar({ query, onQueryChange, matchCount, hasQuery }: TopBarProps) {
         style={{
           flexShrink: 0,
           width: 180,
-          background: colors.bg,
-          color: noMatches ? colors.error : colors.fg,
-          border: `1px solid ${noMatches ? colors.error : colors.border}`,
-          fontFamily: fonts.mono,
+          background: theme.colors.backgroundprimary,
+          color: noMatches ? theme.colors.error : theme.colors.primary,
+          border: `1px solid ${noMatches ? theme.colors.error : theme.colors.welllight}`,
+          fontFamily: theme.font.face,
           fontSize: 12,
-          padding: `${space.xs}px ${space.sm}px`,
+          padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
           outline: "none",
         }}
       />
       {hasQuery && (
         <span
           style={{
-            color: noMatches ? colors.error : colors.muted,
+            color: noMatches ? theme.colors.error : theme.colors.secondary,
             minWidth: 48,
             textAlign: "right",
             userSelect: "none",
@@ -230,7 +230,7 @@ function TopBar({ query, onQueryChange, matchCount, hasQuery }: TopBarProps) {
 }
 
 export function ServerMapDialog() {
-  const { colors, fonts } = useTheme();
+  const theme = useTheme();
   const { state } = useDashboardController();
   const ns = useNs();
 
@@ -245,7 +245,7 @@ export function ServerMapDialog() {
   // Alternating row backgrounds. Use the two background tokens as solid
   // fills — both are darker than the panel surface (well/welllight), giving
   // a recessed-table feel against the elevated panel.
-  const rowBackgrounds: [string, string] = [colors.bg, colors.surface];
+  const rowBackgrounds: [string, string] = [theme.colors.backgroundprimary, theme.colors.backgroundsecondary];
 
   const [searchQuery, setSearchQuery] = useState("");
   const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -265,7 +265,7 @@ export function ServerMapDialog() {
   }, [hasQuery, normalizedQuery, state.allServers]);
 
   return (
-    <div style={{ fontFamily: fonts.mono, fontSize: FONT_SIZE }}>
+    <div style={{ fontFamily: theme.font.face, fontSize: FONT_SIZE }}>
       <TopBar
         query={searchQuery}
         onQueryChange={setSearchQuery}
@@ -301,7 +301,7 @@ function HighlightedHostname({
   color: string;
   bold: boolean;
 }) {
-  const { colors } = useTheme();
+  const theme = useTheme();
   const baseStyle = { color, fontWeight: bold ? 600 : 400 };
   if (query === "") return <span style={baseStyle}>{hostname}</span>;
   const idx = hostname.toLowerCase().indexOf(query);
@@ -312,7 +312,7 @@ function HighlightedHostname({
   return (
     <span style={baseStyle}>
       {before}
-      <span style={{ background: colors.warn, color: colors.bg, borderRadius: 2 }}>{match}</span>
+      <span style={{ background: theme.colors.primary, color: theme.colors.backgroundprimary, borderRadius: 2 }}>{match}</span>
       {after}
     </span>
   );
@@ -337,7 +337,7 @@ function ServerRow({
   isFirstMatch,
   formatGb,
 }: ServerRowProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -354,11 +354,11 @@ function ServerRow({
   const levelTooLow = hackingLevel < required;
   const portsMissing = portsOpen < portsRequired;
 
-  const hostnameColor = purchased ? colors.accent : nuked ? colors.fg : colors.muted;
+  const hostnameColor = purchased ? theme.colors.info : nuked ? theme.colors.primary : theme.colors.secondary;
 
   const ramFrac = s.maxRam > 0 ? s.ramUsed / s.maxRam : 0;
   const ramHigh = ramFrac >= RAM_WARN_THRESHOLD;
-  const hardwareColor = ramHigh ? colors.error : colors.muted;
+  const hardwareColor = ramHigh ? theme.colors.error : theme.colors.secondary;
 
   const hackTooltip = (() => {
     const parts: string[] = [];
@@ -377,7 +377,7 @@ function ServerRow({
   const curDiff = s.hackDifficulty ?? 0;
   const showSecurity = minDiff > 0 && !purchased;
   const securityAtMin = curDiff <= minDiff * SECURITY_NEAR_MIN_RATIO;
-  const securityColor = securityAtMin ? colors.success : colors.muted;
+  const securityColor = securityAtMin ? theme.colors.success : theme.colors.secondary;
   const securityTooltip = `Security: ${curDiff.toFixed(2)} (min ${minDiff.toFixed(2)})`;
 
   const moneyMax = s.moneyMax ?? 0;
@@ -385,7 +385,7 @@ function ServerRow({
   const showMoney = moneyMax > 0 && !purchased;
   const moneyFrac = moneyMax > 0 ? moneyAvail / moneyMax : 0;
   const moneyNearMax = moneyFrac >= MONEY_NEAR_MAX_RATIO;
-  const moneyColor = moneyNearMax ? colors.warn : colors.muted;
+  const moneyColor = moneyNearMax ? theme.colors.warning : theme.colors.secondary;
   const moneyPct = (moneyFrac * 100).toFixed(0);
   const moneyTooltip = `Money: ${formatMoney(moneyAvail)} / ${formatMoney(moneyMax)} (${moneyPct}%)`;
 
@@ -395,8 +395,8 @@ function ServerRow({
       style={{
         display: "flex",
         alignItems: "center",
-        gap: space.sm,
-        padding: `${space.xs}px ${space.sm}px`,
+        gap: theme.spacing.sm,
+        padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
         background,
         whiteSpace: "nowrap",
       }}
@@ -420,13 +420,13 @@ function ServerRow({
         style={{
           display: "inline-flex",
           alignItems: "center",
-          gap: space.sm,
-          marginLeft: space.sm,
+          gap: theme.spacing.sm,
+          marginLeft: theme.spacing.sm,
         }}
       >
-        <CopyPathButton text={path} color={colors.muted} />
-        {s.backdoorInstalled && <DoorIcon color={colors.success} title="Backdoor installed" />}
-        {!nuked && <HackIcon color={colors.warn} title={hackTooltip} />}
+        <CopyPathButton text={path} color={theme.colors.secondary} />
+        {s.backdoorInstalled && <DoorIcon color={theme.colors.success} title="Backdoor installed" />}
+        {!nuked && <HackIcon color={theme.colors.warning} title={hackTooltip} />}
         <HardwareIcon color={hardwareColor} title={hardwareTooltip} />
         {showSecurity && <LockIcon color={securityColor} title={securityTooltip} />}
         {showMoney && <MoneyBagIcon color={moneyColor} title={moneyTooltip} />}

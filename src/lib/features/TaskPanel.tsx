@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "../ui/Button";
-import { Col } from "../ui/Col";
-import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { BracesIcon, PinIcon, PowerIcon, ShuffleIcon } from "../ui/Icons";
-import { Modal } from "../ui/Modal";
-import { Panel } from "../ui/Panel";
-import { Row } from "../ui/Row";
-import { useTheme } from "../ui/theme";
+import { Button } from "../../features/components/Button";
+import { Col } from "../../features/components/Col";
+import { ConfirmDialog } from "../../features/components/ConfirmDialog";
+import { BracesIcon, PinIcon, PowerIcon, ShuffleIcon } from "../../features/components/Icons";
+import { Modal } from "../../features/components/Modal";
+import { Panel } from "../../features/components/Panel";
+import { Row } from "../../features/components/Row";
 import { useDashboardController } from "../util/useDashboardController";
 import {
   ALL_TASKS,
@@ -16,11 +15,12 @@ import {
 } from "../util/tasks/definitions/tasks";
 import { HOME_RESERVED_RAM_GB, getTaskScriptPath } from "../util/tasks/taskManager";
 import type { TaskDefinition, TaskState } from "../util/tasks/types";
-import { Spinner } from "../ui/Spinner";
-import { useNs } from "../util/ns";
+import { Spinner } from "../../features/components/Spinner";
+import { useTheme } from "../../features/theme/ThemeProvider";
+import { useNs } from "../../features/ns/NsProvider";
 
 export function TaskPanel() {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const { state, startTasks, shutdownTask, shouldShowReallocate, reallocate } =
     useDashboardController();
   const ns = useNs();
@@ -93,12 +93,12 @@ export function TaskPanel() {
   const isReallocating = state.reallocating;
 
   const actions = (
-    <Row gap={space.sm}>
-      <span style={{ color: colors.muted, fontSize: "0.85em" }}>
+    <Row gap={theme.spacing.sm}>
+      <span style={{ color: theme.colors.secondary, fontSize: "0.85em" }}>
         {`${ns.format.ram(allottedRam)} / ${ns.format.ram(totalRam)}`}
       </span>
       {isReallocating ? (
-        <Row gap={space.sm} style={{ alignItems: "center", color: colors.muted }}>
+        <Row gap={theme.spacing.sm} style={{ alignItems: "center", color: theme.colors.secondary }}>
           <Spinner active />
           <span style={{ fontSize: "0.85em" }}>Reallocating…</span>
         </Row>
@@ -106,7 +106,7 @@ export function TaskPanel() {
         showReallocate && (
           <Button onClick={() => reallocate()} variant="primary">
             <ShuffleIcon
-              color={colors.accent}
+              color={theme.colors.info}
               title="Reallocate tasks to better utilize new server capacity. Will request shutdown from unbound tasks."
             />
             {" Reallocate"}
@@ -165,15 +165,15 @@ export function TaskPanel() {
   };
 
   return (
-    <Panel title="Tasks" actions={actions} style={{ padding: space.md }}>
+    <Panel title="Tasks" actions={actions} style={{ padding: theme.spacing.md }}>
       {taskEntries.length === 0 ? (
-        <span style={{ color: colors.muted }}>
+        <span style={{ color: theme.colors.secondary }}>
           No active tasks — click <em>New task</em> to start one.
         </span>
       ) : (
-        <Col gap={space.md}>
+        <Col gap={theme.spacing.md}>
           {pinnedEntries.length > 0 && (
-            <Col gap={space.md}>
+            <Col gap={theme.spacing.md}>
               {pinnedEntries.map(([id, slot]) => (
                 <PinnedTaskCard
                   key={id}
@@ -188,7 +188,7 @@ export function TaskPanel() {
             </Col>
           )}
           {gridEntries.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: space.md }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: theme.spacing.md }}>
               {gridEntries.map(([id, slot]) => (
                 <TaskTile
                   key={id}
@@ -237,18 +237,18 @@ export function TaskPanel() {
         }
       >
         {startable.length === 0 ? (
-          <span style={{ color: colors.muted }}>All tasks are running.</span>
+          <span style={{ color: theme.colors.secondary }}>All tasks are running.</span>
         ) : (
-          <Col gap={space.lg}>
+          <Col gap={theme.spacing.lg}>
             {[...new Set(startable.map((def) => def.category))].sort().map((category) => {
               const inCategory = startable.filter((def) => def.category === category);
               return (
-                <Col key={category} gap={space.sm}>
+                <Col key={category} gap={theme.spacing.sm}>
                   <div
                     style={{
-                      color: colors.muted,
-                      borderBottom: `1px solid ${colors.fgDim}`,
-                      paddingBottom: space.xs,
+                      color: theme.colors.secondary,
+                      borderBottom: `1px solid ${theme.colors.primarydark}`,
+                      paddingBottom: theme.spacing.xs,
                       fontSize: "0.8em",
                       textTransform: "uppercase",
                       letterSpacing: "0.1em",
@@ -256,7 +256,7 @@ export function TaskPanel() {
                   >
                     {category}
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: space.md }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: theme.spacing.md }}>
                     {inCategory.map((def) => {
                       const checked = selectedIds.has(def.id);
                       let requirementsNotMetReason: string | undefined = undefined;
@@ -268,12 +268,12 @@ export function TaskPanel() {
                         <label
                           key={def.id}
                           style={{
-                            border: `3px solid ${checked ? colors.accent : colors.fg}`,
-                            background: colors.surface,
-                            padding: space.md,
+                            border: `3px solid ${checked ? theme.colors.info : theme.colors.primary}`,
+                            background: theme.colors.backgroundsecondary,
+                            padding: theme.spacing.md,
                             display: "flex",
                             flexDirection: "column",
-                            gap: space.sm,
+                            gap: theme.spacing.sm,
                             flex: "1 1 220px",
                             maxWidth: 240,
                             minWidth: 200,
@@ -281,7 +281,7 @@ export function TaskPanel() {
                             opacity: blocked ? 0.5 : 1,
                           }}
                         >
-                          <Row gap={space.sm} style={{ alignItems: "center" }}>
+                          <Row gap={theme.spacing.sm} style={{ alignItems: "center" }}>
                             <input
                               type="checkbox"
                               checked={checked}
@@ -291,13 +291,13 @@ export function TaskPanel() {
                                 toggleSelected(def.id);
                               }}
                               style={{
-                                accentColor: colors.accent,
+                                accentColor: theme.colors.info,
                                 cursor: blocked ? "not-allowed" : "pointer",
                               }}
                             />
                             <span
                               style={{
-                                color: colors.accent,
+                                color: theme.colors.info,
                                 fontWeight: "bold",
                                 fontSize: "1.15em",
                                 letterSpacing: "0.02em",
@@ -309,7 +309,7 @@ export function TaskPanel() {
                           </Row>
                           <span
                             style={{
-                              color: colors.muted,
+                              color: theme.colors.secondary,
                               fontSize: "0.85em",
                               whiteSpace: "nowrap",
                             }}
@@ -324,7 +324,7 @@ export function TaskPanel() {
                           </span>
                           <span
                             style={{
-                              color: colors.fg,
+                              color: theme.colors.primary,
                               fontSize: "0.9em",
                               whiteSpace: "normal",
                               overflowWrap: "break-word",
@@ -333,7 +333,7 @@ export function TaskPanel() {
                             {def.description}
                           </span>
                           {blocked && (
-                            <span style={{ color: colors.warn, fontSize: "0.85em" }}>
+                            <span style={{ color: theme.colors.warning, fontSize: "0.85em" }}>
                               {requirementsNotMetReason || "conflicts with other task"}
                             </span>
                           )}
@@ -370,7 +370,7 @@ interface TaskTileProps {
 }
 
 function TaskTile({ id, slot, canPin, disableShutdown, onInfo, onStop, onPin }: TaskTileProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
 
   const slices = slot.allocation?.servers ?? [];
@@ -380,20 +380,20 @@ function TaskTile({ id, slot, canPin, disableShutdown, onInfo, onStop, onPin }: 
 
   const statusColor =
     slot.status === "running"
-      ? colors.muted
+      ? theme.colors.secondary
       : slot.status === "stopping"
-        ? colors.warn
-        : colors.accent;
+        ? theme.colors.warning
+        : theme.colors.info;
 
   return (
     <div
       style={{
-        border: `3px solid ${colors.fg}`,
-        background: colors.surface,
-        padding: space.md,
+        border: `3px solid ${theme.colors.primary}`,
+        background: theme.colors.backgroundsecondary,
+        padding: theme.spacing.md,
         display: "flex",
         flexDirection: "column",
-        gap: space.sm,
+        gap: theme.spacing.sm,
         flex: "1 1 240px",
         maxWidth: 220,
         minWidth: 180,
@@ -402,7 +402,7 @@ function TaskTile({ id, slot, canPin, disableShutdown, onInfo, onStop, onPin }: 
       <Row>
         <span
           style={{
-            color: colors.accent,
+            color: theme.colors.info,
             fontWeight: "bold",
             fontSize: "1.15em",
             letterSpacing: "0.02em",
@@ -412,27 +412,27 @@ function TaskTile({ id, slot, canPin, disableShutdown, onInfo, onStop, onPin }: 
         </span>
         {slot.status === "running" && <Spinner active />}
       </Row>
-      <Row gap={space.sm} style={{ fontSize: "0.85em" }}>
+      <Row gap={theme.spacing.sm} style={{ fontSize: "0.85em" }}>
         <span style={{ color: statusColor }}>{slot.status}</span>
         <Row>
-          <span style={{ color: colors.muted }}>on {slot.host ?? "?"}</span>
-          <span style={{ color: colors.muted, marginLeft: "auto" }}>• {ns.format.ram(ram)}</span>
+          <span style={{ color: theme.colors.secondary }}>on {slot.host ?? "?"}</span>
+          <span style={{ color: theme.colors.secondary, marginLeft: "auto" }}>• {ns.format.ram(ram)}</span>
         </Row>
       </Row>
-      <Row gap={space.sm} style={{ marginTop: "auto", justifyContent: "flex-end" }}>
+      <Row gap={theme.spacing.sm} style={{ marginTop: "auto", justifyContent: "flex-end" }}>
         {canPin && (
           <Button onClick={onPin}>
-            <PinIcon color={colors.accent} title={`Pin ${id}`} />
+            <PinIcon color={theme.colors.info} title={`Pin ${id}`} />
           </Button>
         )}
         <Button onClick={onInfo} disabled={!canInspect}>
           <BracesIcon
-            color={canInspect ? colors.accent : colors.muted}
+            color={canInspect ? theme.colors.info : theme.colors.secondary}
             title="Allocation details"
           />
         </Button>
         <Button onClick={onStop} variant="warn" disabled={!canStop}>
-          <PowerIcon color={canStop ? colors.warn : colors.muted} title={`Stop ${id}`} />
+          <PowerIcon color={canStop ? theme.colors.warning : theme.colors.secondary} title={`Stop ${id}`} />
         </Button>
       </Row>
     </div>
@@ -456,7 +456,7 @@ function PinnedTaskCard({
   onStop,
   onUnpin,
 }: PinnedTaskCardProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
 
   const Custom = TASK_CUSTOM_PANELS[id];
@@ -467,29 +467,29 @@ function PinnedTaskCard({
 
   const statusColor =
     slot.status === "running"
-      ? colors.muted
+      ? theme.colors.secondary
       : slot.status === "stopping"
-        ? colors.warn
-        : colors.accent;
+        ? theme.colors.warning
+        : theme.colors.info;
 
   return (
     <div
       style={{
-        border: `3px solid ${colors.fg}`,
-        background: colors.surface,
-        padding: space.md,
+        border: `3px solid ${theme.colors.primary}`,
+        background: theme.colors.backgroundsecondary,
+        padding: theme.spacing.md,
         display: "flex",
         flexDirection: "column",
-        gap: space.sm,
+        gap: theme.spacing.sm,
         width: "100%",
         boxSizing: "border-box",
       }}
     >
-      <Row gap={space.md}>
-        <Row gap={space.sm}>
+      <Row gap={theme.spacing.md}>
+        <Row gap={theme.spacing.sm}>
           <span
             style={{
-              color: colors.accent,
+              color: theme.colors.info,
               fontWeight: "bold",
               fontSize: "1.15em",
               letterSpacing: "0.02em",
@@ -499,31 +499,31 @@ function PinnedTaskCard({
           </span>
           {slot.status === "running" && <Spinner active />}
         </Row>
-        <Row gap={space.sm} style={{ fontSize: "0.85em", marginLeft: space.lg }}>
+        <Row gap={theme.spacing.sm} style={{ fontSize: "0.85em", marginLeft: theme.spacing.lg }}>
           <span style={{ color: statusColor }}>{slot.status}</span>
-          <span style={{ color: colors.muted }}>on {slot.host ?? "?"}</span>
-          <span style={{ color: colors.muted }}>• {ns.format.ram(ram)}</span>
+          <span style={{ color: theme.colors.secondary }}>on {slot.host ?? "?"}</span>
+          <span style={{ color: theme.colors.secondary }}>• {ns.format.ram(ram)}</span>
         </Row>
-        <Row gap={space.sm} style={{ marginLeft: "auto" }}>
+        <Row gap={theme.spacing.sm} style={{ marginLeft: "auto" }}>
           <Button onClick={onUnpin}>
-            <PinIcon color={colors.accent} title={`Unpin ${id}`} />
+            <PinIcon color={theme.colors.info} title={`Unpin ${id}`} />
           </Button>
           <Button onClick={onInfo} disabled={!canInspect}>
             <BracesIcon
-              color={canInspect ? colors.accent : colors.muted}
+              color={canInspect ? theme.colors.info : theme.colors.secondary}
               title="Allocation details"
             />
           </Button>
           <Button onClick={onStop} variant="warn" disabled={!canStop}>
-            <PowerIcon color={canStop ? colors.warn : colors.muted} title={`Stop ${id}`} />
+            <PowerIcon color={canStop ? theme.colors.warning : theme.colors.secondary} title={`Stop ${id}`} />
           </Button>
         </Row>
       </Row>
       {Custom && (
         <div
           style={{
-            border: `1px solid ${colors.border}`,
-            padding: space.md,
+            border: `1px solid ${theme.colors.welllight}`,
+            padding: theme.spacing.md,
             minHeight: 80,
           }}
         >
@@ -535,48 +535,48 @@ function PinnedTaskCard({
 }
 
 function AllocationDetails({ slot, def }: { slot: TaskState; def: TaskDefinition | undefined }) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
   const slices = slot.allocation?.servers ?? [];
   const totalRam = slices.reduce((sum, s) => sum + s.ram, 0);
 
   return (
-    <Col gap={space.md}>
-      {def && <span style={{ color: colors.fg }}>{def.description}</span>}
-      <Row gap={space.lg}>
-        <span style={{ color: colors.muted }}>
-          Controller pid: <span style={{ color: colors.fg }}>{slot.pid ?? "—"}</span>
+    <Col gap={theme.spacing.md}>
+      {def && <span style={{ color: theme.colors.primary }}>{def.description}</span>}
+      <Row gap={theme.spacing.lg}>
+        <span style={{ color: theme.colors.secondary }}>
+          Controller pid: <span style={{ color: theme.colors.primary }}>{slot.pid ?? "—"}</span>
         </span>
-        <span style={{ color: colors.muted }}>
-          Host: <span style={{ color: colors.fg }}>{slot.host ?? "—"}</span>
+        <span style={{ color: theme.colors.secondary }}>
+          Host: <span style={{ color: theme.colors.primary }}>{slot.host ?? "—"}</span>
         </span>
       </Row>
       <div
         style={{
-          border: `1px solid ${colors.border}`,
-          padding: space.sm,
-          background: colors.surface,
+          border: `1px solid ${theme.colors.welllight}`,
+          padding: theme.spacing.sm,
+          background: theme.colors.backgroundsecondary,
         }}
       >
-        <Col gap={space.xs}>
+        <Col gap={theme.spacing.xs}>
           <Row
-            gap={space.md}
-            style={{ borderBottom: `1px solid ${colors.fgDim}`, paddingBottom: space.xs }}
+            gap={theme.spacing.md}
+            style={{ borderBottom: `1px solid ${theme.colors.primarydark}`, paddingBottom: theme.spacing.xs }}
           >
-            <span style={{ color: colors.muted, flex: 2 }}>hostname</span>
-            <span style={{ color: colors.muted, flex: 1, textAlign: "right" }}>RAM</span>
-            <span style={{ color: colors.muted, flex: 1, textAlign: "right" }}>cores</span>
+            <span style={{ color: theme.colors.secondary, flex: 2 }}>hostname</span>
+            <span style={{ color: theme.colors.secondary, flex: 1, textAlign: "right" }}>RAM</span>
+            <span style={{ color: theme.colors.secondary, flex: 1, textAlign: "right" }}>cores</span>
           </Row>
           {slices.length === 0 ? (
-            <span style={{ color: colors.muted }}>No allocation.</span>
+            <span style={{ color: theme.colors.secondary }}>No allocation.</span>
           ) : (
             slices.map((s) => (
-              <Row key={s.hostname} gap={space.md}>
-                <span style={{ color: colors.fg, flex: 2 }}>{s.hostname}</span>
-                <span style={{ color: colors.fg, flex: 1, textAlign: "right" }}>
+              <Row key={s.hostname} gap={theme.spacing.md}>
+                <span style={{ color: theme.colors.primary, flex: 2 }}>{s.hostname}</span>
+                <span style={{ color: theme.colors.primary, flex: 1, textAlign: "right" }}>
                   {ns.format.ram(s.ram)}
                 </span>
-                <span style={{ color: colors.fg, flex: 1, textAlign: "right" }}>
+                <span style={{ color: theme.colors.primary, flex: 1, textAlign: "right" }}>
                   {s.cores ?? "—"}
                 </span>
               </Row>
@@ -584,10 +584,10 @@ function AllocationDetails({ slot, def }: { slot: TaskState; def: TaskDefinition
           )}
         </Col>
       </div>
-      <Row gap={space.lg}>
-        <span style={{ color: colors.muted }}>
-          Total: <span style={{ color: colors.fg }}>{ns.format.ram(totalRam)}</span> across{" "}
-          <span style={{ color: colors.fg }}>{slices.length}</span> host
+      <Row gap={theme.spacing.lg}>
+        <span style={{ color: theme.colors.secondary }}>
+          Total: <span style={{ color: theme.colors.primary }}>{ns.format.ram(totalRam)}</span> across{" "}
+          <span style={{ color: theme.colors.primary }}>{slices.length}</span> host
           {slices.length === 1 ? "" : "s"}
         </span>
       </Row>

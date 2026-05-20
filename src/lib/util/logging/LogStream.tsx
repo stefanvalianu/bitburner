@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type LogEntry, type LogLevel } from "./log";
-import { Badge } from "../../ui/Badge";
-import { Col } from "../../ui/Col";
-import { useNs } from "../ns";
-import { Row } from "../../ui/Row";
-import { useTheme } from "../../ui/theme";
+import { Badge } from "../../../features/components/Badge";
+import { Col } from "../../../features/components/Col";
+import { Row } from "../../../features/components/Row";
 import { LOG_PORT } from "../ports";
+import { useNs } from "../../../features/ns/NsProvider";
+import { useTheme } from "../../../features/theme/ThemeProvider";
 
 const MAX_BUFFER = 250;
 const POLL_MS = 1000;
@@ -58,15 +58,15 @@ export function useLogStream(onFresh?: (top: LogEntry) => void): LogEntry[] {
 // Maps log levels to theme colors. Exposed so callers (e.g., a dashboard
 // notification dot) can match the color of the most-recent log severity.
 export function useLevelColor(): Record<LogLevel, string> {
-  const { colors } = useTheme();
+  const theme = useTheme();
   return useMemo(
     () => ({
-      debug: colors.muted,
-      info: colors.fg,
-      warn: colors.warn,
-      error: colors.error,
+      debug: theme.colors.secondary,
+      info: theme.colors.primary,
+      warn: theme.colors.warning,
+      error: theme.colors.error,
     }),
-    [colors],
+    [theme],
   );
 }
 
@@ -75,7 +75,7 @@ interface LogStreamProps {
 }
 
 export function LogStream({ entries }: LogStreamProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const levelColor = useLevelColor();
   const endRef = useRef<HTMLDivElement | null>(null);
 
@@ -84,18 +84,18 @@ export function LogStream({ entries }: LogStreamProps) {
   }, [entries.length]);
 
   if (entries.length === 0) {
-    return <span style={{ color: colors.muted }}>waiting for logs… (port {LOG_PORT})</span>;
+    return <span style={{ color: theme.colors.secondary }}>waiting for logs… (port {LOG_PORT})</span>;
   }
   return (
     <Col gap={2} style={{ maxHeight: 400, overflowY: "auto", minWidth: 520 }}>
       {entries.map((e, i) => (
-        <Row key={i} gap={space.sm} align="baseline">
-          <span style={{ color: colors.muted, fontSize: 10, minWidth: 90 }}>{ts(e.ts)}</span>
+        <Row key={i} gap={theme.spacing.sm} align="baseline">
+          <span style={{ color: theme.colors.secondary, fontSize: 10, minWidth: 90 }}>{ts(e.ts)}</span>
           <Badge color={levelColor[e.level]}>{e.level}</Badge>
-          <span style={{ color: colors.muted, minWidth: 80 }}>{e.source}</span>
+          <span style={{ color: theme.colors.secondary, minWidth: 80 }}>{e.source}</span>
           <span style={{ color: levelColor[e.level] }}>{e.msg}</span>
           {e.data !== undefined && (
-            <span style={{ color: colors.muted }}>{JSON.stringify(e.data)}</span>
+            <span style={{ color: theme.colors.secondary }}>{JSON.stringify(e.data)}</span>
           )}
         </Row>
       ))}

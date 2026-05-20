@@ -1,4 +1,4 @@
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
 
 interface CheckProps {
   ok: boolean;
@@ -6,8 +6,8 @@ interface CheckProps {
 }
 
 export function Check({ ok, size = 14 }: CheckProps) {
-  const { colors } = useTheme();
-  const color = ok ? colors.success : colors.muted;
+  const theme = useTheme();
+  const color = ok ? theme.colors.success : theme.colors.secondary;
   return (
     <svg
       width={size}

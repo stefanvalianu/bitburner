@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
 
 interface BadgeProps {
   children: ReactNode;
@@ -7,15 +7,15 @@ interface BadgeProps {
 }
 
 export function Badge({ children, color }: BadgeProps) {
-  const { colors, fonts, space } = useTheme();
-  const c = color ?? colors.fg;
+  const theme = useTheme();
+  const c = color ?? theme.colors.primary;
   return (
     <span
       style={{
-        fontFamily: fonts.mono,
+        fontFamily: theme.font.face,
         color: c,
         border: `1px solid ${c}`,
-        padding: `0 ${space.sm}px`,
+        padding: `0 ${theme.spacing.sm}px`,
         fontSize: 11,
       }}
     >

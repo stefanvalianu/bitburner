@@ -5,7 +5,7 @@ import { Button } from "./Button";
 import { Panel } from "./Panel";
 import { Row } from "./Row";
 import { ScrollScope } from "./ScrollScope";
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
 
 // One higher than MODAL_Z_INDEX in Modal.tsx so confirm dialogs always sit
 // above any modal that opened them. See the comment there for the rationale
@@ -33,7 +33,7 @@ export function ConfirmDialog({
   cancelLabel = "No",
   confirmVariant = "warn",
 }: ConfirmDialogProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const sentinelRef = useRef<HTMLSpanElement>(null);
   const [body, setBody] = useState<HTMLElement | null>(null);
 
@@ -71,8 +71,8 @@ export function ConfirmDialog({
             >
               <div onClick={(e) => e.stopPropagation()}>
                 <Panel title={title} style={{ minWidth: 360, maxWidth: 560 }}>
-                  <div style={{ color: colors.fg }}>{message}</div>
-                  <Row gap={space.sm} style={{ justifyContent: "flex-end" }}>
+                  <div style={{ color: theme.colors.primary }}>{message}</div>
+                  <Row gap={theme.spacing.sm} style={{ justifyContent: "flex-end" }}>
                     <Button onClick={onCancel}>{cancelLabel}</Button>
                     <Button onClick={onConfirm} variant={confirmVariant}>
                       {confirmLabel}

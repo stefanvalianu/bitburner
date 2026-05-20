@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { Button } from "../../ui/Button";
-import { LogsIcon } from "../../ui/Icons";
-import { Modal } from "../../ui/Modal";
-import { NotificationDot } from "../../ui/NotificationDot";
-import { useTheme } from "../../ui/theme";
-import { useNotification } from "../../ui/useNotification";
+import { Button } from "../../../features/components/Button";
+import { LogsIcon } from "../../../features/components/Icons";
+import { Modal } from "../../../features/components/Modal";
+import { NotificationDot } from "../../../features/components/NotificationDot";
+import { useNotification } from "../../../features/notifications/useNotification";
 import { useLevelColor, useLogStream, LogStream } from "./LogStream";
+import { useTheme } from "../../../features/theme/ThemeProvider";
 
 export function LogButton() {
-  const { colors } = useTheme();
+  const theme = useTheme();
   const { notification, notify, clear } = useNotification();
   const levelColor = useLevelColor();
   const [logsOpen, setLogsOpen] = useState(false);
@@ -29,7 +29,7 @@ export function LogButton() {
     <>
       <Button onClick={openLogs}>
         {notification && <NotificationDot color={notification.color} />}
-        <LogsIcon color={colors.muted} />
+        <LogsIcon color={theme.colors.secondary} />
         Logs ({entries.length})
       </Button>
       <Modal open={logsOpen} onClose={() => setLogsOpen(false)} title={`logs · ${entries.length}`}>

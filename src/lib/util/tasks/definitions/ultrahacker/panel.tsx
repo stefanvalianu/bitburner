@@ -1,13 +1,11 @@
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import type { NS } from "@ns";
-import { Button } from "../../../../ui/Button";
-import { Col } from "../../../../ui/Col";
-import { TargetIcon, UntargetIcon } from "../../../../ui/Icons";
-import { Row } from "../../../../ui/Row";
-import { SortableColumn, SortableTable } from "../../../../ui/SortableTable";
-import { useTheme } from "../../../../ui/theme";
-import { useNs } from "../../../ns";
+import { Button } from "../../../../../features/components/Button";
+import { Col } from "../../../../../features/components/Col";
+import { TargetIcon, UntargetIcon } from "../../../../../features/components/Icons";
+import { Row } from "../../../../../features/components/Row";
+import { SortableColumn, SortableTable } from "../../../../../features/components/SortableTable";
 import { useDashboardController } from "../../../useDashboardController";
 import { HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
 import { formatDuration } from "../../../formatting";
@@ -18,6 +16,8 @@ import {
   type ServerAnalysis,
   type UltrahackerTaskState,
 } from "./info";
+import { useTheme } from "../../../../../features/theme/ThemeProvider";
+import { useNs } from "../../../../../features/ns/NsProvider";
 
 type Theme = ReturnType<typeof useTheme>;
 
@@ -33,7 +33,7 @@ const buildColumns = (
     align: "left",
     accessor: (r) => r.hostname,
     render: (r) => (
-      <span style={{ color: r.hostname === target ? colors.accent : colors.fg }}>{r.hostname}</span>
+      <span style={{ color: r.hostname === target ? colors.info : colors.primary }}>{r.hostname}</span>
     ),
   },
   {
@@ -42,7 +42,7 @@ const buildColumns = (
     flex: 1,
     align: "right",
     accessor: (r) => r.hackChance,
-    render: (r) => <span style={{ color: colors.fg }}>{ns.format.percent(r.hackChance, 1)}</span>,
+    render: (r) => <span style={{ color: colors.primary }}>{ns.format.percent(r.hackChance, 1)}</span>,
   },
   {
     key: "maxMoney",
@@ -58,7 +58,7 @@ const buildColumns = (
     flex: 1,
     align: "right",
     accessor: (r) => r.batchTime,
-    render: (r) => <span style={{ color: colors.fg }}>{formatDuration(r.batchTime)}</span>,
+    render: (r) => <span style={{ color: colors.primary }}>{formatDuration(r.batchTime)}</span>,
   },
   {
     key: "profitPerSecond",
@@ -76,12 +76,12 @@ const buildColumns = (
     flex: 1,
     align: "right",
     accessor: (r) => r.xpPerSecond,
-    render: (r) => <span style={{ color: colors.hack }}>{ns.format.number(r.xpPerSecond, 2)}</span>,
+    render: (r) => <span style={{ color: colors.code }}>{ns.format.number(r.xpPerSecond, 2)}</span>,
   },
 ];
 
 export const UltrahackerPanel: TaskCustomPanel = () => {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
   const { state } = useDashboardController();
 
@@ -123,7 +123,7 @@ export const UltrahackerPanel: TaskCustomPanel = () => {
   const moneyComplete = targetCurrentMoney >= targetMaxMoney - 1e-6;
 
   if (targetOptions.length === 0) {
-    return <span style={{ color: colors.muted }}>No analysis yet — first scan pending.</span>;
+    return <span style={{ color: theme.colors.secondary }}>No analysis yet — first scan pending.</span>;
   }
 
   const handleTarget = (hostname: string) => {
@@ -145,7 +145,7 @@ export const UltrahackerPanel: TaskCustomPanel = () => {
       if (row.hostname === userTarget) {
         return (
           <Button onClick={handleUntarget}>
-            <UntargetIcon color={colors.warn} title={`Un-target ${row.hostname}`} size={10} />
+            <UntargetIcon color={theme.colors.warning} title={`Un-target ${row.hostname}`} size={10} />
           </Button>
         );
       }
@@ -153,83 +153,83 @@ export const UltrahackerPanel: TaskCustomPanel = () => {
     }
     return (
       <Button onClick={() => handleTarget(row.hostname)}>
-        <TargetIcon color={colors.accent} title={`Target ${row.hostname}`} size={10} />
+        <TargetIcon color={theme.colors.info} title={`Target ${row.hostname}`} size={10} />
       </Button>
     );
   };
 
   return (
-    <Col gap={space.sm}>
-      <Row gap={space.lg} style={{ fontSize: "0.85em" }}>
-        <span style={{ color: colors.muted }}>
-          Target: <span style={{ color: colors.accent }}>{target || "—"}</span>
-          {userTarget !== undefined && <span style={{ color: colors.muted }}> (user-pinned)</span>}
+    <Col gap={theme.spacing.sm}>
+      <Row gap={theme.spacing.lg} style={{ fontSize: "0.85em" }}>
+        <span style={{ color: theme.colors.secondary }}>
+          Target: <span style={{ color: theme.colors.info }}>{target || "—"}</span>
+          {userTarget !== undefined && <span style={{ color: theme.colors.secondary }}> (user-pinned)</span>}
         </span>
         {!securityComplete && (
-          <span style={{ color: colors.muted }}>
+          <span style={{ color: theme.colors.secondary }}>
             sec:{" "}
-            <span style={{ color: colors.hack }}>
+            <span style={{ color: theme.colors.code }}>
               {ns.format.number((100 * targetMinSecurity) / targetCurrentSecurity, 0)}%
             </span>
           </span>
         )}
         {!moneyComplete && (
-          <span style={{ color: colors.muted }}>
+          <span style={{ color: theme.colors.secondary }}>
             $:{" "}
-            <span style={{ color: colors.money }}>
+            <span style={{ color: theme.colors.money }}>
               {ns.format.number((100 * targetCurrentMoney) / targetMaxMoney, 0)}%
             </span>
           </span>
         )}
-        <span style={{ color: colors.muted, marginLeft: "auto" }}>
-          Options: <span style={{ color: colors.fg }}>{targetOptions.length}</span>
+        <span style={{ color: theme.colors.secondary, marginLeft: "auto" }}>
+          Options: <span style={{ color: theme.colors.primary }}>{targetOptions.length}</span>
         </span>
       </Row>
 
-      <Row gap={space.lg} style={{ fontSize: "0.85em" }}>
+      <Row gap={theme.spacing.lg} style={{ fontSize: "0.85em" }}>
         {stalled ? (
-          <span style={{ color: colors.warn }}>
+          <span style={{ color: theme.colors.warning }}>
             ⚠ task stalled (no tick for {formatDuration(now - lastTickAt)})
           </span>
         ) : firstLandingTime === 0 ? (
-          <span style={{ color: colors.muted }}>
-            <span style={{ color: colors.fg }}>warming up</span> — no batches placed yet
+          <span style={{ color: theme.colors.secondary }}>
+            <span style={{ color: theme.colors.primary }}>warming up</span> — no batches placed yet
           </span>
         ) : !cascadeActive ? (
-          <span style={{ color: colors.muted }}>
+          <span style={{ color: theme.colors.secondary }}>
             first landing in{" "}
-            <span style={{ color: colors.accent }}>{formatDuration(firstLandingInMs)}</span>
+            <span style={{ color: theme.colors.info }}>{formatDuration(firstLandingInMs)}</span>
           </span>
         ) : (
-          <span style={{ color: colors.muted }}>
-            <span style={{ color: colors.success }}>● cascade active</span>
+          <span style={{ color: theme.colors.secondary }}>
+            <span style={{ color: theme.colors.success }}>● cascade active</span>
             {tailInMs > 0 && (
               <>
                 {" "}
-                — tail in <span style={{ color: colors.fg }}>{formatDuration(tailInMs)}</span>
+                — tail in <span style={{ color: theme.colors.primary }}>{formatDuration(tailInMs)}</span>
               </>
             )}
           </span>
         )}
         {inFlightCount > 0 && (
-          <span style={{ color: colors.muted }}>
-            in-flight: <span style={{ color: colors.fg }}>{inFlightCount}</span>
+          <span style={{ color: theme.colors.secondary }}>
+            in-flight: <span style={{ color: theme.colors.primary }}>{inFlightCount}</span>
           </span>
         )}
         {drainingCount > 0 && (
-          <span style={{ color: colors.muted }}>
-            draining: <span style={{ color: colors.warn }}>{drainingCount}</span>
+          <span style={{ color: theme.colors.secondary }}>
+            draining: <span style={{ color: theme.colors.warning }}>{drainingCount}</span>
           </span>
         )}
         {pipelineStartedAt > 0 && (
-          <span style={{ color: colors.muted, marginLeft: "auto" }}>
-            running for <span style={{ color: colors.fg }}>{formatDuration(runningForMs)}</span>
+          <span style={{ color: theme.colors.secondary, marginLeft: "auto" }}>
+            running for <span style={{ color: theme.colors.primary }}>{formatDuration(runningForMs)}</span>
           </span>
         )}
       </Row>
 
       <SortableTable<ServerAnalysis>
-        columns={buildColumns(ns, colors, target)}
+        columns={buildColumns(ns, theme.colors, target)}
         rows={targetOptions}
         rowKey={(r) => r.hostname}
         actionColumn={{ width: 32, render: renderAction }}

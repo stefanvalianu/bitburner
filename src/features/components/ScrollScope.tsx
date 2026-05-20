@@ -1,5 +1,5 @@
 import type { CSSProperties, MouseEventHandler, ReactNode, Ref } from "react";
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
 
 const SCOPE = "bb-scroll-scope";
 
@@ -14,11 +14,11 @@ interface ScrollScopeProps {
 // silently clips. ScrollScope re-enables and themes them, but only within
 // its subtree so the rest of the game UI is untouched.
 export function ScrollScope({ children, style, onClick, rootRef }: ScrollScopeProps) {
-  const { colors } = useTheme();
+  const theme = useTheme();
   const css = `
     .${SCOPE}, .${SCOPE} * {
       scrollbar-width: thin !important;
-      scrollbar-color: ${colors.fgDim} ${colors.well} !important;
+      scrollbar-color: ${theme.colors.primarydark} ${theme.colors.well} !important;
     }
     .${SCOPE} ::-webkit-scrollbar,
     .${SCOPE}::-webkit-scrollbar {
@@ -28,12 +28,12 @@ export function ScrollScope({ children, style, onClick, rootRef }: ScrollScopePr
     }
     .${SCOPE} ::-webkit-scrollbar-thumb,
     .${SCOPE}::-webkit-scrollbar-thumb {
-      background: ${colors.fgDim} !important;
+      background: ${theme.colors.primarydark} !important;
       border-radius: 2px !important;
     }
     .${SCOPE} ::-webkit-scrollbar-track,
     .${SCOPE}::-webkit-scrollbar-track {
-      background: ${colors.well} !important;
+      background: ${theme.colors.well} !important;
     }
   `;
   return (

@@ -18,8 +18,8 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from "react";
-import { useNs } from "./ns";
 import { DEFAULT_PREFERENCES, type DashboardPreferences } from "./dashboardTypes";
+import { useNs } from "../../features/ns/NsProvider";
 
 const PREFERENCES_FILE = ".state/preferences.json";
 

@@ -1,21 +1,19 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { useLogger } from "../util/logging/log";
-import { useNs } from "../util/ns";
-import { Button } from "../ui/Button";
-import { Col } from "../ui/Col";
-import { Hint } from "../ui/Hint";
-import { HardwareIcon, HomeIcon, WorldIcon } from "../ui/Icons";
-import { NumberInput } from "../ui/NumberInput";
-import { Panel } from "../ui/Panel";
-import { Row } from "../ui/Row";
-import { SectionHeading } from "../ui/SectionHeading";
-import { Spinner } from "../ui/Spinner";
-import { StatRow } from "../ui/StatRow";
-import { useTheme } from "../ui/theme";
+import { Button } from "../../features/components/Button";
+import { Col } from "../../features/components/Col";
+import { Hint } from "../../features/components/Hint";
+import { HardwareIcon, HomeIcon, WorldIcon } from "../../features/components/Icons";
+import { NumberInput } from "../../features/components/NumberInput";
+import { Panel } from "../../features/components/Panel";
+import { Row } from "../../features/components/Row";
+import { SectionHeading } from "../../features/components/SectionHeading";
+import { Spinner } from "../../features/components/Spinner";
+import { StatRow } from "../../features/components/StatRow";
 import { useDashboardController } from "../util/useDashboardController";
 import { usePreferences } from "../util/usePreferences";
-import { Modal } from "../ui/Modal";
+import { Modal } from "../../features/components/Modal";
 import { ServerMapDialog } from "./ServerMapDialog";
 import { SERVER_PURCHASE_COMMUNICATION_PORT } from "../util/ports";
 import { getPlayerMonitorState } from "../util/tasks/definitions/player-monitor/info";
@@ -26,6 +24,8 @@ import {
   type PurchasePreference,
   type ServerPurchaseRequest,
 } from "../util/tasks/definitions/server-buyer/info";
+import { useNs } from "../../features/ns/NsProvider";
+import { useTheme } from "../../features/theme/ThemeProvider";
 
 // Servers are named `${CLOUD_SERVER_PREFIX}-N` — strip the prefix + dash to
 // recover the numeric suffix.
@@ -35,7 +35,7 @@ const cloudSuffix = (hostname: string): string => hostname.slice(CLOUD_OFFSET);
 export function ServerPanel() {
   const ns = useNs();
   const log = useLogger("server-panel");
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const { state } = useDashboardController();
 
   const [mapOpen, setMapOpen] = useState<boolean>(false);
@@ -99,24 +99,24 @@ export function ServerPanel() {
       <Panel
         title="Servers"
         actions={
-          <Row gap={space.sm}>
-            <span style={{ color: colors.muted, fontSize: "0.85em" }}>
+          <Row gap={theme.spacing.sm}>
+            <span style={{ color: theme.colors.secondary, fontSize: "0.85em" }}>
               {nukedCount}/{nukeableTotal} nuked
             </span>
             <Button onClick={() => setBuyOpen(true)} disabled={!buyer}>
-              <HardwareIcon color={colors.accent} title="Buy or upgrade a server" />
+              <HardwareIcon color={theme.colors.info} title="Buy or upgrade a server" />
               Buy
             </Button>
             <Button onClick={() => setMapOpen(true)}>
-              <WorldIcon color={colors.accent} />
+              <WorldIcon color={theme.colors.info} />
               Server map
             </Button>
           </Row>
         }
       >
         <SectionHeading>Player servers</SectionHeading>
-        <Col gap={space.md}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm }}>
+        <Col gap={theme.spacing.md}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: theme.spacing.sm }}>
             {ownedSorted.map((s) => (
               <ServerTile
                 key={s.hostname}
@@ -156,7 +156,7 @@ interface ServerTileProps {
 }
 
 function ServerTile({ hostname, cloudInfo, ramGB }: ServerTileProps) {
-  const { colors, fonts } = useTheme();
+  const theme = useTheme();
   const tileRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
   const isHome = hostname === "home";
@@ -165,7 +165,7 @@ function ServerTile({ hostname, cloudInfo, ramGB }: ServerTileProps) {
   // A cloud server is "upgradeable" while the buyer task can still grow it.
   // maxUpgradeCost = -1 means it's already at the cap (or info missing).
   const upgradeable = cloudInfo !== undefined && cloudInfo.maxUpgradeCost !== -1;
-  const accent = upgradeable ? colors.accent : colors.fg;
+  const accent = upgradeable ? theme.colors.info : theme.colors.primary;
 
   return (
     <div
@@ -177,13 +177,13 @@ function ServerTile({ hostname, cloudInfo, ramGB }: ServerTileProps) {
         position: "relative",
         width: TILE_SIZE,
         height: TILE_SIZE,
-        border: `1px solid ${upgradeable ? colors.accent : colors.border}`,
-        background: colors.surface,
+        border: `1px solid ${upgradeable ? theme.colors.info : theme.colors.welllight}`,
+        background: theme.colors.backgroundsecondary,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         color: accent,
-        fontFamily: fonts.mono,
+        fontFamily: theme.font.face,
         fontSize: TILE_FONT_SIZE,
         fontWeight: "bold",
         boxSizing: "border-box",
@@ -224,7 +224,7 @@ interface UpgradeTooltipProps {
 }
 
 function UpgradeTooltip({ cloudInfo, ramGB, triggerRef }: UpgradeTooltipProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
@@ -238,10 +238,10 @@ function UpgradeTooltip({ cloudInfo, ramGB, triggerRef }: UpgradeTooltipProps) {
     const trigRect = trigger.getBoundingClientRect();
     const anchorRect = anchor?.getBoundingClientRect() ?? { top: 0, left: 0 };
     setPos({
-      top: trigRect.top - anchorRect.top - space.xs,
+      top: trigRect.top - anchorRect.top - theme.spacing.xs,
       left: trigRect.left + trigRect.width / 2 - anchorRect.left,
     });
-  }, [triggerRef, space.xs]);
+  }, [triggerRef, theme.spacing.xs]);
 
   const nextCost =
     cloudInfo.nextUpgradeCost !== -1 ? `$${ns.format.number(cloudInfo.nextUpgradeCost, 2)}` : "—";
@@ -255,34 +255,34 @@ function UpgradeTooltip({ cloudInfo, ramGB, triggerRef }: UpgradeTooltipProps) {
         top: pos.top,
         left: pos.left,
         transform: "translate(-50%, -100%)",
-        background: colors.surface,
-        border: `1px solid ${colors.border}`,
-        padding: space.sm,
+        background: theme.colors.backgroundsecondary,
+        border: `1px solid ${theme.colors.welllight}`,
+        padding: theme.spacing.sm,
         minWidth: 200,
         zIndex: 100,
         pointerEvents: "none",
         fontSize: "0.85em",
       }}
     >
-      <Col gap={space.xs}>
-        <span style={{ color: colors.muted }}>{cloudInfo.hostname}</span>
+      <Col gap={theme.spacing.xs}>
+        <span style={{ color: theme.colors.secondary }}>{cloudInfo.hostname}</span>
         <StatRow label="RAM" value={ns.format.ram(ramGB)} />
-        <StatRow label="Next upgrade" value={nextCost} valueColor={colors.money} />
-        <StatRow label="To max" value={maxCost} valueColor={colors.money} />
+        <StatRow label="Next upgrade" value={nextCost} valueColor={theme.colors.money} />
+        <StatRow label="To max" value={maxCost} valueColor={theme.colors.money} />
       </Col>
     </div>
   );
 }
 
 function EmptyServerTile() {
-  const { colors } = useTheme();
+  const theme = useTheme();
   return (
     <div
       title="Empty slot — buy a server to fill"
       style={{
         width: TILE_SIZE,
         height: TILE_SIZE,
-        border: `1px solid ${colors.well}`,
+        border: `1px solid ${theme.colors.well}`,
         background: "transparent",
         boxSizing: "border-box",
       }}
@@ -296,7 +296,7 @@ interface BuyServerModalProps {
 }
 
 function BuyServerModal({ open, onClose }: BuyServerModalProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
   const { state } = useDashboardController();
   const { preferences } = usePreferences();
@@ -328,11 +328,11 @@ function BuyServerModal({ open, onClose }: BuyServerModalProps) {
       onClose={onClose}
       title="Buy server"
       actions={
-        <Row gap={space.md} style={{ alignItems: "center" }}>
+        <Row gap={theme.spacing.md} style={{ alignItems: "center" }}>
           <Hint>Effective budget</Hint>
           <span
             style={{
-              color: colors.money,
+              color: theme.colors.money,
               fontVariantNumeric: "tabular-nums",
             }}
           >
@@ -344,30 +344,30 @@ function BuyServerModal({ open, onClose }: BuyServerModalProps) {
         </Row>
       }
     >
-      <Col gap={space.lg}>
-        <Col gap={space.sm}>
+      <Col gap={theme.spacing.lg}>
+        <Col gap={theme.spacing.sm}>
           <SectionHeading>Funds</SectionHeading>
-          <Row gap={space.lg}>
+          <Row gap={theme.spacing.lg}>
             <StatRow
               label="Available"
               value={`$${ns.format.number(money, 2)}`}
-              valueColor={colors.money}
+              valueColor={theme.colors.money}
             />
             <StatRow label="Reserved" value={`$${ns.format.number(reserved, 2)}`} />
           </Row>
         </Col>
 
-        <Col gap={space.sm}>
+        <Col gap={theme.spacing.sm}>
           <SectionHeading>Budget (optional)</SectionHeading>
-          <Row gap={space.sm} style={{ alignItems: "center" }}>
-            <span style={{ color: colors.muted }}>$</span>
+          <Row gap={theme.spacing.sm} style={{ alignItems: "center" }}>
+            <span style={{ color: theme.colors.secondary }}>$</span>
             <NumberInput value={budgetInput} onChange={setBudgetInput} placeholder="spending cap" />
           </Row>
         </Col>
 
-        <Col gap={space.sm}>
+        <Col gap={theme.spacing.sm}>
           <SectionHeading>Preference</SectionHeading>
-          <Row gap={space.md}>
+          <Row gap={theme.spacing.md}>
             <PreferenceRadio
               value="auto"
               current={preference}
@@ -405,7 +405,7 @@ interface PreferenceRadioProps {
 }
 
 function PreferenceRadio({ value, current, onChange, label, hint }: PreferenceRadioProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const checked = value === current;
   return (
     <label
@@ -413,7 +413,7 @@ function PreferenceRadio({ value, current, onChange, label, hint }: PreferenceRa
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: space.xs,
+        gap: theme.spacing.xs,
         cursor: "pointer",
       }}
     >
@@ -422,9 +422,9 @@ function PreferenceRadio({ value, current, onChange, label, hint }: PreferenceRa
         name="purchase-preference"
         checked={checked}
         onChange={() => onChange(value)}
-        style={{ accentColor: colors.accent, cursor: "pointer" }}
+        style={{ accentColor: theme.colors.info, cursor: "pointer" }}
       />
-      <span style={{ color: colors.fg }}>{label}</span>
+      <span style={{ color: theme.colors.primary }}>{label}</span>
     </label>
   );
 }

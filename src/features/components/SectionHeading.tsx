@@ -1,17 +1,16 @@
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
 
-// Uppercase muted-color caption used to label a section inside a panel or
 // modal. Wrap in a `<Col gap={space.sm}>` with the section's content.
 export function SectionHeading({ children }: { children: string }) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   return (
     <span
       style={{
-        color: colors.fgDim,
+        color: theme.colors.primarydark,
         fontSize: 11,
         textTransform: "uppercase",
         letterSpacing: 1,
-        paddingTop: space.xs,
+        paddingTop: theme.spacing.xs,
       }}
     >
       {children}

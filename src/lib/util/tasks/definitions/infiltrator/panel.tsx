@@ -1,10 +1,8 @@
 import type { NS, InfiltrationLocation } from "@ns";
-import { Button } from "../../../../ui/Button";
-import { Col } from "../../../../ui/Col";
-import { Row } from "../../../../ui/Row";
-import { SortableColumn, SortableTable } from "../../../../ui/SortableTable";
-import { useTheme } from "../../../../ui/theme";
-import { useNs } from "../../../ns";
+import { Button } from "../../../../../features/components/Button";
+import { Col } from "../../../../../features/components/Col";
+import { Row } from "../../../../../features/components/Row";
+import { SortableColumn, SortableTable } from "../../../../../features/components/SortableTable";
 import { useDashboardController } from "../../../useDashboardController";
 import {
   INFILTRATION_SOLVER_TASK_ID,
@@ -12,6 +10,8 @@ import {
 } from "../infiltration-solver/info";
 import { INFILTRATOR_TASK_ID, type InfiltratorTaskState } from "./info";
 import { TaskCustomPanel } from "../tasks";
+import { useTheme } from "../../../../../features/theme/ThemeProvider";
+import { useNs } from "../../../../../features/ns/NsProvider";
 
 const GAME_LABELS: Record<string, string> = {
   slash: "Slash",
@@ -33,7 +33,7 @@ const buildColumns = (ns: NS, colors: Theme["colors"]): SortableColumn<Infiltrat
     align: "left",
     flex: 2,
     accessor: (r) => r.location.name,
-    render: (r) => <span style={{ color: colors.fg }}>{r.location.name}</span>,
+    render: (r) => <span style={{ color: colors.primary }}>{r.location.name}</span>,
   },
   {
     key: "city",
@@ -41,7 +41,7 @@ const buildColumns = (ns: NS, colors: Theme["colors"]): SortableColumn<Infiltrat
     align: "left",
     flex: 1,
     accessor: (r) => r.location.city,
-    render: (r) => <span style={{ color: colors.fg }}>{r.location.city}</span>,
+    render: (r) => <span style={{ color: colors.primary }}>{r.location.city}</span>,
   },
   {
     key: "difficulty",
@@ -49,7 +49,7 @@ const buildColumns = (ns: NS, colors: Theme["colors"]): SortableColumn<Infiltrat
     align: "right",
     flex: 1,
     accessor: (r) => r.difficulty,
-    render: (r) => <span style={{ color: colors.fg }}>{ns.format.number(r.difficulty, 2)}</span>,
+    render: (r) => <span style={{ color: colors.primary }}>{ns.format.number(r.difficulty, 2)}</span>,
   },
   {
     key: "maxClearance",
@@ -58,7 +58,7 @@ const buildColumns = (ns: NS, colors: Theme["colors"]): SortableColumn<Infiltrat
     flex: 1,
     accessor: (r) => r.maxClearanceLevel,
     render: (r) => (
-      <span style={{ color: colors.fg }}>{ns.format.number(r.maxClearanceLevel, 0)}</span>
+      <span style={{ color: colors.primary }}>{ns.format.number(r.maxClearanceLevel, 0)}</span>
     ),
   },
   {
@@ -68,7 +68,7 @@ const buildColumns = (ns: NS, colors: Theme["colors"]): SortableColumn<Infiltrat
     flex: 1,
     accessor: (r) => r.startingSecurityLevel,
     render: (r) => (
-      <span style={{ color: colors.fg }}>{ns.format.number(r.startingSecurityLevel, 2)}</span>
+      <span style={{ color: colors.primary }}>{ns.format.number(r.startingSecurityLevel, 2)}</span>
     ),
   },
   {
@@ -87,7 +87,7 @@ const buildColumns = (ns: NS, colors: Theme["colors"]): SortableColumn<Infiltrat
     align: "right",
     flex: 1,
     accessor: (r) => r.reward.tradeRep,
-    render: (r) => <span style={{ color: colors.fg }}>{ns.format.number(r.reward.tradeRep)}</span>,
+    render: (r) => <span style={{ color: colors.primary }}>{ns.format.number(r.reward.tradeRep)}</span>,
   },
   {
     key: "soaRep",
@@ -95,12 +95,12 @@ const buildColumns = (ns: NS, colors: Theme["colors"]): SortableColumn<Infiltrat
     align: "right",
     flex: 1,
     accessor: (r) => r.reward.SoARep,
-    render: (r) => <span style={{ color: colors.fg }}>{ns.format.number(r.reward.SoARep)}</span>,
+    render: (r) => <span style={{ color: colors.primary }}>{ns.format.number(r.reward.SoARep)}</span>,
   },
 ];
 
 export const InfiltratorPanel: TaskCustomPanel = () => {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
   const { state, startTasks, shutdownTask } = useDashboardController();
 
@@ -132,8 +132,8 @@ export const InfiltratorPanel: TaskCustomPanel = () => {
   const stopSolver = () => shutdownTask(INFILTRATION_SOLVER_TASK_ID);
 
   return (
-    <Col gap={space.sm}>
-      <Row gap={space.md}>
+    <Col gap={theme.spacing.sm}>
+      <Row gap={theme.spacing.md}>
         {solverPresent ? (
           <Button onClick={stopSolver} variant="warn" disabled={!solverRunning}>
             ■ Stop solver
@@ -144,24 +144,24 @@ export const InfiltratorPanel: TaskCustomPanel = () => {
           </Button>
         )}
         <span
-          style={{ color: solverRunning ? colors.fg : colors.muted, fontSize: "0.9em" }}
+          style={{ color: solverRunning ? theme.colors.primary : theme.colors.secondary, fontSize: "0.9em" }}
           title="Start the solver BEFORE clicking Infiltrate Company — it can't hook into infiltrations already in progress."
         >
           solver: {solverStatus}
         </span>
         {solverSlot?.lastError && (
-          <span style={{ color: colors.warn, fontSize: "0.85em" }}>
+          <span style={{ color: theme.colors.warning, fontSize: "0.85em" }}>
             last error: {solverSlot.lastError}
           </span>
         )}
       </Row>
       {infiltrations.length === 0 ? (
-        <span style={{ color: colors.muted }}>
+        <span style={{ color: theme.colors.secondary }}>
           No infiltrations scanned yet — first refresh pending.
         </span>
       ) : (
         <SortableTable<InfiltrationLocation>
-          columns={buildColumns(ns, colors)}
+          columns={buildColumns(ns, theme.colors)}
           rows={infiltrations}
           rowKey={(r) => r.location.name}
           collapsible

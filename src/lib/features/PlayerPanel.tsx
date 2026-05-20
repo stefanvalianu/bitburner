@@ -1,16 +1,14 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { NS, Player } from "@ns";
-import { Button } from "../ui/Button";
-import { Col } from "../ui/Col";
-import { FormulasIcon, PortsIcon, ProgramsIcon, TorIcon } from "../ui/Icons";
-import { Modal } from "../ui/Modal";
-import { Panel } from "../ui/Panel";
-import { Row } from "../ui/Row";
-import { SectionHeading } from "../ui/SectionHeading";
-import { Spinner } from "../ui/Spinner";
-import { StatRow } from "../ui/StatRow";
-import { useTheme } from "../ui/theme";
-import { useNs } from "../util/ns";
+import { Button } from "../../features/components/Button";
+import { Col } from "../../features/components/Col";
+import { FormulasIcon, PortsIcon, ProgramsIcon, TorIcon } from "../../features/components/Icons";
+import { Modal } from "../../features/components/Modal";
+import { Panel } from "../../features/components/Panel";
+import { Row } from "../../features/components/Row";
+import { SectionHeading } from "../../features/components/SectionHeading";
+import { Spinner } from "../../features/components/Spinner";
+import { StatRow } from "../../features/components/StatRow";
 import {
   getPlayerMonitorState,
   PLAYER_MONITOR_FAST_REFRESH_FREQUENCY_MS,
@@ -21,7 +19,8 @@ import { useDashboardController } from "../util/useDashboardController";
 import { usePreferences } from "../util/usePreferences";
 import { ProgramsDialog } from "./ProgramsDialog";
 import { useLivePlayerState } from "../util/useLivePlayerState";
-import { DashboardTitle } from "./DashboardTitle";
+import { useTheme } from "../../features/theme/ThemeProvider";
+import { useNs } from "../../features/ns/NsProvider";
 
 // Skills the player can train via game actions.
 type TrainableSkill =
@@ -53,7 +52,7 @@ function skillProgressPct(
 }
 
 export function PlayerPanel() {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
   const { state } = useDashboardController();
   const { preferences } = usePreferences();
@@ -67,14 +66,14 @@ export function PlayerPanel() {
     playerState.player !== undefined;
 
   const actions = (
-    <Row gap={space.sm} style={{ alignItems: "center" }}>
+    <Row gap={theme.spacing.sm} style={{ alignItems: "center" }}>
       {preferences?.reservedMoney > 0 && (
-        <span style={{ color: colors.muted, fontSize: "0.85em" }}>
+        <span style={{ color: theme.colors.secondary, fontSize: "0.85em" }}>
           {`Reserved: $${ns.format.number(preferences.reservedMoney, 2)}`}
         </span>
       )}
       <Button onClick={() => setModalOpen(true)} disabled={!hasPlayerState}>
-        <ProgramsIcon color={colors.fg} title="View programs" />
+        <ProgramsIcon color={theme.colors.primary} title="View programs" />
         Programs
       </Button>
     </Row>
@@ -86,9 +85,9 @@ export function PlayerPanel() {
         {!hasPlayerState ? (
           <Spinner active label="Player state not generated yet..." />
         ) : (
-          <Row gap={space.lg} style={{ alignItems: "flex-start" }}>
+          <Row gap={theme.spacing.lg} style={{ alignItems: "flex-start" }}>
             <PlayerStats dashboardPlayerTaskState={playerState} />
-            <Col gap={space.md} style={{ flex: 1, minWidth: 0 }}>
+            <Col gap={theme.spacing.md} style={{ flex: 1, minWidth: 0 }}>
               <Location city={playerState.player.city} />
               <CrimeSection player={playerState.player} />
               <ShoppingList inventory={playerState.inventory} />
@@ -108,56 +107,54 @@ interface PlayerStatsProps {
 }
 
 function PlayerStats(props: PlayerStatsProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
   const { player, inventory } = useLivePlayerState(props.dashboardPlayerTaskState);
   const pct = (s: TrainableSkill) => skillProgressPct(ns, player, s, inventory.hasFormulas);
 
-  ns.ui.setTailTitle(<DashboardTitle ns={ns} hp={player.hp} money={player.money} />);
-
   return (
-    <Col gap={space.xs} style={{ minWidth: 120, maxWidth: 160, flexShrink: 0 }}>
+    <Col gap={theme.spacing.xs} style={{ minWidth: 120, maxWidth: 160, flexShrink: 0 }}>
       <SkillRow
         label="hck"
         value={`${player.skills.hacking}`}
-        valueColor={colors.hack}
+        valueColor={theme.colors.code}
         progress={pct("hacking")}
       />
       <SkillRow
         label="str"
         value={`${player.skills.strength}`}
-        valueColor={colors.white}
+        valueColor={theme.colors.white}
         progress={pct("strength")}
       />
       <SkillRow
         label="def"
         value={`${player.skills.defense}`}
-        valueColor={colors.white}
+        valueColor={theme.colors.white}
         progress={pct("defense")}
       />
       <SkillRow
         label="dex"
         value={`${player.skills.dexterity}`}
-        valueColor={colors.white}
+        valueColor={theme.colors.white}
         progress={pct("dexterity")}
       />
       <SkillRow
         label="agi"
         value={`${player.skills.agility}`}
-        valueColor={colors.white}
+        valueColor={theme.colors.white}
         progress={pct("agility")}
       />
       <SkillRow
         label="cha"
         value={`${player.skills.charisma}`}
-        valueColor={colors.cha}
+        valueColor={theme.colors.cha}
         progress={pct("charisma")}
       />
       {(player.exp.intelligence > 0 || player.skills.intelligence > 1) && (
         <SkillRow
           label="int"
           value={`${player.skills.intelligence}`}
-          valueColor={colors.int}
+          valueColor={theme.colors.int}
           progress={pct("intelligence")}
         />
       )}
@@ -189,7 +186,7 @@ function SkillRow({ label, value, valueColor, progress }: SkillRowProps) {
 const BAR_HEIGHT = 2;
 
 function ProgressBar({ value, color }: { value: number; color: string }) {
-  const { colors } = useTheme();
+  const theme = useTheme();
   const pct = Math.max(0, Math.min(1, value)) * 100;
   // Suppress the transition when pct drops (level-up resets progress to ~0) so
   // the bar snaps instead of visibly draining backwards.
@@ -201,7 +198,7 @@ function ProgressBar({ value, color }: { value: number; color: string }) {
       style={{
         width: "100%",
         height: BAR_HEIGHT,
-        background: colors.well,
+        background: theme.colors.well,
         overflow: "hidden",
       }}
     >
@@ -220,15 +217,15 @@ function ProgressBar({ value, color }: { value: number; color: string }) {
 }
 
 function Location({ city }: { city: string }) {
-  const { colors } = useTheme();
-  return <span style={{ color: colors.fg }}>📍 {city}</span>;
+  const theme = useTheme();
+  return <span style={{ color: theme.colors.primary }}>📍 {city}</span>;
 }
 
 function CrimeSection({ player }: { player: Player }) {
-  const { space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
   return (
-    <Col gap={space.xs}>
+    <Col gap={theme.spacing.xs}>
       <SectionHeading>Crime</SectionHeading>
       <StatRow label="killed" value={ns.format.number(player.numPeopleKilled, 0)} />
       <StatRow label="karma" value={ns.format.number(player.karma, 2)} />
@@ -243,18 +240,18 @@ interface ShoppingItemProps {
 }
 
 function ShoppingItem({ icon, label, detail }: ShoppingItemProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: space.xs }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: theme.spacing.xs }}>
       {icon}
-      <span style={{ color: colors.fg }}>{label}</span>
-      {detail && <span style={{ color: colors.muted }}>{detail}</span>}
+      <span style={{ color: theme.colors.primary }}>{label}</span>
+      {detail && <span style={{ color: theme.colors.secondary }}>{detail}</span>}
     </span>
   );
 }
 
 function ShoppingList({ inventory }: { inventory: Inventory }) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const portsOwned = inventory.portOpeners.filter((p) => p.owned).length;
   const missingTor = !inventory.hasRouter;
   const missingPorts = portsOwned < inventory.portOpeners.length;
@@ -265,19 +262,19 @@ function ShoppingList({ inventory }: { inventory: Inventory }) {
   }
 
   return (
-    <Col gap={space.xs}>
+    <Col gap={theme.spacing.xs}>
       <SectionHeading>Shopping list</SectionHeading>
-      <Row gap={space.md} style={{ flexWrap: "wrap" }}>
-        {missingTor && <ShoppingItem icon={<TorIcon color={colors.warn} />} label="TOR router" />}
+      <Row gap={theme.spacing.md} style={{ flexWrap: "wrap" }}>
+        {missingTor && <ShoppingItem icon={<TorIcon color={theme.colors.warning} />} label="TOR router" />}
         {missingPorts && (
           <ShoppingItem
-            icon={<PortsIcon color={colors.warn} />}
+            icon={<PortsIcon color={theme.colors.warning} />}
             label="Port openers"
             detail={`${portsOwned}/${inventory.portOpeners.length}`}
           />
         )}
         {missingFormulas && (
-          <ShoppingItem icon={<FormulasIcon color={colors.warn} />} label="Formulas.exe" />
+          <ShoppingItem icon={<FormulasIcon color={theme.colors.warning} />} label="Formulas.exe" />
         )}
       </Row>
     </Col>

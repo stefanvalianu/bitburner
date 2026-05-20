@@ -1,8 +1,8 @@
-import { useDashboardController } from "../util/useDashboardController";
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
+import { useDashboardController } from "../../lib/util/useDashboardController";
 
 export function PropagationStamp() {
-  const { colors } = useTheme();
+  const theme = useTheme();
   const { state } = useDashboardController();
 
   if (!state.propagatedVersion) return null;
@@ -14,7 +14,7 @@ export function PropagationStamp() {
         bottom: 4,
         right: 6,
         fontSize: 10,
-        color: colors.muted,
+        color: theme.colors.secondary,
         pointerEvents: "none",
       }}
     >

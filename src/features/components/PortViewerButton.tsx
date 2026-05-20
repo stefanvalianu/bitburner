@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import { useNs } from "../util/ns";
 import {
   TASK_EVENTS_PORT,
   DASHBOARD_STATE_PORT,
   HACKING_SYSTEM_COMMUNICATION_PORT,
-} from "../util/ports";
+} from "../../lib/util/ports";
 import { Button } from "./Button";
 import { Col } from "./Col";
 import { BracesIcon } from "./Icons";
 import { JsonView } from "./JsonView";
 import { Modal } from "./Modal";
 import { Row } from "./Row";
-import { useTheme } from "./theme";
+import { useNs } from "../ns/NsProvider";
+import { useTheme } from "../theme/ThemeProvider";
 
 interface PortDescriptor {
   port: number;
@@ -55,7 +55,7 @@ const EMPTY: Snapshot = { raw: null, parsed: null, error: null };
 
 export function PortViewerButton() {
   const ns = useNs();
-  const { colors, fonts, space } = useTheme();
+  const theme = useTheme();
   const [open, setOpen] = useState(false);
   const [activePort, setActivePort] = useState<number>(PORTS[0].port);
   const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
@@ -90,7 +90,7 @@ export function PortViewerButton() {
   return (
     <>
       <Button onClick={() => setOpen(true)}>
-        <BracesIcon color={colors.muted} />
+        <BracesIcon color={theme.colors.secondary} />
         Ports
       </Button>
       <Modal
@@ -98,8 +98,8 @@ export function PortViewerButton() {
         onClose={() => setOpen(false)}
         title={`Ports · ${active.name} (#${active.port})`}
       >
-        <Col gap={space.md} style={{ minWidth: 560 }}>
-          <Row gap={space.sm}>
+        <Col gap={theme.spacing.md} style={{ minWidth: 560 }}>
+          <Row gap={theme.spacing.sm}>
             {PORTS.map((p) => {
               const isActive = p.port === activePort;
               return (
@@ -107,11 +107,11 @@ export function PortViewerButton() {
                   key={p.port}
                   onClick={() => setActivePort(p.port)}
                   style={{
-                    fontFamily: fonts.mono,
-                    background: isActive ? colors.well : colors.bg,
-                    color: isActive ? colors.accent : colors.fg,
-                    border: `1px solid ${isActive ? colors.accent : colors.border}`,
-                    padding: `${space.xs}px ${space.md}px`,
+                    fontFamily: theme.font.face,
+                    background: isActive ? theme.colors.well : theme.colors.backgroundprimary,
+                    color: isActive ? theme.colors.info : theme.colors.primary,
+                    border: `1px solid ${isActive ? theme.colors.info : theme.colors.welllight}`,
+                    padding: `${theme.spacing.xs}px ${theme.spacing.md}px`,
                     cursor: "pointer",
                   }}
                 >
@@ -120,27 +120,27 @@ export function PortViewerButton() {
               );
             })}
           </Row>
-          <span style={{ color: colors.muted, fontSize: 11 }}>
+          <span style={{ color: theme.colors.secondary, fontSize: 11 }}>
             {active.semantics} · {active.description}
           </span>
           <div
             style={{
-              border: `1px solid ${colors.border}`,
-              padding: space.md,
-              background: colors.well,
+              border: `1px solid ${theme.colors.welllight}`,
+              padding: theme.spacing.md,
+              background: theme.colors.well,
               maxHeight: 480,
               overflow: "auto",
               minWidth: 480,
             }}
           >
             {snapshot.error ? (
-              <Col gap={space.xs}>
-                <span style={{ color: colors.error }}>parse error: {snapshot.error}</span>
-                <span style={{ color: colors.muted, fontSize: 11 }}>raw:</span>
-                <pre style={{ color: colors.fg, fontSize: 11, margin: 0 }}>{snapshot.raw}</pre>
+              <Col gap={theme.spacing.xs}>
+                <span style={{ color: theme.colors.error }}>parse error: {snapshot.error}</span>
+                <span style={{ color: theme.colors.secondary, fontSize: 11 }}>raw:</span>
+                <pre style={{ color: theme.colors.primary, fontSize: 11, margin: 0 }}>{snapshot.raw}</pre>
               </Col>
             ) : snapshot.raw === null ? (
-              <span style={{ color: colors.muted }}>(empty — no data on port)</span>
+              <span style={{ color: theme.colors.secondary }}>(empty — no data on port)</span>
             ) : (
               <JsonView value={snapshot.parsed} defaultExpandDepth={2} />
             )}

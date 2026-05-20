@@ -1,10 +1,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { Col } from "../../../../ui/Col";
-import { Row } from "../../../../ui/Row";
-import { StatRow } from "../../../../ui/StatRow";
-import { useTheme } from "../../../../ui/theme";
-import { useNs } from "../../../ns";
+import { Col } from "../../../../../features/components/Col";
+import { Row } from "../../../../../features/components/Row";
+import { StatRow } from "../../../../../features/components/StatRow";
 import { useDashboardController } from "../../../useDashboardController";
 import {
   GANG_BANGER_TASK_ID,
@@ -13,6 +11,8 @@ import {
   type MemberRank,
 } from "./info";
 import { TaskCustomPanel } from "../tasks";
+import { useTheme } from "../../../../../features/theme/ThemeProvider";
+import { useNs } from "../../../../../features/ns/NsProvider";
 
 const ROMAN: Record<MemberRank, string> = { 1: "I", 2: "II", 3: "III", 4: "IV" };
 
@@ -20,7 +20,7 @@ const TILE_SIZE = 48;
 const TILE_FONT_SIZE = 18;
 
 export const GangBangerPanel: TaskCustomPanel = () => {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
   const { state } = useDashboardController();
 
@@ -31,15 +31,15 @@ export const GangBangerPanel: TaskCustomPanel = () => {
   const territoryPct = ns.format.number((gang?.territory ?? 0) * 100, 2);
 
   return (
-    <Col gap={space.md}>
-      <Row gap={space.lg}>
+    <Col gap={theme.spacing.md}>
+      <Row gap={theme.spacing.sm}>
         <StatRow label="gang" value={gang?.faction ?? "—"} />
-        <StatRow label="territory" value={`${territoryPct}%`} valueColor={colors.accent} />
+        <StatRow label="territory" value={`${territoryPct}%`} valueColor={theme.colors.info} />
       </Row>
       {members.length === 0 ? (
-        <span style={{ color: colors.muted }}>No members yet — waiting for recruits.</span>
+        <span style={{ color: theme.colors.secondary }}>No members yet — waiting for recruits.</span>
       ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: space.sm }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: theme.spacing.sm }}>
           {members.map((m) => (
             <MemberTile key={m.info.name} member={m} />
           ))}
@@ -54,13 +54,13 @@ interface MemberTileProps {
 }
 
 function MemberTile({ member }: MemberTileProps) {
-  const { colors, fonts } = useTheme();
+  const theme = useTheme();
   const tileRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
 
   const isTopRank = member.rank === 4;
-  const borderColor = isTopRank ? colors.accent : colors.border;
-  const labelColor = isTopRank ? colors.accent : colors.fg;
+  const borderColor = isTopRank ? theme.colors.info : theme.colors.welllight;
+  const labelColor = isTopRank ? theme.colors.info : theme.colors.primary;
 
   return (
     <div
@@ -72,12 +72,12 @@ function MemberTile({ member }: MemberTileProps) {
         width: TILE_SIZE,
         height: TILE_SIZE,
         border: `1px solid ${borderColor}`,
-        background: colors.surface,
+        background: theme.colors.backgroundsecondary,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         color: labelColor,
-        fontFamily: fonts.mono,
+        fontFamily: theme.font.face,
         fontSize: TILE_FONT_SIZE,
         fontWeight: "bold",
         boxSizing: "border-box",
@@ -114,7 +114,7 @@ interface MemberTooltipProps {
 }
 
 function MemberTooltip({ member, triggerRef }: MemberTooltipProps) {
-  const { colors, space } = useTheme();
+  const theme = useTheme();
   const ns = useNs();
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
@@ -125,21 +125,21 @@ function MemberTooltip({ member, triggerRef }: MemberTooltipProps) {
     const trigRect = trigger.getBoundingClientRect();
     const anchorRect = anchor?.getBoundingClientRect() ?? { top: 0, left: 0 };
     setPos({
-      top: trigRect.top - anchorRect.top - space.xs,
+      top: trigRect.top - anchorRect.top - theme.spacing.xs,
       left: trigRect.left + trigRect.width / 2 - anchorRect.left,
     });
-  }, [triggerRef, space.xs]);
+  }, [triggerRef, theme.spacing.xs]);
 
   if (!pos) return null;
 
   const info = member.info;
   const skills: Array<{ label: string; level: number; mult: number; color?: string }> = [
-    { label: "hack", level: info.hack, mult: info.hack_asc_mult, color: colors.hack },
-    { label: "str", level: info.str, mult: info.str_asc_mult, color: colors.white },
-    { label: "def", level: info.def, mult: info.def_asc_mult, color: colors.white },
-    { label: "dex", level: info.dex, mult: info.dex_asc_mult, color: colors.white },
-    { label: "agi", level: info.agi, mult: info.agi_asc_mult, color: colors.white },
-    { label: "cha", level: info.cha, mult: info.cha_asc_mult, color: colors.cha },
+    { label: "hack", level: info.hack, mult: info.hack_asc_mult, color: theme.colors.code },
+    { label: "str", level: info.str, mult: info.str_asc_mult, color: theme.colors.white },
+    { label: "def", level: info.def, mult: info.def_asc_mult, color: theme.colors.white },
+    { label: "dex", level: info.dex, mult: info.dex_asc_mult, color: theme.colors.white },
+    { label: "agi", level: info.agi, mult: info.agi_asc_mult, color: theme.colors.white },
+    { label: "cha", level: info.cha, mult: info.cha_asc_mult, color: theme.colors.cha },
   ];
 
   return (
@@ -149,19 +149,19 @@ function MemberTooltip({ member, triggerRef }: MemberTooltipProps) {
         top: pos.top,
         left: pos.left,
         transform: "translate(-50%, -100%)",
-        background: colors.surface,
-        border: `1px solid ${colors.border}`,
-        padding: space.sm,
+        background: theme.colors.backgroundsecondary,
+        border: `1px solid ${theme.colors.welllight}`,
+        padding: theme.spacing.sm,
         minWidth: 240,
         zIndex: 100,
         pointerEvents: "none",
         fontSize: "0.85em",
       }}
     >
-      <Col gap={space.xs}>
-        <Row gap={space.sm} style={{ justifyContent: "space-between" }}>
-          <span style={{ color: colors.fg, fontWeight: "bold" }}>{info.name}</span>
-          <span style={{ color: colors.accent }}>rank {ROMAN[member.rank]}</span>
+      <Col gap={theme.spacing.xs}>
+        <Row gap={theme.spacing.sm} style={{ justifyContent: "space-between" }}>
+          <span style={{ color: theme.colors.primary, fontWeight: "bold" }}>{info.name}</span>
+          <span style={{ color: theme.colors.info }}>rank {ROMAN[member.rank]}</span>
         </Row>
         {skills.map((s) => (
           <StatRow

@@ -16,6 +16,9 @@ export const TASK_EVENTS_PORT = 3;
 // without waiting for the 5s dashboard tick.
 export const PLAYER_STATE_PORT = 4;
 
+// Port to wait on for the main app. Should never be written to.
+export const KILLSWITCH_PORT = 100;
+
 // Used by one of the various hacking system tasks.
 export const HACKING_SYSTEM_COMMUNICATION_PORT = 10;
 
@@ -28,6 +31,7 @@ export function clearPorts(ns: NS) {
   ns.clearPort(DASHBOARD_STATE_PORT);
   ns.clearPort(TASK_EVENTS_PORT);
   ns.clearPort(PLAYER_STATE_PORT);
+  ns.clearPort(KILLSWITCH_PORT);
 
   // clear the task-specific ports too
   ns.clearPort(HACKING_SYSTEM_COMMUNICATION_PORT);

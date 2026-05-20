@@ -3,7 +3,13 @@ import type { NS } from "@ns";
 
 const NsContext = createContext<NS | null>(null);
 
-export function NsProvider({ ns, children }: { ns: NS; children: ReactNode }) {
+type Props = {
+  ns: NS;
+  children: ReactNode;
+}
+
+export function NsProvider({ ns, children }: Props) {
+  console.log('[TODO-REMOVE nsProvider rendered]');
   return <NsContext.Provider value={ns}>{children}</NsContext.Provider>;
 }
 

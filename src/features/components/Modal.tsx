@@ -5,7 +5,7 @@ import { Button } from "./Button";
 import { Panel } from "./Panel";
 import { Row } from "./Row";
 import { ScrollScope } from "./ScrollScope";
-import { useTheme } from "./theme";
+import { useTheme } from "../theme/ThemeProvider";
 
 // Near the CSS-spec max for a 32-bit z-index (2^31 - 1 = 2147483647). We need
 // to beat Bitburner's tail-window stacking, which bumps a window's z-index on
@@ -38,7 +38,7 @@ function focusFirstSearchInput(root: HTMLElement | null): boolean {
 }
 
 export function Modal({ open, onClose, title, children, style, actions }: ModalProps) {
-  const { space } = useTheme();
+  const theme = useTheme();
   const sentinelRef = useRef<HTMLSpanElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [body, setBody] = useState<HTMLElement | null>(null);
@@ -133,7 +133,7 @@ export function Modal({ open, onClose, title, children, style, actions }: ModalP
               >
                 <Panel title={title} style={{ minWidth: 480, ...style }}>
                   {children}
-                  <Row gap={space.sm} style={{ justifyContent: "flex-end" }}>
+                  <Row gap={theme.spacing.sm} style={{ justifyContent: "flex-end" }}>
                     {actions}
                     <Button onClick={onClose}>Close</Button>
                   </Row>

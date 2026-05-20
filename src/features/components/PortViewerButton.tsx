@@ -3,15 +3,15 @@ import {
   TASK_EVENTS_PORT,
   DASHBOARD_STATE_PORT,
   HACKING_SYSTEM_COMMUNICATION_PORT,
-} from "../../lib/util/ports";
+} from "@repo/common/ports";
 import { Button } from "./Button";
 import { Col } from "./Col";
 import { BracesIcon } from "./Icons";
 import { JsonView } from "./JsonView";
 import { Modal } from "./Modal";
 import { Row } from "./Row";
-import { useNs } from "../ns/NsProvider";
-import { useTheme } from "../theme/ThemeProvider";
+import { useNs } from "@repo/features/ns/NsProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 interface PortDescriptor {
   port: number;

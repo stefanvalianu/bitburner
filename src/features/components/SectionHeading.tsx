@@ -1,4 +1,4 @@
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 // modal. Wrap in a `<Col gap={space.sm}>` with the section's content.
 export function SectionHeading({ children }: { children: string }) {

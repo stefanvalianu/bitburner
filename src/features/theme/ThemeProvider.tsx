@@ -1,5 +1,5 @@
 import { ReactNode, useMemo, useContext, createContext } from "react";
-import { useNs } from "../ns/NsProvider";
+import { useNs } from "@repo/features/ns/NsProvider";
 import { createTheme, Theme } from "./theme";
 
 const ThemeContext = createContext<Theme | null>(null);

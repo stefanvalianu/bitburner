@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 interface ColProps {
   children: ReactNode;

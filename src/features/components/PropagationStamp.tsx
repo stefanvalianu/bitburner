@@ -1,5 +1,5 @@
-import { useTheme } from "../theme/ThemeProvider";
-import { useDashboardController } from "../../lib/util/useDashboardController";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
+import { useDashboardController } from "@repo/features/useDashboardController";
 
 export function PropagationStamp() {
   const theme = useTheme();

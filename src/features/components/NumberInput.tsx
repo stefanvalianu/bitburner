@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 interface NumberInputProps {
   value: string;

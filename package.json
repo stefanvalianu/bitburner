@@ -6,13 +6,15 @@
   "scripts": {
     "start": "tsx tools/sync-server.ts",
     "deploy": "tsx tools/deploy.ts",
-    "ram": "tsx tools/ram.ts"
+    "ram": "tsx tools/ram.ts",
+    "depcheck": "depcruise src --config .dependency-cruiser.cjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "@types/ws": "^8.5.0",
+    "dependency-cruiser": "^17.4.0",
     "glob": "^13.0.6",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",

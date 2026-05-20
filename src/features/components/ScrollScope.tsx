@@ -1,5 +1,5 @@
 import type { CSSProperties, MouseEventHandler, ReactNode, Ref } from "react";
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 const SCOPE = "bb-scroll-scope";
 

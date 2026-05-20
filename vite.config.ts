@@ -44,6 +44,7 @@ export default defineConfig({
         find: /^react\/jsx-(dev-)?runtime$/,
         replacement: resolve(root, "tools/react-jsx-runtime-shim.ts"),
       },
+      { find: /^@repo\/(.*)$/, replacement: resolve(root, "src/$1") },
     ],
   },
   plugins: [versionStamp()],

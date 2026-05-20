@@ -1,6 +1,6 @@
 import { HP } from "@ns";
-import { useTheme } from "../theme/ThemeProvider";
-import { useNs } from "../ns/NsProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
+import { useNs } from "@repo/features/ns/NsProvider";
 
 type Props = {
   hp?: HP | undefined;

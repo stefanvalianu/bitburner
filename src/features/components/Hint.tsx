@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 // Muted small-text helper for descriptions and inline hints. Override layout
 // (padding, alignment) via `style`; color/font-size are theme-controlled.

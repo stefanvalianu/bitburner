@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 import { ChevronDownIcon, ChevronUpIcon, MinusBoxIcon, PlusBoxIcon } from "./Icons";
 
 interface JsonViewProps {

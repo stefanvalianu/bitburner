@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 interface BadgeProps {
   children: ReactNode;

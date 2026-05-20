@@ -1,7 +1,7 @@
 import type { NS } from "@ns";
-import { clearPorts, KILLSWITCH_PORT } from "./lib/util/ports";
-import { App } from "./features/app/App";
-import { AppTitle } from "./features/appTitle/AppTitle";
+import { clearPorts, KILLSWITCH_PORT } from "@repo/common/ports";
+import { App } from "@repo/features/app/App";
+import { AppTitle } from "@repo/features/appTitle/AppTitle";
 
 // Do a realtime scan of all servers to be triply sure that
 // we run killAll() on every possible server, instead of trusting

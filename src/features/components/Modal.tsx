@@ -5,7 +5,7 @@ import { Button } from "./Button";
 import { Panel } from "./Panel";
 import { Row } from "./Row";
 import { ScrollScope } from "./ScrollScope";
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 // Near the CSS-spec max for a 32-bit z-index (2^31 - 1 = 2147483647). We need
 // to beat Bitburner's tail-window stacking, which bumps a window's z-index on

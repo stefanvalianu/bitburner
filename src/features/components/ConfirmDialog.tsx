@@ -5,7 +5,7 @@ import { Button } from "./Button";
 import { Panel } from "./Panel";
 import { Row } from "./Row";
 import { ScrollScope } from "./ScrollScope";
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 // One higher than MODAL_Z_INDEX in Modal.tsx so confirm dialogs always sit
 // above any modal that opened them. See the comment there for the rationale

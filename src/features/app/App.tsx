@@ -1,8 +1,8 @@
 import { NS } from "@ns"
-import { NsProvider } from "../ns/NsProvider";
-import { ThemeProvider } from "../theme/ThemeProvider";
-import { DashboardControllerProvider } from "../../lib/util/useDashboardController";
-import { PreferencesProvider } from "../../lib/util/usePreferences";
+import { NsProvider } from "@repo/features/ns/NsProvider";
+import { ThemeProvider } from "@repo/features/theme/ThemeProvider";
+import { DashboardControllerProvider } from "@repo/features/useDashboardController";
+import { PreferencesProvider } from "@repo/features/usePreferences";
 import { Dashboard } from "./Dashboard";
 
 type Props = {

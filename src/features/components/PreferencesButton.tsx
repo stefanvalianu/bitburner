@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { usePreferences } from "../../lib/util/usePreferences";
+import { usePreferences } from "@repo/features/usePreferences";
 import { Button } from "./Button";
 import { Col } from "./Col";
 import { Hint } from "./Hint";
@@ -8,8 +8,8 @@ import { Modal } from "./Modal";
 import { NumberInput } from "./NumberInput";
 import { Row } from "./Row";
 import { SectionHeading } from "./SectionHeading";
-import { useNs } from "../ns/NsProvider";
-import { useTheme } from "../theme/ThemeProvider";
+import { useNs } from "@repo/features/ns/NsProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 export function PreferencesButton() {
   const theme = useTheme();

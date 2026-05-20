@@ -3,7 +3,7 @@ import { Button } from "./Button";
 import { Col } from "./Col";
 import { ChevronDownIcon, ChevronUpDownIcon, ChevronUpIcon } from "./Icons";
 import { Row } from "./Row";
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 type Align = "left" | "right";
 type SortDirection = "asc" | "desc";

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Row } from "./Row";
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 interface StatProps {
   label: ReactNode;

@@ -1,14 +1,14 @@
-import { PlayerPanel } from "../../lib/features/PlayerPanel";
-import { ServerPanel } from "../../lib/features/ServerPanel";
-import { TaskPanel } from "../../lib/features/TaskPanel";
-import { DashboardPanel } from "../components/DashboardPanel";
-import { PortViewerButton } from "../components/PortViewerButton";
-import { PreferencesButton } from "../components/PreferencesButton";
-import { PropagationStamp } from "../components/PropagationStamp";
-import { Row } from "../components/Row";
-import { LogButton } from "../../lib/util/logging/LogButton";
-import { usePropagate } from "../../lib/util/usePropagate";
-import { useTheme } from "../theme/ThemeProvider";
+import { PlayerPanel } from "@repo/features/player/PlayerPanel";
+import { ServerPanel } from "@repo/features/servers/ServerPanel";
+import { TaskPanel } from "@repo/lib/features/TaskPanel";
+import { DashboardPanel } from "@repo/features/components/DashboardPanel";
+import { PortViewerButton } from "@repo/features/components/PortViewerButton";
+import { PreferencesButton } from "@repo/features/components/PreferencesButton";
+import { PropagationStamp } from "@repo/features/components/PropagationStamp";
+import { Row } from "@repo/features/components/Row";
+import { LogButton } from "@repo/features/logging/LogButton";
+import { usePropagate } from "@repo/features/usePropagate";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 export function Dashboard() {
   const theme = useTheme();

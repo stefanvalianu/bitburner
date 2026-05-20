@@ -1,7 +1,7 @@
 import { NS } from "@ns"
 import { Titlebar } from "./Titlebar";
-import { NsProvider } from "../ns/NsProvider";
-import { ThemeProvider } from "../theme/ThemeProvider";
+import { NsProvider } from "@repo/features/ns/NsProvider";
+import { ThemeProvider } from "@repo/features/theme/ThemeProvider";
 
 type Props = {
   ns: NS;

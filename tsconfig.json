@@ -14,7 +14,8 @@
     "noEmit": true,
     "types": ["node"],
     "paths": {
-      "@ns": ["./NetscriptDefinitions.d.ts"]
+      "@ns": ["./NetscriptDefinitions.d.ts"],
+      "@repo/*": ["./src/*"]
     }
   },
   "include": ["src/**/*", "tools/**/*", "NetscriptDefinitions.d.ts"]

@@ -1,4 +1,4 @@
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 import { Row } from "./Row";
 
 interface StatRowProps {

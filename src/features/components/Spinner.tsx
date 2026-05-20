@@ -2,7 +2,7 @@
 // muted when idle — so the same component reads as "working" or "at rest"
 // without the caller picking colors. Optional label sits beside the arc
 
-import { useTheme } from "../theme/ThemeProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
 
 // and scales with `size` so the pair stays visually balanced.
 export function Spinner({

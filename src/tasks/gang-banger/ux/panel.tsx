@@ -3,11 +3,10 @@ import { Row } from "@repo/features/components/Row";
 import { StatRow } from "@repo/features/components/StatRow";
 import { useNs } from "@repo/features/ns/NsProvider";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
-import { useDashboardController } from "@repo/features/app/useDashboardController";
 import { TaskCustomPanel } from "@repo/tasks";
 import { useRef, useState, RefObject, useLayoutEffect } from "react";
-import { GANG_BANGER_TASK_ID } from "./info";
-import { MemberRank, GangBangerTaskState, GangMember } from "./types";
+import { GANG_BANGER_TASK_ID } from "../info";
+import { MemberRank, GangBangerTaskState, GangMember } from "@repo/tasks/gang-banger/info";
 
 
 const ROMAN: Record<MemberRank, string> = { 1: "I", 2: "II", 3: "III", 4: "IV" };
@@ -18,7 +17,6 @@ const TILE_FONT_SIZE = 18;
 export const GangBangerPanel: TaskCustomPanel = () => {
   const theme = useTheme();
   const ns = useNs();
-  const { state } = useDashboardController();
 
   const taskState = state.tasks[GANG_BANGER_TASK_ID] as unknown as GangBangerTaskState | undefined;
   const members = taskState?.members ?? [];

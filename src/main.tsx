@@ -2,21 +2,15 @@ import type { NS } from "@ns";
 import { clearPorts, KILLSWITCH_PORT } from "@repo/common/ports";
 import { App } from "@repo/features/app/App";
 import { AppTitle } from "@repo/features/appTitle/AppTitle";
+import { crawlServers } from "@repo/common/crawlServers";
 
 // Do a realtime scan of all servers to be triply sure that
 // we run killAll() on every possible server, instead of trusting
 // some other component to produce readable state for us.
 function killAllScripts(ns: NS): void {
-  const visited = new Set<string>();
-  const queue = ["home"];
-  while (queue.length > 0) {
-    const host = queue.shift()!;
-    if (visited.has(host)) continue;
-    visited.add(host);
-    ns.killall(host);
-    for (const neighbor of ns.scan(host)) {
-      if (!visited.has(neighbor)) queue.push(neighbor);
-    }
+  const servers = crawlServers(ns);
+  for (const server of servers) {
+    ns.killall(server.hostname);
   }
   ns.exit();
 }

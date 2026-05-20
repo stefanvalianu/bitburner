@@ -4,6 +4,10 @@ import { SERVER_INFO_PORT, getPortData } from "@repo/common/ports";
 export interface Server {
   name: string;
   hasAdmin: boolean;
+  
+  ram: number;
+  maxRam: number;
+  cores: number;
 }
 
 export interface ServerInfo {

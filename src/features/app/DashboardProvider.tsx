@@ -1,7 +1,7 @@
 import { createContext, MutableRefObject, ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useNs } from "@repo/features/ns/NsProvider";
 import { useLogger } from "@repo/features/logging/useLogger";
-import { TaskManager } from "@repo/common/tasks/taskManager";
+import { TaskManager } from "@repo/features/tasks/taskManager";
 import { MAIN_UX_REFRESH_INTERVAL } from "@repo/common/constants";
 import { GameInfo, readGameInfo } from "@repo/common/info/gameInfo";
 import { usePropagator } from "./usePropagator";
@@ -43,11 +43,16 @@ export function DashboardProvider ({ children }: Props) {
   useEffect(() => {
     const id = setInterval(() => {
       const newState = readGameInfo(ns);
+      
+      if (newState.servers) {
+        taskManager.runTick(newState);
+      }
+
       setGameState(newState);
       gameStateRef.current = newState;
     }, MAIN_UX_REFRESH_INTERVAL);
     return () => clearInterval(id);
-  }, [ns]);
+  }, [ns, taskManager]);
 
   // no point in memoizing this since re-renders are only triggered by state updates, which would invalidate
   const controller = {

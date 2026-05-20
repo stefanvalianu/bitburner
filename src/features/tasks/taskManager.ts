@@ -1,18 +1,19 @@
 import { NS } from "@ns";
 import {
-  BASE_STATE_KEYS,
   ServerSlice,
-  TaskDefinition,
   TaskDemand,
   TaskEvent,
   TaskId,
+  TaskManagerState,
   TaskState,
-} from "./types";
-import { TASK_EVENTS_PORT } from "@repo/common/ports";
-import { ALL_TASKS, TASK_BY_ID } from "@repo/lib/util/tasks/definitions/tasks";
-import { allocateAllTasks } from "./allocator";
+} from "@repo/common/tasks/types";
+import { drainPortData, TASK_EVENTS_PORT, TASK_STATE_PORT } from "@repo/common/ports";
+import { allocateAllTasks } from "@repo/common/tasks/allocator";
 import { Logger } from "@repo/common/logger";
 import { GameInfo } from "@repo/common/info/gameInfo";
+import { ALL_TASKS, TASK_BY_ID } from "@repo/tasks";
+import { getTaskScriptPath } from "@repo/common/tasks/helpers";
+import { crawlServers } from "@repo/common/crawlServers";
 
 // RAM held back from the allocator on `home` for the dashboard process and
 // any ad-hoc scripts the player launches outside the task manager. The pool
@@ -29,7 +30,8 @@ export class TaskManager {
   private readonly ns: NS;
   private readonly logger: Logger;
 
-  private state?: GameInfo | undefined;
+  private taskState: TaskManagerState;
+  private gameState: GameInfo | undefined;
 
   // True while a reallocation cycle is in progress: unbounded tasks have been
   // asked to shut down so their RAM can be returned to the pool, and we're
@@ -43,6 +45,8 @@ export class TaskManager {
   constructor(ns: NS, logger: Logger) {
     this.ns = ns;
     this.logger = logger;
+    this.taskState = { tasks: new Map() } ;
+    this.gameState = undefined;
   }
 
   isReallocating(): boolean {
@@ -50,19 +54,14 @@ export class TaskManager {
   }
 
   // Triggers the manual creation of one or more task(s) to be placed/ran
-  begin(taskIds: TaskId[]): Record<TaskId, TaskState> | undefined {
+  begin(taskIds: TaskId[]): void {
     if (this.reallocating) {
       this.logger.warn("Cannot start tasks while reallocation is in progress");
-      return undefined;
+      return;
     }
-    const next: Record<TaskId, TaskState> = {
-      ...this.state!.tasks,
-    };
-
-    let addedAny = false;
 
     for (const taskId of taskIds) {
-      const slot = next[taskId];
+      const slot = this.taskState.tasks.get(taskId);
 
       if (slot) {
         this.logger.warn(
@@ -74,7 +73,7 @@ export class TaskManager {
       const def = TASK_BY_ID.get(taskId);
       if (
         def?.checkRequirements &&
-        (this.state === undefined || def.checkRequirements(this.state) !== undefined)
+        (this.gameState === undefined || def.checkRequirements(this.gameState) !== undefined)
       ) {
         this.logger.error(
           `Attempting to start task ${taskId} but its requirements are unmet. Should be blocked in UX, ignoring.`,
@@ -82,121 +81,120 @@ export class TaskManager {
         continue;
       }
 
-      next[taskId] = {
+      this.taskState.tasks.set(taskId, {
+        id: taskId,
         allocation: null,
-        childPids: [],
         pid: null,
         host: null,
         shutdownRequested: false,
         status: "requested",
-      };
+      });
 
       this.logger.info(`task ${taskId} start requested`);
-      addedAny = true;
     }
-
-    return addedAny ? next : undefined;
   }
 
   // Attempts to gracefully shutdown a given taskId
-  shutdown(taskId: TaskId): Record<TaskId, TaskState> | undefined {
+  shutdown(taskId: TaskId): void {
     if (this.reallocating) {
       this.logger.warn(`Cannot shutdown ${taskId} while reallocation is in progress`);
-      return undefined;
+      return;
     }
-    const slot = this.state?.tasks[taskId];
-    if (!slot) return undefined;
-    if (slot.status !== "running") return undefined;
 
-    const next: Record<TaskId, TaskState> = {
-      ...this.state!.tasks,
-      [taskId]: { ...slot, shutdownRequested: true, status: "stopping" },
-    };
+    const slot = this.taskState.tasks.get(taskId);
+    if (!slot) return;
+    if (slot.status !== "running") return;
+
+    slot.shutdownRequested = true;
+    slot.status = "stopping";
 
     this.logger.info(`task ${taskId} shutdown requested`);
-    return next;
   }
 
-  runTick(state: DashboardState): Record<TaskId, TaskState> {
-    this.state = state;
+  runTick(gameInfo: GameInfo): void {
+    this.gameState = gameInfo;
 
-    // Mutable working copy. Slot objects are also cloned where mutated to
-    // avoid sharing references with the previous snapshot.
-    const snap: Record<TaskId, TaskState> = {};
-    for (const [id, slot] of Object.entries(state.tasks)) {
-      snap[id] = { ...slot };
-    }
-
-    // 1. Drain events from tasks and apply them to the snapshot.
-    const events = this.drainEvents();
-    for (const ev of events) {
-      const slot = snap[ev.taskId];
+    /*
+      1. Drain events from tasks and apply them to the snapshot.
+    */
+    const events = drainPortData<TaskEvent>(this.ns, TASK_EVENTS_PORT) ?? [];
+    for (const event of events) {
+      const slot = this.taskState.tasks.get(event.taskId);
       if (!slot) continue;
-      if (ev.type === "state-patch") {
-        for (const [k, v] of Object.entries(ev.patch)) {
-          if (BASE_STATE_KEYS.has(k)) continue; // manager-owned
-          (slot as Record<string, unknown>)[k] = v;
+
+      if (event.type === "shutdown") {
+        if (slot.status === "running") {
+          slot.status = "stopping";
         }
       }
     }
 
-    // 2. Reap any slot whose PID is gone — manual kill, exec failure,
-    //    voluntary exit, or graceful shutdown after seeing the flag.
-    for (const [id, slot] of Object.entries(snap)) {
-      if (slot.pid !== null && !this.ns.isRunning(slot.pid)) {
-        if (slot.status === "stopping") {
-          this.logger.info(`task ${id} completed`);
-        } else if (slot.status === "running") {
-          this.logger.warn(`task ${id} died unexpectedly (pid=${slot.pid})`);
+    /*
+      2. Reap any slot whose PID is gone: manual kill, exec failure,
+      voluntary exit, or graceful shutdown after seeing the flag.
+    */
+    for (const task of this.taskState.tasks.values()) {
+      if (task.pid !== null && !this.ns.isRunning(task.pid)) {
+        if (task.status === "stopping") {
+          this.logger.info(`task ${task.id} completed`);
+        } else if (task.status === "running") {
+          this.logger.warn(`task ${task.id} died unexpectedly (pid=${task.pid})`);
         }
 
-        delete snap[id];
+        this.taskState.tasks.delete(task.id);
       }
     }
 
-    // 2.5 Reallocation finalize: once every task we asked to shut down has
-    //     actually terminated, re-add them as `requested` so the allocator
-    //     places them fresh, and exit the reallocating phase.
+    /*
+      3 Reallocation finalize: once every task we asked to shut down has
+      actually terminated, re-add them as `requested` so the allocator
+      places them fresh, and exit the reallocating phase.
+    */
     if (this.reallocating && this.restartIds.size > 0) {
       let anyAlive = false;
       for (const id of this.restartIds) {
-        if (snap[id]) {
+        if (this.taskState.tasks.has(id)) {
           anyAlive = true;
           break;
         }
       }
+
       if (!anyAlive) {
         for (const id of this.restartIds) {
-          snap[id] = {
+          this.taskState.tasks.set(id, {
+            id: id,
             allocation: null,
-            childPids: [],
             pid: null,
             host: null,
             shutdownRequested: false,
             status: "requested",
-          };
+          });
         }
+
         this.logger.info(`reallocate: ${this.restartIds.size} task(s) terminated, re-requesting`);
         this.restartIds.clear();
         this.reallocating = false;
       }
     }
 
-    // 3. Identify pending demands — autostart tasks not currently running.
-    //    Resolve entrypointRam for each via ns.getScriptRam.
+    /*
+      3. Identify pending demands: autostart tasks not currently running.
+      Resolve entrypointRam for each via ns.getScriptRam.
+    */
     const pending = new Map<TaskId, TaskDemand>();
     // first, run our autostarting tasks (They are important!)
     for (const def of ALL_TASKS) {
       if (!def.autostart) continue;
 
-      // Skip if already running/stopping — would otherwise double-consume
+      // Skip if already running/stopping; would otherwise double-consume
       // RAM when allocateAllTasks reserves the slot from `running` and then
       // allocates it again from `pending`.
-      const slot = snap[def.id];
+      const slot = this.taskState.tasks.get(def.id);
       if (slot && (slot.status === "running" || slot.status === "stopping")) continue;
 
       const path = getTaskScriptPath(def);
-      // ns.getScriptRam returns 0.05GB-aligned floats (e.g. 2.4) — round up so
+
+      // ns.getScriptRam returns 0.05GB-aligned floats (e.g. 2.4); round up so
       // every value entering the allocator is an integer GB and reservations
       // can never accumulate fractional drift across hosts.
       const entrypointRam = Math.ceil(this.ns.getScriptRam(path));
@@ -208,11 +206,11 @@ export class TaskManager {
     }
 
     // then add our user-requested tasks
-    for (const [id, slot] of Object.entries(snap)) {
-      if (slot.status !== "requested") continue;
-      const def = ALL_TASKS.find((t) => t.id === id);
+    for (const task of this.taskState.tasks.values()) {
+      if (task.status !== "requested") continue;
+      const def = ALL_TASKS.find((t) => t.id === task.id);
       if (!def) {
-        this.logger.error(`cannot find task definition for ${id}`);
+        this.logger.error(`cannot find task definition for ${task.id}`);
         continue;
       }
       const path = getTaskScriptPath(def);
@@ -221,33 +219,54 @@ export class TaskManager {
         this.logger.error(`script not found: ${path}`);
         continue;
       }
-      pending.set(id, { ...def.demand, entrypointRam });
+      pending.set(task.id, { ...def.demand, entrypointRam });
     }
 
-    // 4. Build the pool from owned, accessible, non-excluded servers.
-    const pool: ServerSlice[] = state.allServers
-      .filter((s) => s.hasAdminRights && s.maxRam > 0)
-      .map((s) => {
-        const reserved = s.hostname === "home" ? HOME_RESERVED_RAM_GB : 0;
-        return {
-          hostname: s.hostname,
-          ram: Math.max(0, s.maxRam - reserved),
-          cores: s.cpuCores,
-        };
-      });
+    /*
+      4. Build the pool from owned, accessible, non-excluded servers.
+      Use game state info if possible (less operations), but if that's
+      not available let's do a live crawl of all servers.
+    */
+    const pool: ServerSlice[] = ((this.gameState?.servers?.servers.length ?? 0) > 0) ? 
+      this.gameState!.servers!.servers
+        .filter((s) => s.hasAdmin && s.maxRam > 0)
+        .map((s) => {
+          const reserved = s.name === "home" ? HOME_RESERVED_RAM_GB : 0;
+          return {
+            hostname: s.name,
+            ram: Math.max(0, s.maxRam - reserved),
+            cores: s.cores,
+          } satisfies ServerSlice;
+        }) :
+      crawlServers(this.ns)
+        .filter((s) => s.hasAdminRights && s.maxRam > 0)
+        .map((s) => {
+          const reserved = s.hostname === "home" ? HOME_RESERVED_RAM_GB : 0;
+          return {
+            hostname: s.hostname,
+            ram: Math.max(0, s.maxRam - reserved),
+            cores: s.cpuCores,
+          } satisfies ServerSlice;
+        });
 
-    // 5. Lock RAM held by tasks already running (or winding down).
+    /*
+      Lock RAM held by tasks already running (or winding down).
+    */
     const running = new Map<TaskId, ServerSlice[]>();
-    for (const [id, slot] of Object.entries(snap)) {
-      if ((slot.status === "running" || slot.status === "stopping") && slot.allocation) {
-        running.set(id, slot.allocation.servers);
+    for (const task of this.taskState.tasks.values()) {
+      if ((task.status === "running" || task.status === "stopping") && task.allocation) {
+        running.set(task.id, task.allocation.servers);
       }
     }
 
-    // 6. Run the priority pipeline.
+    /*
+      6. Run the priority pipeline.
+    */
     const allocations = allocateAllTasks(pool, running, pending);
 
-    // 7. Spawn each pending task on its allocation.
+    /*
+      7. Spawn each pending task on its allocation.
+    */
     for (const [id, slices] of allocations) {
       if (running.has(id)) continue; // already running, allocation preserved
       const def = TASK_BY_ID.get(id);
@@ -282,19 +301,20 @@ export class TaskManager {
         `${id} on ${controller.hostname} → ${slices.length} hosts (${this.ns.format.ram(totalRam)}) pid=${pid}`,
       );
 
-      snap[id] = {
-        ...snap[id],
-        pid,
+      this.taskState.tasks.set(id, {
+        id: id,
+        pid: pid,
         host: controller.hostname,
-        childPids: [],
         shutdownRequested: false,
         status: "running",
         allocation: { taskId: id, servers: slices },
-      } as TaskState;
+      } satisfies TaskState);
     }
 
-    // 8. Auto-trigger reallocation when a requested task couldn't be placed
-    //    AND there's an unbounded task running whose RAM might be reclaimable.
+    /*
+      8. Auto-trigger reallocation when a requested task couldn't be placed
+      AND there's an unbounded task running whose RAM might be reclaimable.
+    */
     let unplaced = false;
     for (const [id, slices] of allocations) {
       if (running.has(id)) continue;
@@ -306,14 +326,15 @@ export class TaskManager {
     if (unplaced && !this.reallocating) {
       let hasRunningUnbounded = false;
       for (const id of running.keys()) {
-        if (snap[id]?.status !== "running") continue; // skip stopping/shutdown-requested
+        const snap = this.taskState.tasks.get(id);
+        if (snap?.status !== "running") continue; // skip stopping/shutdown-requested
         if (TASK_BY_ID.get(id)?.demand.unbounded) {
           hasRunningUnbounded = true;
           break;
         }
       }
       if (hasRunningUnbounded) {
-        const ids = this.flagUnboundedForShutdown(snap);
+        const ids = this.flagUnboundedForShutdown();
         if (ids.length > 0) {
           this.reallocating = true;
           this.restartIds = new Set(ids);
@@ -324,85 +345,40 @@ export class TaskManager {
       }
     }
 
-    return snap;
+    /*
+      9. Publish the task state
+    */
+    this.ns.clearPort(TASK_STATE_PORT);
+    this.ns.writePort(TASK_STATE_PORT, this.taskState);
   }
 
-  shouldShowReallocate(state: DashboardState): boolean {
-    if (this.reallocating) return false;
-    let total = 0;
-    for (const s of state.allServers) {
-      if (!s.hasAdminRights || s.maxRam <= 0) continue;
-      const reserved = s.hostname === "home" ? HOME_RESERVED_RAM_GB : 0;
-      total += Math.max(0, s.maxRam - reserved);
-    }
-    if (total <= 0) return false;
+  reallocate(): void {
+    if (this.reallocating || !this.taskState) return;
 
-    let allotted = 0;
-    for (const slot of Object.values(state.tasks)) {
-      if (!slot.allocation) continue;
-      for (const slice of slot.allocation.servers) allotted += slice.ram;
-    }
-    if ((total - allotted) / total < REALLOCATE_SLACK_FRACTION) return false;
-
-    for (const [id, slot] of Object.entries(state.tasks)) {
-      const def = TASK_BY_ID.get(id);
-      if (!def?.demand.unbounded) continue;
-      const allocRam = slot.allocation?.servers.reduce((sum, x) => sum + x.ram, 0) ?? 0;
-      if (def.demand.maxRamDemand == null) return true;
-      if (allocRam < def.demand.maxRamDemand) return true;
-    }
-    return false;
-  }
-
-  reallocate(): Record<TaskId, TaskState> | undefined {
-    if (this.reallocating || !this.state) return undefined;
-    const next: Record<TaskId, TaskState> = { ...this.state.tasks };
-    const ids = this.flagUnboundedForShutdown(next);
+    const ids = this.flagUnboundedForShutdown();
     if (ids.length === 0) return undefined;
     this.reallocating = true;
     this.restartIds = new Set(ids);
     this.logger.info(`reallocate: requesting shutdown of ${ids.length} task(s): ${ids.join(", ")}`);
-    return next;
   }
 
   // Marks each running unbounded task whose allocation is below its cap (or
   // uncapped) as `stopping`. Mutates `tasks` in place and returns the ids it
   // touched. Used by both the manual reallocate() entrypoint and the
   // auto-trigger inside runTick.
-  private flagUnboundedForShutdown(tasks: Record<TaskId, TaskState>): TaskId[] {
+  private flagUnboundedForShutdown(): TaskId[] {
     const ids: TaskId[] = [];
-    for (const [id, slot] of Object.entries(tasks)) {
-      if (slot.status !== "running") continue;
-      const def = TASK_BY_ID.get(id);
+    for (const task of this.taskState.tasks.values()) {
+      if (task.status !== "running") continue;
+      const def = TASK_BY_ID.get(task.id);
       if (!def?.demand.unbounded) continue;
-      const allocRam = slot.allocation?.servers.reduce((s, x) => s + x.ram, 0) ?? 0;
+      const allocRam = task.allocation?.servers.reduce((s, x) => s + x.ram, 0) ?? 0;
       const cap = def.demand.maxRamDemand;
       if (cap != null && allocRam >= cap) continue;
-      tasks[id] = { ...slot, shutdownRequested: true, status: "stopping" };
-      ids.push(id);
+      task.shutdownRequested = true;
+      task.status = "stopping";
+      ids.push(task.id);
     }
     return ids;
   }
-
-  private drainEvents(): TaskEvent[] {
-    const port = this.ns.getPortHandle(TASK_EVENTS_PORT);
-    const out: TaskEvent[] = [];
-    while (!port.empty()) {
-      const raw = port.read();
-      if (typeof raw !== "string") continue;
-      try {
-        const parsed = JSON.parse(raw) as TaskEvent;
-        if (parsed && typeof parsed === "object" && "type" in parsed) out.push(parsed);
-      } catch {
-        // ignore malformed payloads
-      }
-    }
-    return out;
-  }
-}
-
-// THIS FUNCTION IS DUPLICATED AT baseSpawnerTask. We don't add a dependency to reduce
-// overall RAM usage.
-export function getTaskScriptPath(task: TaskDefinition): string {
-  return `lib/util/tasks/definitions/${task.id}/task.js`;
 }

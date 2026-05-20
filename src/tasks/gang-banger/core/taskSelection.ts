@@ -1,5 +1,5 @@
 import { GangGenInfo, GangTaskStats, NS } from "@ns";
-import { GangMember, MemberRank } from "../public/info";
+import { GangMember, MemberRank } from "@repo/tasks/gang-banger/info";
 
 const MAX_GANG_MEMBERS = 12;
 const TERRITORY_DONE = 1 - Number.EPSILON;

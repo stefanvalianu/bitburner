@@ -3,27 +3,23 @@ import { NS } from "@ns";
 // used for the logger hook
 export const LOG_PORT = 1;
 
-// The overall state controlled by the dashboard controller
-// is published here. It contains pretty much everything
-export const DASHBOARD_STATE_PORT = 2;
+// A published ledger of task states and allocations.
+export const TASK_STATE_PORT = 2;
 
-// Tasks emit TaskEvents here (FIFO). The manager drains the port on every
-// tick and applies events to its in-memory snapshot.
+/*
+  Events meant to be consumed by the app's task manager.
+  These are drained every tick and applied to support behaviors
+  like freeing memory from tasks which have terminated, etc.
+*/
 export const TASK_EVENTS_PORT = 3;
 
-// Latest-snapshot side-channel for player data (like DASHBOARD_STATE_PORT —
-// clear+write each iteration). Lets the PlayerStats panel poll fresh stats
-// without waiting for the 5s dashboard tick.
-export const PLAYER_STATE_PORT = 4;
-
-// Port to wait on for the main app. Should never be written to.
-export const KILLSWITCH_PORT = 100;
+// Port used to store UX preferences for tasks to consume
+export const MAIN_PREFERENCES_PORT = 4;
 
 // Used by one of the various hacking system tasks.
-export const HACKING_SYSTEM_COMMUNICATION_PORT = 10;
+//export const HACKING_SYSTEM_COMMUNICATION_PORT = 10;
 
-// Port used to store UX preferences for tasks to consume
-export const MAIN_PREFERENCES_PORT = 20;
+export const GANG_BANGER_STATE_PORT = 13;
 
 // Ports used by the info-miner task to post info snapshots for the main
 // dashboard (and potentially others) to consume
@@ -32,15 +28,17 @@ export const SERVER_INFO_PORT = 31;
 export const SLEEVE_INFO_PORT = 32;
 export const GANG_INFO_PORT = 33;
 
-export const SERVER_PURCHASE_COMMUNICATION_PORT = 11;
+// Port to wait on for the main app. Should never be written to.
+export const KILLSWITCH_PORT = 100;
+
+//export const SERVER_PURCHASE_COMMUNICATION_PORT = 11;
 
 // Ran on main dashboard start-up to avoid dirty state
 export function clearPorts(ns: NS) {
   // clear core system ports
   ns.clearPort(LOG_PORT);
-  ns.clearPort(DASHBOARD_STATE_PORT);
+  ns.clearPort(TASK_STATE_PORT);
   ns.clearPort(TASK_EVENTS_PORT);
-  ns.clearPort(PLAYER_STATE_PORT);
   ns.clearPort(KILLSWITCH_PORT);
 
   ns.clearPort(MAIN_PREFERENCES_PORT);
@@ -49,9 +47,6 @@ export function clearPorts(ns: NS) {
   ns.clearPort(SERVER_INFO_PORT);
   ns.clearPort(SLEEVE_INFO_PORT);
   ns.clearPort(GANG_INFO_PORT);
-
-  // clear the task-specific ports too
-  ns.clearPort(HACKING_SYSTEM_COMMUNICATION_PORT);
 }
 
 // Use consume if you want to destroy the data after reading

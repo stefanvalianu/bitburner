@@ -30,9 +30,9 @@ Scripts/features to be used within the game [Bitburner](https://github.com/bitbu
   - `/features` has features that are meant for UX/rendering. These components would have React dependnecies.
   - `/common` has common code/helpers that are meant to be shared between the UX stack (`/features`) and the task stack (`/tasks`)
   - `/tasks/TASK-NAME` contains task-specific logic. Tasks have their own opinionated sub-structure that must be followed
-    - `/public` contains common information from tasks that can be integrated back into the main app shell. Do NOT use new netscript functions in these files.
-      - `/info.ts` will contain each individual task definition
-      - `/types.ts` will contain all new types introduced by and used by the task
-    - `/private` contains the internal task-specific information, custom scripts etc
+    - `/info.ts` will contain each individual task definition alongside any types introduced by the task (state, etc)
+    - `/core` contains the internal task-specific information, custom scripts etc
       - `/task.ts` will contain the task entrypoint, invoked when the allocator creates and runs the task.
+    - `/ux` for tasks that want to display custom UX, components should be placed underneath this sub-folder.
+      - `/panel.tsx` the task panel (high-level component) should always be located here.
   - `/main.tsx` the script entrypoint. All in-game script interaction is marshaled through the main application started by this script.

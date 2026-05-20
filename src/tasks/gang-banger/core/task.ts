@@ -2,10 +2,9 @@ import { FactionName, GangMemberInfo, NS } from "@ns";
 import { BaseTask } from "@repo/common/tasks/baseTask";
 import { pickRandomGangMemberName } from "./names";
 import { continueOrFightWar, MemberTasks, syncToTerritoryPowerUpdate } from "./warTracking";
-import { getPlayerMonitorState } from "@repo/tasks/player-monitor/info";
 import { assignOptimalGangTasks } from "./taskSelection";
-import { GANG_BANGER_TASK_ID } from "@repo/tasks/gang-banger/public/info";
-import { MemberRank, GangBangerTaskState, GangMember } from "@repo/tasks/gang-banger/public/types";
+import { GANG_BANGER_TASK_ID } from "@repo/tasks/gang-banger/info";
+import { MemberRank, GangBangerTaskState, GangMember } from "@repo/tasks/gang-banger/info";
 
 // how long to sleep if we don't have a gang yet
 const SLEEP_INTERVAL_WITHOUT_GANG = 30_000;

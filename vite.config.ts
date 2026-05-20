@@ -1,8 +1,8 @@
 import { defineConfig } from "vite";
 import { glob } from "glob";
 import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
-import { writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
 
 // One Vite entry per source file so the dist/ tree mirrors src/.
 // Bitburner's RAM accounting walks `import` chains across files, so we
@@ -25,7 +25,10 @@ function versionStamp() {
   return {
     name: "version-stamp",
     closeBundle() {
-      writeFileSync(resolve(root, "dist/version.txt"), Date.now().toString());
+      const versionFile = resolve(root, "dist/version.txt");
+
+      mkdirSync(dirname(versionFile), { recursive: true });
+      writeFileSync(versionFile, Date.now().toString());
     },
   };
 }

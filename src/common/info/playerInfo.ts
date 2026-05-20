@@ -5,6 +5,8 @@ export interface PlayerInfo {
   hpCur: number;
   hpMax: number;
   money: number;
+
+  hasFormulas: boolean;
 }
 
 export function readPlayerInfo(ns: NS): PlayerInfo | undefined {

@@ -6,7 +6,6 @@ export interface ServerSlice {
   hostname: string;
   ram: number;
 
-  // this is merely shorthand for the number of cores on the target server, it's not an "allotment"
   cores?: number;
 }
 
@@ -43,16 +42,14 @@ export type DemandSpec = Omit<TaskDemand, "entrypointRam">;
 
 export type TaskStatus = "requested" | "running" | "stopping";
 
-export interface BaseTaskState {
+export interface TaskState {
+  id: TaskId;
   pid: number | null;
   host: string | null;
   shutdownRequested: boolean;
   status: TaskStatus;
   allocation: Allocation | null;
 }
-
-export type TaskState<T extends Record<string, unknown> = Record<string, unknown>> = BaseTaskState &
-  T;
 
 // Keys of BaseTaskState - used by the manager when shallow-merging
 // state-patch events to reject attempts to overwrite manager-owned fields.
@@ -64,7 +61,10 @@ export const BASE_STATE_KEYS: ReadonlySet<string> = new Set([
   "allocation",
 ]);
 
-export type TaskEvent = { type: "state-patch"; taskId: TaskId; patch: Record<string, unknown> };
+export type TaskEvent = {
+  taskId: TaskId; 
+  type: "shutdown";  
+};
 
 // Note the script path of a task is assumed to be "lib/util/tasks/definitions/{id}/task.js"
 export interface TaskDefinition {
@@ -79,14 +79,30 @@ export interface TaskDefinition {
   // Lifecycle concern, not a resource ask - distinct from `demand`.
   autostart?: boolean;
 
-  // Optional shared netscript port. Two tasks declaring the same port are
-  // mutually exclusive — TaskPanel blocks starting one while another with
-  // the same port is already running.
-  communicationPort?: number;
+  /*
+    Tasks which want to take requests from a user should list a request
+    port from which "command" requests will be read. Tasks sharing a 
+    request port cannot be concurrently ran (enforced via launcher).
+  */
+  requestPort?: number;
+
+  /*
+    Each task can have its own dedicated port for state output. Tasks which share
+    an output port cannot be concurrently ran (enforced via launcher).
+  */
+  statePort?: number;
 
   // Optional function to check requirements for this task to be ran.
   // Useful for doing things like checking for Formulas.exe, etc.
   // Returns undefined when requirements are met, a string explanation
   // of what isn't met when requirements are not met.
   checkRequirements?: (gameInfo: GameInfo) => string | undefined;
+}
+
+/*
+  Represents the state allotment snapshot published to the 
+  TASK_STATE_PORT
+*/
+export interface TaskManagerState {
+  tasks: Map<TaskId, TaskState>;
 }

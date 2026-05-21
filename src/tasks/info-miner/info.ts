@@ -11,6 +11,6 @@ export const infoMinerTask: TaskDefinition = {
   autostart: true,
   demand: {
     priority: "critical",
-    additionalHeadroomSubscripts: INFO_MINER_SUBSCRIPTS
+    additionalHeadroomSubscripts: INFO_MINER_SUBSCRIPTS.map(s => s.scriptPath)
   },
 };

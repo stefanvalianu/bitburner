@@ -5,9 +5,8 @@ import { continueOrFightWar, MemberTasks, syncToTerritoryPowerUpdate } from "./w
 import { assignOptimalGangTasks } from "./taskSelection";
 import { gangBangerTask } from "@repo/tasks/gang-banger/info";
 import { MemberRank, GangBangerTaskState, GangMember } from "@repo/tasks/gang-banger/info";
-import { getPortData, PLAYER_INFO_PORT, USER_PREFERENCES_PORT } from "@repo/common/ports";
+import { getPortData, USER_PREFERENCES_PORT } from "@repo/common/ports";
 import { UserPreferences } from "@repo/common/preferences";
-import { PlayerInfo } from "@repo/common/info/playerInfo";
 
 // Each "cycle" allow us to use 15% of our budget to
 // purchase equipment for members of rank II and
@@ -152,8 +151,8 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
   }
 
   private purchaseGearForMembers(members: Record<string, GangMember>): void {
-    const playerInfo = getPortData<PlayerInfo>(this.ns, PLAYER_INFO_PORT);
-    const totalMoney = playerInfo?.money || 0;
+    const player = this.ns.getPlayer();
+    const totalMoney = player?.money || 0;
     let budget = totalMoney * PERCENTAGE_OF_BUDGET_TO_SPEND_ON_EQUIPMENT;
 
     if (budget === 0) return;

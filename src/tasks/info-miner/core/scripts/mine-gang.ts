@@ -3,6 +3,10 @@ import { invokeNextScript } from "./helpers";
 import { GANG_INFO_PORT } from "@repo/common/ports";
 import { GangInfo } from "@repo/common/info/gangInfo";
 
+/*
+  This script is responsible for:
+  - 
+*/
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
   

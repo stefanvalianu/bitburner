@@ -203,9 +203,11 @@ export class TaskManager {
         continue;
       }
       if (def.demand.additionalHeadroomSubscripts && def.demand.additionalHeadroomSubscripts.length > 0) {
+        let additionalScriptMax = 0;
         for (const subscript of def.demand.additionalHeadroomSubscripts) {
-          entrypointRam += this.ns.getScriptRam(subscript);
+          additionalScriptMax = Math.max(additionalScriptMax, this.ns.getScriptRam(subscript));
         }
+        entrypointRam += additionalScriptMax;
       }
       pending.set(def.id, { ...def.demand, entrypointRam });
     }
@@ -225,9 +227,11 @@ export class TaskManager {
         continue;
       }
       if (def.demand.additionalHeadroomSubscripts && def.demand.additionalHeadroomSubscripts.length > 0) {
+        let additionalScriptMax = 0;
         for (const subscript of def.demand.additionalHeadroomSubscripts) {
-          entrypointRam += this.ns.getScriptRam(subscript);
+          additionalScriptMax = Math.max(additionalScriptMax, this.ns.getScriptRam(subscript));
         }
+        entrypointRam += additionalScriptMax;
       }
       pending.set(task.id, { ...def.demand, entrypointRam });
     }

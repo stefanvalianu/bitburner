@@ -2,10 +2,12 @@ import { ReactNode } from "react";
 import { TaskDefinition, TaskId, TaskState } from "@repo/common/tasks/types";
 import { GANG_BANGER_TASK_ID, gangBangerTask } from "./gang-banger/info";
 import { GangBangerPanel } from "./gang-banger/ux/panel";
+import { infoMinerTask } from "./info-miner/info";
 
 // highest in list = shows first in 'new task' UX per category
 export const ALL_TASKS: TaskDefinition[] = [
   //contractSolverTask,
+  infoMinerTask,
   gangBangerTask,
   //infiltratorTask,
   //infiltrationSolverTask,

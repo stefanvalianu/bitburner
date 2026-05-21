@@ -44,9 +44,7 @@ export function DashboardProvider ({ children }: Props) {
     const id = setInterval(() => {
       const newState = readGameInfo(ns);
       
-      if (newState.servers) {
-        taskManager.runTick(newState);
-      }
+      taskManager.runTick(newState);
 
       setGameState(newState);
       gameStateRef.current = newState;

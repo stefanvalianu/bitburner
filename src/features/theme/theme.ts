@@ -11,7 +11,7 @@ export interface Theme {
     bnlvl3: string;
     button: string;
     cha: string;
-    // use code in place of hack (latter has ram cost)
+    // use code in place of hac (latter has ram cost)
     code: string;
     combat: string;
     disabled: string;

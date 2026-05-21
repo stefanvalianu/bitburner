@@ -119,7 +119,7 @@ export function PreferencesButton() {
           </Col>
 
           <Col gap={theme.spacing.sm}>
-            <SectionHeading>Hack minimum money</SectionHeading>
+            <SectionHeading>Hacking minimum money</SectionHeading>
             <Row gap={theme.spacing.sm} style={{ alignItems: "center" }}>
               <NumberInput
                 value={hackMinMoneyPctInput}

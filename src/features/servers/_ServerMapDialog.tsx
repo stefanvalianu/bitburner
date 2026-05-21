@@ -365,7 +365,7 @@ function ServerRow({
     const parts: string[] = [];
     if (levelTooLow) parts.push(`Skill needed: ${required} (you: ${hackingLevel})`);
     if (portsMissing) parts.push(`Port openers: ${portsOpen}/${portsRequired}`);
-    return parts.length > 0 ? parts.join("\n") : "Ready to hack";
+    return parts.length > 0 ? parts.join("\n") : "Ready to hacky";
   })();
 
   const ramPct = (ramFrac * 100).toFixed(0);

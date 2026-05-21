@@ -172,7 +172,7 @@ export function DoorIcon({ color, title = "Backdoor installed", size }: NamedIco
   );
 }
 
-export function HackIcon({ color, title = "Hack readiness", size }: NamedIconProps) {
+export function HackIcon({ color, title = "Hacking readiness", size }: NamedIconProps) {
   return (
     <Icon color={color} title={title} size={size}>
       <path d="M9 2 L3 9 L7 9 L7 14 L13 7 L9 7 Z" />

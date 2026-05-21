@@ -19,7 +19,7 @@ export interface UserPreferences {
   gangClashWinThreshold?: number | undefined;
 
   /*
-    Fraction (0.0-1.0) of `moneyMax` to preserve on hack targets between
+    Fraction (0.0-1.0) of `moneyMax` to preserve on hacking targets between
     batches — i.e. each HWGW batch is sized to steal at most
     `(1 - hackMinimumMoneyPct)` of max money. Higher values steal less per
     batch but tolerate more player-level drift before the cascade drains.

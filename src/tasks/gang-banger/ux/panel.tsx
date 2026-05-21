@@ -128,7 +128,6 @@ function MemberTooltip({ member, triggerRef }: MemberTooltipProps) {
 
   const info = member.info;
   const skills: Array<{ label: string; level: number; mult: number; color?: string }> = [
-    { label: "hack", level: info.hack, mult: info.hack_asc_mult, color: theme.colors.code },
     { label: "str", level: info.str, mult: info.str_asc_mult, color: theme.colors.white },
     { label: "def", level: info.def, mult: info.def_asc_mult, color: theme.colors.white },
     { label: "dex", level: info.dex, mult: info.dex_asc_mult, color: theme.colors.white },

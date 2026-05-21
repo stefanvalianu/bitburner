@@ -1,5 +1,4 @@
 import { DashboardPanel } from "@repo/features/components/DashboardPanel";
-import { PortViewerButton } from "@repo/features/components/PortViewerButton";
 import { PreferencesButton } from "@repo/features/components/PreferencesButton";
 import { Row } from "@repo/features/components/Row";
 import { LogButton } from "@repo/features/logging/LogButton";
@@ -14,7 +13,6 @@ export function Dashboard() {
         actions={
           <Row gap={theme.spacing.sm}>
             <PreferencesButton />
-            <PortViewerButton />
             <LogButton />
           </Row>
         }

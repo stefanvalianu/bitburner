@@ -1,4 +1,5 @@
 import { GameInfo } from "@repo/common/info/gameInfo";
+import { Lease } from "./allocator";
 
 export type TaskId = string;
 
@@ -20,6 +21,15 @@ export interface TaskDemand {
   // RAM the controller (entrypoint) script needs. Resolved by TaskManager at
   // allocation time via ns.getScriptRam - task definitions don't set this.
   entrypointRam: number;
+
+  // A few scripts which want to heavily optimize ram usage can chain scripts
+  // one after the other with ns.spawn(). Those scripts can use this additional
+  // headroom list so the allocator requests the necessary RAM to account for
+  // the maximal RAM usage of the union. EX if you want to run a controller
+  // script that runs a sub-script which spawns other scripts in a chain like
+  // A->B->C, including those scripts in this list will make the allocator ensure
+  // there is enough RAM for the controller + maxRam(A,B,C)
+  additionalHeadroomSubscripts?: string[];
 
   // Priority class for placement ordering.
   priority: TaskPriority;
@@ -105,4 +115,27 @@ export interface TaskDefinition {
 */
 export interface TaskManagerState {
   tasks: Map<TaskId, TaskState>;
+}
+
+export interface TaskLease {
+  lease: Lease;
+  pids: number[];
+}
+
+export interface WaitAndFreeTaskLeaseOptions {
+  pollIntervalMs?: number;
+  extraBufferMs?: number;
+
+  // Instead of waiting for a fixed amount of time,
+  // waits until the lease tasks are completed.
+  // DO NOT USE THIS if your tasks themselves run
+  // forever (like the share() tasks)
+  waitAsLongAsNeeded?: boolean;
+
+  shouldExitEarly?: () => boolean;
+
+  // if true, pids and leases will be killed/renewed
+  // when exiting function, regardless of their
+  // completion
+  forceKillOnExit?: boolean;
 }

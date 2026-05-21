@@ -1,20 +1,33 @@
 import type { NS } from "@ns";
-import type { Allocation, TaskDefinition, TaskEvent, TaskManagerState, TaskState } from "@repo/common/tasks/types";
+import type { TaskDefinition, TaskEvent, TaskManagerState, TaskState } from "@repo/common/tasks/types";
 import { createLogger, Logger } from "@repo/common/logger";
 import { getPortData, TASK_EVENTS_PORT, TASK_STATE_PORT } from "@repo/common/ports";
 
-export abstract class BaseTask {
+export abstract class BaseTask<TState = undefined> {
   protected readonly ns: NS;
   protected readonly taskDefinition: TaskDefinition;
   protected readonly log: Logger;
 
-  protected taskState: TaskState | null;
+  // contains task management information
+  private managementState: TaskState | null;
+
+  // for task-specific state information for tasks that define it
+  private taskState: TState | null;
 
   constructor(ns: NS, task: TaskDefinition) {
     this.ns = ns;
     this.taskDefinition = task;
     this.log = createLogger(ns, task.id);
+    this.managementState = null;
     this.taskState = null;
+  }
+
+  protected get management_state(): Readonly<TaskState> | null {
+    return this.managementState;
+  }
+
+  protected get state(): Readonly<TState> | null {
+    return this.taskState;
   }
 
   // Entrypoint. Run the subclass body and surface any error.
@@ -33,15 +46,31 @@ export abstract class BaseTask {
   protected abstract run_task(): Promise<void>;
 
   // Subclasses can implement custom logic if needed to handle shutdown behavior.
-  protected abstract shutdown(): void;
+  protected shutdown(): void { }
   
-  // This should be called periodically from subclasses to check for lifecylce events
-  protected tick(): void {
+  // This should be called periodically from subclasses to check for lifecylce events.
+  // Returns false when the task has shut down.
+  protected tick(): boolean {
     this.refreshTaskState();
 
-    if (this.taskState?.shutdownRequested || false) {
+    if (this.managementState?.shutdownRequested || false) {
       this.shutdown();
-      return;
+      return false;
+    }
+
+    return true;
+  }
+
+  // broadcasts the currently set state on the task's configured state port
+  protected updateState(state: TState | null): void {
+    this.taskState = state;
+    
+    if (this.taskDefinition.statePort) {
+      this.ns.clearPort(this.taskDefinition.statePort);
+
+      if (this.state !== null) {
+        this.ns.writePort(this.taskDefinition.statePort, this.state);
+      }
     }
   }
 
@@ -53,6 +82,6 @@ export abstract class BaseTask {
   private refreshTaskState(): void {
     const data = getPortData<TaskManagerState>(this.ns, TASK_STATE_PORT);
     const slot = data?.tasks.get(this.taskDefinition.id) as TaskState;
-    this.taskState = slot ?? null;
+    this.managementState = slot ?? null;
   }
 }

@@ -14,7 +14,10 @@ export const TASK_STATE_PORT = 2;
 export const TASK_EVENTS_PORT = 3;
 
 // Port used to store UX preferences for tasks to consume
-export const MAIN_PREFERENCES_PORT = 4;
+export const USER_PREFERENCES_PORT = 4;
+
+// Port to wait on for the main app. Should never be written to.
+export const KILLSWITCH_PORT = 5;
 
 // Used by one of the various hacking system tasks.
 //export const HACKING_SYSTEM_COMMUNICATION_PORT = 10;
@@ -28,9 +31,6 @@ export const SERVER_INFO_PORT = 31;
 export const SLEEVE_INFO_PORT = 32;
 export const GANG_INFO_PORT = 33;
 
-// Port to wait on for the main app. Should never be written to.
-export const KILLSWITCH_PORT = 100;
-
 //export const SERVER_PURCHASE_COMMUNICATION_PORT = 11;
 
 // Ran on main dashboard start-up to avoid dirty state
@@ -39,9 +39,8 @@ export function clearPorts(ns: NS) {
   ns.clearPort(LOG_PORT);
   ns.clearPort(TASK_STATE_PORT);
   ns.clearPort(TASK_EVENTS_PORT);
+  ns.clearPort(USER_PREFERENCES_PORT);
   ns.clearPort(KILLSWITCH_PORT);
-
-  ns.clearPort(MAIN_PREFERENCES_PORT);
 
   ns.clearPort(PLAYER_INFO_PORT);
   ns.clearPort(SERVER_INFO_PORT);

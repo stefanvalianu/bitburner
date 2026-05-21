@@ -3,11 +3,11 @@ import { BaseTask } from "@repo/common/tasks/baseTask";
 import { pickRandomGangMemberName } from "./names";
 import { continueOrFightWar, MemberTasks, syncToTerritoryPowerUpdate } from "./warTracking";
 import { assignOptimalGangTasks } from "./taskSelection";
-import { GANG_BANGER_TASK_ID } from "@repo/tasks/gang-banger/info";
+import { gangBangerTask } from "@repo/tasks/gang-banger/info";
 import { MemberRank, GangBangerTaskState, GangMember } from "@repo/tasks/gang-banger/info";
-
-// how long to sleep if we don't have a gang yet
-const SLEEP_INTERVAL_WITHOUT_GANG = 30_000;
+import { getPortData, PLAYER_INFO_PORT, USER_PREFERENCES_PORT } from "@repo/common/ports";
+import { UserPreferences } from "@repo/common/preferences";
+import { PlayerInfo } from "@repo/common/info/playerInfo";
 
 // Each "cycle" allow us to use 15% of our budget to
 // purchase equipment for members of rank II and
@@ -38,7 +38,7 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
   private readonly normalEquipmentNames: string[];
 
   constructor(ns: NS) {
-    super(ns, GANG_BANGER_TASK_ID);
+    super(ns, gangBangerTask);
 
     this.augmentationsNames = [];
     this.normalEquipmentNames = [];
@@ -61,8 +61,6 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
   }
 
   protected async run_task(): Promise<void> {
-    await this.waitUntilInGang();
-
     // sync to the war clock
     let lastProcessedCycles = await syncToTerritoryPowerUpdate(this.ns);
     let cyclesSinceTerritoryPowerUpdate = 0;
@@ -71,7 +69,7 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
     let preWarTasks: MemberTasks | undefined = undefined;
 
     while (true) {
-      if (this.shouldShutdown) {
+      if (!this.tick()) {
         return;
       }
 
@@ -93,7 +91,7 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
       assignOptimalGangTasks(this.ns, members);
 
       // we only care about presenting non-warfare info
-      this.patchState({
+      this.updateState({
         members: Object.values(members),
         gang: this.ns.gang.getGangInformation(),
       });
@@ -102,6 +100,8 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
         // we own all the land, peace on earth
         await this.ns.asleep(10_000);
       } else {
+        const userPreferences = getPortData<UserPreferences>(this.ns, USER_PREFERENCES_PORT);
+
         // track stuff for managing territory warfare.
         // for the most part, this part is responsible for
         // blocking until the next tick and continuing like
@@ -117,7 +117,7 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
           cyclesSinceTerritoryPowerUpdate,
           inWarWindow,
           preWarTasks,
-          this.snapshot?.preferences?.gangClashWinThreshold,
+          userPreferences?.gangClashWinThreshold,
         );
         lastProcessedCycles = warCycleUpdate.lastProcessedCycles;
         cyclesSinceTerritoryPowerUpdate = warCycleUpdate.cyclesSinceTerritoryPowerUpdate;
@@ -152,8 +152,8 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
   }
 
   private purchaseGearForMembers(members: Record<string, GangMember>): void {
-    const playerData = getPlayerMonitorState(this.snapshot);
-    const totalMoney = playerData?.player?.money || 0;
+    const playerInfo = getPortData<PlayerInfo>(this.ns, PLAYER_INFO_PORT);
+    const totalMoney = playerInfo?.money || 0;
     let budget = totalMoney * PERCENTAGE_OF_BUDGET_TO_SPEND_ON_EQUIPMENT;
 
     if (budget === 0) return;
@@ -208,18 +208,6 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
     });
 
     return members;
-  }
-
-  // special loop until we can actually form a gang
-  private async waitUntilInGang(): Promise<void> {
-    while (!this.ns.gang.inGang()) {
-      if (this.shouldShutdown) return;
-
-      // try to create a gang
-      if (this.ns.gang.createGang(GANG_FACTION)) return;
-
-      await this.ns.asleep(SLEEP_INTERVAL_WITHOUT_GANG);
-    }
   }
 
   private getMemberRank(member: GangMemberInfo): MemberRank {

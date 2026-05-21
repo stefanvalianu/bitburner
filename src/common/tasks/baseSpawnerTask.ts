@@ -1,49 +1,22 @@
 import { NS } from "@ns";
 import { BaseTask } from "./baseTask";
-import { TaskId } from "@repo/common/tasks/types";
+import { TaskDefinition } from "@repo/common/tasks/types";
 import { Allocator, Lease } from "@repo/common/tasks/allocator";
+import { getTaskScriptPath } from "./helpers";
 
-export interface TaskLease {
-  lease: Lease;
-  pids: number[];
-}
-
-export interface WaitAndFreeTaskLeaseOptions {
-  pollIntervalMs?: number;
-  extraBufferMs?: number;
-
-  // Instead of waiting for a fixed amount of time,
-  // waits until the lease tasks are completed.
-  // DO NOT USE THIS if your tasks themselves run
-  // forever (like the share() tasks)
-  waitAsLongAsNeeded?: boolean;
-
-  shouldExitEarly?: () => boolean;
-
-  // if true, pids and leases will be killed/renewed
-  // when exiting function, regardless of their
-  // completion
-  forceKillOnExit?: boolean;
-}
-
-// THIS FUNCTION IS DUPLICATED at taskManager.ts We don't add a
-// dependency to reduce script RAM usage.
-export function getScriptPath(taskId: TaskId) {
-  return `lib/util/tasks/definitions/${taskId}/task.js`;
-}
-
-export abstract class BaseSpawnerTask<
-  TState extends Record<string, unknown> = Record<string, unknown>,
-> extends BaseTask<TState> {
+export abstract class BaseSpawnerTask extends BaseTask {
   protected readonly allocator: Allocator;
   protected readonly childPids: number[];
 
-  constructor(ns: NS, taskId: TaskId) {
-    super(ns, taskId);
+  constructor(ns: NS, task: TaskDefinition) {
+    super(ns, task);
 
-    const taskScriptPath = getScriptPath(taskId);
+    // tick so we get our task state populated
+    this.tick();
+
+    const taskScriptPath = getTaskScriptPath(task);
     this.childPids = [];
-    this.allocator = new Allocator(this.allocation.servers);
+    this.allocator = new Allocator(this.management_state!.allocation!.servers);
     const scriptRam = this.ns.getScriptRam(taskScriptPath, "home");
 
     if (scriptRam === 0) {
@@ -54,7 +27,7 @@ export abstract class BaseSpawnerTask<
     this.allocator.reserve([
       {
         ram: scriptRam,
-        hostname: this.state.host!,
+        hostname: this.management_state!.host!,
       },
     ]);
   }
@@ -84,7 +57,7 @@ export abstract class BaseSpawnerTask<
       return undefined;
     }
 
-    const pid = this.ns.exec(scriptName, lease.hostname, threads, ...args);
+    const pid = this.ns.exec(scriptName, lease.hostname, { threads: threads, temporary: true }, ...args);
 
     if (pid === 0) {
       this.log.error(
@@ -98,88 +71,10 @@ export abstract class BaseSpawnerTask<
     return pid;
   }
 
-  // Waits up to estimatedWait + extraBufferMs, checking periodically.
-  // Frees each task lease as soon as all of its pids are done.
-  // Returns early if all leases finish, or if shouldExitEarly returns true.
-  protected async waitAndFreeTaskLeases(
-    taskLeases: TaskLease[],
-    estimatedWait: number,
-    options: WaitAndFreeTaskLeaseOptions = {},
-  ): Promise<void> {
-    const pollIntervalMs = options.pollIntervalMs ?? 2_000;
-    const extraBufferMs = options.extraBufferMs ?? 5_000;
-    const shouldExitEarly = options.shouldExitEarly ?? (() => false);
-    const forceKill = options.forceKillOnExit ?? false;
-
-    const deadline = Date.now() + estimatedWait + extraBufferMs;
-
-    let remaining = [...taskLeases];
-
-    while (options.waitAsLongAsNeeded || (remaining.length > 0 && Date.now() < deadline)) {
-      if (shouldExitEarly()) {
-        this.log.info("Exiting wait early");
-
-        if (forceKill) {
-          taskLeases.forEach((lease) => {
-            lease.pids.forEach((pid) => this.ns.kill(pid));
-            this.allocator.return(lease.lease.leaseId);
-          });
-        }
-
-        return;
-      }
-
-      const stillRunning: TaskLease[] = [];
-
-      for (const taskLease of remaining) {
-        const isStillRunning = taskLease.pids.some((pid) => this.ns.isRunning(pid));
-
-        if (isStillRunning) {
-          stillRunning.push(taskLease);
-        } else {
-          this.allocator.return(taskLease.lease.leaseId);
-        }
-      }
-
-      remaining = stillRunning;
-
-      if (remaining.length === 0) {
-        return;
-      } else if (options.waitAsLongAsNeeded) {
-        await this.ns.asleep(options.pollIntervalMs);
-        continue;
-      }
-
-      const remainingWaitMs = deadline - Date.now();
-
-      if (remainingWaitMs <= 0) {
-        break;
-      }
-
-      await this.ns.asleep(Math.min(pollIntervalMs, remainingWaitMs));
-    }
-
-    if (remaining.length > 0) {
-      if (forceKill) {
-        taskLeases.forEach((lease) => {
-          lease.pids.forEach((pid) => this.ns.kill(pid));
-          this.allocator.return(lease.lease.leaseId);
-        });
-        this.log.warn(`Forcefully ended ${remaining.length} leases and their process ids`);
-      } else {
-        this.log.error(
-          `${remaining.length} lease${remaining.length === 1 ? "" : "s"} still running after wait deadline. Next round will be missing resources.`,
-        );
-      }
-    }
-  }
-
-  protected teardown(log?: boolean): void {
+  protected override shutdown(): void {
     const pids = this.childPids;
     for (const pid of pids) {
-      if (this.ns.isRunning(pid)) this.ns.kill(pid);
+      this.ns.kill(pid);
     }
-
-    if (log) this.log.info(`shutdown: killed ${pids.length} worker(s)`);
   }
 }

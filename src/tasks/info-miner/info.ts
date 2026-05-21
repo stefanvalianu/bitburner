@@ -1,4 +1,5 @@
 import { TaskDefinition } from "@repo/common/tasks/types";
+import { INFO_MINER_SUBSCRIPTS } from "./core/scripts";
 
 export const INFO_MINER_TASK_ID = "info-miner";
 
@@ -10,5 +11,6 @@ export const infoMinerTask: TaskDefinition = {
   autostart: true,
   demand: {
     priority: "critical",
+    additionalHeadroomSubscripts: INFO_MINER_SUBSCRIPTS
   },
 };

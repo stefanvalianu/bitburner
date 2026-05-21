@@ -5,9 +5,8 @@ import { useNs } from "@repo/features/ns/NsProvider";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
 import { TaskCustomPanel } from "@repo/tasks";
 import { useRef, useState, RefObject, useLayoutEffect } from "react";
-import { GANG_BANGER_TASK_ID } from "../info";
 import { MemberRank, GangBangerTaskState, GangMember } from "@repo/tasks/gang-banger/info";
-
+import { GANG_BANGER_STATE_PORT, getPortData } from "@repo/common/ports";
 
 const ROMAN: Record<MemberRank, string> = { 1: "I", 2: "II", 3: "III", 4: "IV" };
 
@@ -18,7 +17,8 @@ export const GangBangerPanel: TaskCustomPanel = () => {
   const theme = useTheme();
   const ns = useNs();
 
-  const taskState = state.tasks[GANG_BANGER_TASK_ID] as unknown as GangBangerTaskState | undefined;
+  const taskState = getPortData<GangBangerTaskState>(ns, GANG_BANGER_STATE_PORT);
+
   const members = taskState?.members ?? [];
   const gang = taskState?.gang;
 

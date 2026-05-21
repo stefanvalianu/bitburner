@@ -197,10 +197,15 @@ export class TaskManager {
       // ns.getScriptRam returns 0.05GB-aligned floats (e.g. 2.4); round up so
       // every value entering the allocator is an integer GB and reservations
       // can never accumulate fractional drift across hosts.
-      const entrypointRam = Math.ceil(this.ns.getScriptRam(path));
+      let entrypointRam = Math.ceil(this.ns.getScriptRam(path));
       if (entrypointRam === 0) {
         this.logger.error(`script not found: ${path}`);
         continue;
+      }
+      if (def.demand.additionalHeadroomSubscripts && def.demand.additionalHeadroomSubscripts.length > 0) {
+        for (const subscript of def.demand.additionalHeadroomSubscripts) {
+          entrypointRam += this.ns.getScriptRam(subscript);
+        }
       }
       pending.set(def.id, { ...def.demand, entrypointRam });
     }
@@ -214,10 +219,15 @@ export class TaskManager {
         continue;
       }
       const path = getTaskScriptPath(def);
-      const entrypointRam = Math.ceil(this.ns.getScriptRam(path));
+      let entrypointRam = Math.ceil(this.ns.getScriptRam(path));
       if (entrypointRam === 0) {
         this.logger.error(`script not found: ${path}`);
         continue;
+      }
+      if (def.demand.additionalHeadroomSubscripts && def.demand.additionalHeadroomSubscripts.length > 0) {
+        for (const subscript of def.demand.additionalHeadroomSubscripts) {
+          entrypointRam += this.ns.getScriptRam(subscript);
+        }
       }
       pending.set(task.id, { ...def.demand, entrypointRam });
     }
@@ -290,7 +300,7 @@ export class TaskManager {
       }
 
       const path = getTaskScriptPath(def);
-      const pid = this.ns.exec(path, controller.hostname, 1);
+      const pid = this.ns.exec(path, controller.hostname, { threads: 1, temporary: true });
       if (pid === 0) {
         this.logger.warn(`failed to exec ${path} on ${controller.hostname}`);
         continue;

@@ -51,6 +51,19 @@ export default defineConfig({
     ],
   },
   plugins: [versionStamp()],
+  lint: {
+    ignorePatterns: [
+      "dist/**",
+      "obsolete-tasks/**",
+      "tools/**",
+      "*.config.*",
+      "NetscriptDefinitions.d.ts",
+    ],
+    options: {
+      typeAware: true,
+      typeCheck: true
+    }
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,

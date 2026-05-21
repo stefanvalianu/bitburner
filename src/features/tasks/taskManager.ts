@@ -10,10 +10,11 @@ import {
 import { drainPortData, TASK_EVENTS_PORT, TASK_STATE_PORT } from "@repo/common/ports";
 import { allocateAllTasks } from "@repo/common/tasks/allocator";
 import { Logger } from "@repo/common/logger";
-import { GameInfo } from "@repo/common/info/gameInfo";
 import { ALL_TASKS, TASK_BY_ID } from "@repo/tasks";
 import { getTaskScriptPath } from "@repo/common/tasks/helpers";
 import { crawlServers } from "@repo/common/crawlServers";
+import { DashboardState } from "../app/DashboardProvider";
+import { MutableRefObject } from "react";
 
 // RAM held back from the allocator on `home` for the dashboard process and
 // any ad-hoc scripts the player launches outside the task manager. The pool
@@ -29,9 +30,9 @@ const REALLOCATE_SLACK_FRACTION = 0.1;
 export class TaskManager {
   private readonly ns: NS;
   private readonly logger: Logger;
+  private readonly gameState: MutableRefObject<DashboardState>;
 
   private taskState: TaskManagerState;
-  private gameState: GameInfo | undefined;
 
   // True while a reallocation cycle is in progress: unbounded tasks have been
   // asked to shut down so their RAM can be returned to the pool, and we're
@@ -42,11 +43,11 @@ export class TaskManager {
   // once they've all actually terminated.
   private restartIds: Set<TaskId> = new Set();
 
-  constructor(ns: NS, logger: Logger) {
+  constructor(ns: NS, gameState: MutableRefObject<DashboardState>,logger: Logger) {
     this.ns = ns;
     this.logger = logger;
     this.taskState = { tasks: new Map() } ;
-    this.gameState = undefined;
+    this.gameState = gameState;
   }
 
   isReallocating(): boolean {
@@ -111,9 +112,7 @@ export class TaskManager {
     this.logger.info(`task ${taskId} shutdown requested`);
   }
 
-  runTick(gameInfo: GameInfo): void {
-    this.gameState = gameInfo;
-
+  runTick(): void {
     /*
       1. Drain events from tasks and apply them to the snapshot.
     */
@@ -241,15 +240,15 @@ export class TaskManager {
       Use game state info if possible (less operations), but if that's
       not available let's do a live crawl of all servers.
     */
-    const pool: ServerSlice[] = ((this.gameState?.servers?.servers.length ?? 0) > 0) ? 
-      this.gameState!.servers!.servers
-        .filter((s) => s.hasAdmin && s.maxRam > 0)
+    const pool: ServerSlice[] = ((this.gameState.current.servers.length ?? 0) > 0) ? 
+      this.gameState.current.servers
+        .filter((s) => s.hasAdminRights && s.maxRam > 0)
         .map((s) => {
-          const reserved = s.name === "home" ? HOME_RESERVED_RAM_GB : 0;
+          const reserved = s.hostname === "home" ? HOME_RESERVED_RAM_GB : 0;
           return {
-            hostname: s.name,
+            hostname: s.hostname,
             ram: Math.max(0, s.maxRam - reserved),
-            cores: s.cores,
+            cores: s.cpuCores,
           } satisfies ServerSlice;
         }) :
       crawlServers(this.ns)

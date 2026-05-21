@@ -1,7 +1,7 @@
 import { MutableRefObject, useRef } from "react";
 import { useLogger } from "@repo/features/logging/useLogger";
 import { useNs } from "@repo/features/ns/NsProvider";
-import { GameInfo } from "@repo/common/info/gameInfo";
+import { DashboardState } from "./DashboardProvider";
 
 interface Propagation {
   version: string;
@@ -16,16 +16,16 @@ interface Propagation {
   This 'hook' re-renders every dashboard interval, but it only needs to propagate
   in 2 cases. On initial launch, and when the list of tracked servers changes.
 */
-export function usePropagator(gameInfo: MutableRefObject<GameInfo>): void {
+export function usePropagator(state: MutableRefObject<DashboardState>): void {
   const ns = useNs();
   const log = useLogger("propagator");
 
   const propagationRef = useRef<Propagation | null>(null);
 
   // can't do anything without server info
-  if (gameInfo.current.servers === undefined || gameInfo.current.servers.servers.length === 0) return;
+  if (state.current.servers.length === 0) return;
 
-  const eligible = gameInfo.current.servers.servers.filter(s => s.name !== "home" && s.hasAdmin).map(s => s.name);
+  const eligible = state.current.servers.filter(s => s.hostname !== "home" && s.hasAdminRights).map(s => s.hostname);
   let targets: string[] = [];
   
   if (propagationRef.current === null) {

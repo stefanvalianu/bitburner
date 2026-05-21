@@ -3,13 +3,19 @@ import { useNs } from "@repo/features/ns/NsProvider";
 import { useLogger } from "@repo/features/logging/useLogger";
 import { TaskManager } from "@repo/features/tasks/taskManager";
 import { MAIN_UX_REFRESH_INTERVAL } from "@repo/common/constants";
-import { GameInfo, readGameInfo } from "@repo/common/info/gameInfo";
 import { usePropagator } from "./usePropagator";
+import { Player, Server } from "@ns";
+import { crawlServers } from "@repo/common/crawlServers";
+
+export interface DashboardState {
+  player: Player;
+  servers: Server[];
+}
 
 export interface DashboardController {
   taskManager: TaskManager;
-  gameInfo: GameInfo;
-  gameInfoRef: MutableRefObject<GameInfo>;
+  state: DashboardState;
+  stateRef: MutableRefObject<DashboardState>;
 }
 
 type Props = {
@@ -22,39 +28,42 @@ export function DashboardProvider ({ children }: Props) {
   const ns = useNs();
   const taskManagerLogger = useLogger("task-manager");
 
-  const [gameState, setGameState] = useState<GameInfo>({
-    gang: undefined,
-    servers: undefined,
-    sleeves: undefined
+  const [gameState, setGameState] = useState<DashboardState>({
+    player: ns.getPlayer(),
+    servers: crawlServers(ns)
   });
-  const gameStateRef = useRef<GameInfo>(gameState);
+  const gameStateRef = useRef<DashboardState>(gameState);
 
   usePropagator(gameStateRef);
 
   console.log('[TODO-CLEANUP] dashboardProvider rendered');
   
   const taskManager = useMemo(
-    () => new TaskManager(ns, taskManagerLogger),
+    () => new TaskManager(ns, gameStateRef, taskManagerLogger),
     [ns, taskManagerLogger],
   );
   
   // convert port state for the shared info ports into the context's state, triggering downstream re-renders
   useEffect(() => {
     const id = setInterval(() => {
-      const newState = readGameInfo(ns);
+      const newState = {
+        player: ns.getPlayer(),
+        servers: crawlServers(ns)
+      } satisfies DashboardState;
       
-      taskManager.runTick(newState);
+      gameStateRef.current = newState;
+      
+      taskManager.runTick();
 
       setGameState(newState);
-      gameStateRef.current = newState;
     }, MAIN_UX_REFRESH_INTERVAL);
     return () => clearInterval(id);
   }, [ns, taskManager]);
 
   // no point in memoizing this since re-renders are only triggered by state updates, which would invalidate
   const controller = {
-    gameInfo: gameState,
-    gameInfoRef: gameStateRef,
+    state: gameState,
+    stateRef: gameStateRef,
     taskManager: taskManager
   } satisfies DashboardController;
 

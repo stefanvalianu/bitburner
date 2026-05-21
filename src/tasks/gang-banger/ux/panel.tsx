@@ -160,7 +160,7 @@ function MemberTooltip({ member, triggerRef }: MemberTooltipProps) {
           <StatRow
             key={s.label}
             label={s.label}
-            value={`${ns.format.number(s.level, 0)} (asc ×${s.mult.toFixed(2)})`}
+            value={`${ns.format.number(s.level, 0)} (asc x${s.mult.toFixed(2)})`}
             valueColor={s.color}
           />
         ))}

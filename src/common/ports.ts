@@ -27,10 +27,9 @@ export const GANG_BANGER_STATE_PORT = 13;
 // Ports used by the info-miner task to post info snapshots for the main
 // dashboard (and potentially others) to consume
 export const INFO_MINER_QUEUE_PORT = 30;
-export const SERVER_INFO_PORT = 31;
+export const IDENTIFY_SERVERS_PORT = 31;
 export const SLEEVE_INFO_PORT = 32;
 export const GANG_INFO_PORT = 33;
-export const IDENTIFY_SERVERS_PORT = 34;
 
 //export const SERVER_PURCHASE_COMMUNICATION_PORT = 11;
 
@@ -45,7 +44,6 @@ export function clearPorts(ns: NS) {
 
   ns.clearPort(INFO_MINER_QUEUE_PORT);
   ns.clearPort(IDENTIFY_SERVERS_PORT);
-  ns.clearPort(SERVER_INFO_PORT);
   ns.clearPort(SLEEVE_INFO_PORT);
   ns.clearPort(GANG_INFO_PORT);
 }

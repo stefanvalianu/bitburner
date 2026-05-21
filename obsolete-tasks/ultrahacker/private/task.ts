@@ -201,7 +201,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       //
       // Skip when the user has configured an aggressive steal target
       // (`hackMinimumMoneyPct <= DRAIN_RECOVERY_THRESHOLD`). In that mode
-      // the server legitimately cycles down to ~hackMinimumMoneyPct × max
+      // the server legitimately cycles down to ~hackMinimumMoneyPct x max
       // between batches, so live money near or below the repair threshold
       // is *expected* — running repair would just churn healthy cascades.
       if (hackMinimumMoneyPct > DRAIN_RECOVERY_THRESHOLD) {
@@ -660,7 +660,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   //   skill level is higher than `currentPlayer.skills.hacking`. Sizing
   //   hack-threads against the *predicted* level keeps the per-batch steal
   //   at the intended fraction instead of compounding into a slow drain.
-  //   `predictedPlayer` is built by the caller from xpRatePerMs × hackTime.
+  //   `predictedPlayer` is built by the caller from xpRatePerMs x hackTime.
   // - `currentPlayer` is NOT augmented with intra-batch XP either — that
   //   drift caused the original op-duration bug (the game locks durations at
   //   call time, so the player skill at op-call time is what matters).

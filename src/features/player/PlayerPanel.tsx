@@ -7,14 +7,14 @@ import { usePreferences } from "@repo/features/preferences/PreferencesProvider";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
 import { useNs } from "@repo/features/ns/NsProvider";
 import { StatCard } from "./StatCard";
+import { useDashboard } from "@repo/features/app/DashboardProvider";
 
 export function PlayerPanel() {
   const theme = useTheme();
   const ns = useNs();
   const { preferences } = usePreferences();
-
-  const player = ns.getPlayer();
-
+  const { state } = useDashboard();
+  
   const actions = (
     <Row gap={theme.spacing.sm} style={{ alignItems: "center" }}>
       {preferences?.reservedMoney > 0 && (
@@ -28,13 +28,17 @@ export function PlayerPanel() {
   return (
     <Panel title="Player" actions={actions}>
       <Row gap={theme.spacing.lg} style={{ alignItems: "flex-start" }}>
-        <StatCard player={player} />
+        <StatCard player={state.player} showProgress={true} />
         <Col gap={theme.spacing.md} style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ color: theme.colors.primary }}>📍 {player.city}</span>
+          <span style={{ color: theme.colors.primary }}>📍 {state.player.city}</span>
           <Col gap={theme.spacing.xs}>
             <SectionHeading>Crime</SectionHeading>
-            <StatRow label="killed" value={ns.format.number(player.numPeopleKilled, 0)} />
-            <StatRow label="karma" value={ns.format.number(player.karma, 2)} />
+            <StatRow label="killed" value={ns.format.number(state.player.numPeopleKilled, 0)} />
+            <StatRow label="karma" value={ns.format.number(state.player.karma, 2)} />
+            <SectionHeading>Servers</SectionHeading>
+            <div>
+              {state.servers.filter((s) => s.hasAdminRights && !s.purchasedByPlayer).length} / {state.servers.filter((s) => !s.purchasedByPlayer).length} nuked
+            </div>
           </Col>
         </Col>
       </Row>

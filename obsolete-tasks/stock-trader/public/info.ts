@@ -67,7 +67,7 @@ export const STOCK_TRADER_CONFIG = {
   ENTER_LONG: 0.55,
   EXIT_LONG: 0.5,
 
-  // 100× commission. Anything smaller is commission-dominated.
+  // 100x commission. Anything smaller is commission-dominated.
   MIN_POSITION: 10_000_000,
 
   // Added on top of preferences.reservedMoney so the trader always

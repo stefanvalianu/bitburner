@@ -1,5 +1,5 @@
-import { GameInfo } from "@repo/common/info/gameInfo";
 import { Lease } from "./allocator";
+import { NS } from "@ns";
 
 export type TaskId = string;
 
@@ -102,11 +102,12 @@ export interface TaskDefinition {
   */
   statePort?: number;
 
-  // Optional function to check requirements for this task to be ran.
-  // Useful for doing things like checking for Formulas.exe, etc.
-  // Returns undefined when requirements are met, a string explanation
-  // of what isn't met when requirements are not met.
-  checkRequirements?: (gameInfo: GameInfo) => string | undefined;
+  /*
+    Optional function to check requirements for this task to be ran.
+    Be wary of what netscript functions you use in the checker, since this
+    this function is called from the main.js thread.
+  */ 
+  checkRequirements?: (ns: NS) => string | undefined;
 }
 
 /*

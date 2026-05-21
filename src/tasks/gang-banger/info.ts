@@ -1,7 +1,6 @@
 import { TaskDefinition } from "@repo/common/tasks/types";
 import { GANG_BANGER_STATE_PORT } from "@repo/common/ports";
-import { GameInfo } from "@repo/common/info/gameInfo";
-import { GangGenInfo, GangMemberInfo } from "@ns";
+import { GangGenInfo, GangMemberInfo, NS } from "@ns";
 
 export const GANG_BANGER_TASK_ID = "gang-banger";
 
@@ -15,9 +14,8 @@ export const gangBangerTask: TaskDefinition = {
     priority: "normal",
   },
   statePort: GANG_BANGER_STATE_PORT,
-  checkRequirements: (gameInfo: GameInfo) => {
-    if (gameInfo === undefined || gameInfo.player === undefined) return "Just a sec...";
-    if (!gameInfo.player.hasFormulas) return "Missing Formulas.exe";
+  checkRequirements: (ns: NS) => {
+    if(!ns.fileExists(ns.enums.ProgramName.formulas, "home")) return "Missing Formulas.exe";
 
     return undefined;
   },

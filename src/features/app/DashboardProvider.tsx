@@ -24,7 +24,6 @@ export function DashboardProvider ({ children }: Props) {
 
   const [gameState, setGameState] = useState<GameInfo>({
     gang: undefined,
-    player: undefined,
     servers: undefined,
     sleeves: undefined
   });

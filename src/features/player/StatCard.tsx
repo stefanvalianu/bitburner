@@ -1,5 +1,4 @@
-import { NS } from "@ns";
-import { PlayerInfo } from "@repo/common/info/playerInfo";
+import { NS, Player } from "@ns";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
 import { useNs } from "@repo/features/ns/NsProvider";
 import { StatRow } from "@repo/features/components/StatRow";
@@ -8,70 +7,70 @@ import { Col } from "@repo/features/components/Col";
 
 function skillProgressPct(
   ns: NS,
-  playerInfo: PlayerInfo,
-  level: number,
-  xp: number,
-  mult: number
+  player: Player,
+  skill: "hacking" | "strength" | "defense" | "dexterity" | "agility" | "charisma" | "intelligence",
 ): number {
-  if (!playerInfo.hasFormulas) return 0;
-  const currentLevelExp = ns.formulas.skills.calculateExp(level, mult);
-  const nextLevelExp = ns.formulas.skills.calculateExp(level + 1, mult);
-  const progress = (xp - currentLevelExp) / (nextLevelExp - currentLevelExp);
+  const mult = skill === "intelligence" ? 1 : player.mults[skill];
+  const currentLevelExp = ns.formulas.skills.calculateExp(player.skills[skill], mult);
+  const nextLevelExp = ns.formulas.skills.calculateExp(player.skills[skill] + 1, mult);
+  const progress = (player.exp[skill] - currentLevelExp) / (nextLevelExp - currentLevelExp);
   return Math.max(0, Math.min(1, progress));
 }
 
 type Props = {
-  playerInfo: PlayerInfo;
+  player: Player;
 }
 
-export function StatCard({ playerInfo }: Props) {
+export function StatCard({ player }: Props) {
   const theme = useTheme();
   const ns = useNs();
+
+  const hasFormulas = ns.fileExists(ns.enums.ProgramName.formulas, "home");
 
   return (
     <Col gap={theme.spacing.xs} style={{ minWidth: 120, maxWidth: 160, flexShrink: 0 }}>
       <SkillRow
         label="hck"
-        value={`${playerInfo.skillHacking}`}
+        value={`${player.skills.hacking}`}
         valueColor={theme.colors.code}
-        progress={skillProgressPct(ns, playerInfo, playerInfo.skillHacking, playerInfo.xpHacking, playerInfo.multHacking)}
+        progress={hasFormulas ? skillProgressPct(ns, player, "hacking") : 0}
       />
       <SkillRow
         label="str"
-        value={`${playerInfo.skillStrength}`}
+        value={`${player.skills.strength}`}
         valueColor={theme.colors.white}
-        progress={skillProgressPct(ns, playerInfo, playerInfo.skillStrength, playerInfo.xpStrength, playerInfo.multStrength)}
+        progress={hasFormulas ? skillProgressPct(ns, player, "strength") : 0}
       />
       <SkillRow
         label="def"
-        value={`${playerInfo.skillDefense}`}
+        value={`${player.skills.defense}`}
         valueColor={theme.colors.white}
-        progress={skillProgressPct(ns, playerInfo, playerInfo.skillDefense, playerInfo.xpDefense, playerInfo.multDefense)}
+        progress={hasFormulas ? skillProgressPct(ns, player, "defense") : 0}
       />
       <SkillRow
         label="dex"
-        value={`${playerInfo.skillDexterity}`}
+        value={`${player.skills.dexterity}`}
         valueColor={theme.colors.white}
-        progress={skillProgressPct(ns, playerInfo, playerInfo.skillDexterity, playerInfo.xpDexterity, playerInfo.multDexterity)}
+        progress={hasFormulas ? skillProgressPct(ns, player, "dexterity") : 0}
       />
       <SkillRow
         label="agi"
-        value={`${playerInfo.skillAgility}`}
+        value={`${player.skills.agility}`}
         valueColor={theme.colors.white}
-        progress={skillProgressPct(ns, playerInfo, playerInfo.skillAgility, playerInfo.xpAgility, playerInfo.multAgility)}
+        progress={hasFormulas ? skillProgressPct(ns, player, "agility") : 0}
       />
       <SkillRow
         label="cha"
-        value={`${playerInfo.skillCharisma}`}
+        value={`${player.skills.charisma}`}
         valueColor={theme.colors.cha}
-        progress={skillProgressPct(ns, playerInfo, playerInfo.skillCharisma, playerInfo.xpCharisma, playerInfo.multCharisma)}
+        progress={hasFormulas ? skillProgressPct(ns, player, "charisma") : 0}
       />
-      {(playerInfo.xpIntelligence > 0 || playerInfo.skillIntelligence > 1) && (
+      {(player.exp.intelligence > 0 || player.skills.intelligence > 1) && (
         <SkillRow
           label="int"
-          value={`${playerInfo.skillIntelligence}`}
+          value={`${player.skills.intelligence}`}
           valueColor={theme.colors.int}
-          progress={skillProgressPct(ns, playerInfo, playerInfo.skillIntelligence, playerInfo.xpIntelligence, 1)}
+          progress={hasFormulas ? skillProgressPct(ns, player, "intelligence") : 0}
         />
       )}
     </Col>

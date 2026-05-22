@@ -8,6 +8,10 @@ import { ContractType, UntypedSolver } from "@repo/tasks/actionator/core/contrac
   This script is responsible for:
   - Searching for and solving coding contracts
 */
+const cyan = "\u001b[36m";
+const red = "\u001b[31m";
+const reset = "\u001b[0m";
+
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
   
@@ -31,9 +35,9 @@ function solve(ns: NS, contract: CodingContractObject): void {
 
     const submit = contract.submit as (answer: unknown) => string;
     const reward = submit(answer);
-    ns.tprint(`Solved ${contract.type} and got ${reward}`);
+    ns.tprint(`Solved ${contract.type} and got ${cyan}${reward}${reset}`);
   } catch (error) {
-    ns.tprint(`Failed to solve coding contract "${contract.type}": ${error instanceof Error ? error.message : String(error)}`);
+    ns.tprint(`${red}Failed to solve coding contract "${contract.type}": ${error instanceof Error ? error.message : String(error)}${reset}`);
   }
 }
 

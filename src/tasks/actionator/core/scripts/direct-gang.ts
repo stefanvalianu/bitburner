@@ -130,8 +130,7 @@ function getMemberAscensionMultiplierGained(ns: NS, member: GangMember): number 
 
   if (!multGains) return 1;
 
-  // we omit agility because it seems to always be significantly lower than the other asc multipliers, greatly slowing down asc timings
-  return Math.min(multGains.str, multGains.def, multGains.dex);
+  return Math.min(multGains.str, multGains.def, multGains.dex, multGains.agi);
 }
 
 function pickRandomGangMemberName(ns: NS): string {

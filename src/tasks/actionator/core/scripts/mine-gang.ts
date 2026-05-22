@@ -22,6 +22,17 @@ export async function main(ns: NS): Promise<void> {
     requestTaskStart(ns, GANG_BANGER_TASK_ID);
   }
 
+  if (!inGang) {
+    ns.clearPort(GANG_INFO_PORT);
+    ns.writePort(GANG_INFO_PORT, {
+      hasGang: false,
+      members: [],
+      territory: 0
+    } satisfies GangInfo);
+    invokeNextScript(ns);
+    return;
+  }
+
   const gang = ns.gang.getGangInformation();
   const members = ns.gang.getMemberNames().map(n => ns.gang.getMemberInformation(n));
   const gangMembers = members.map(m => ({

@@ -31,13 +31,14 @@ class GangBangerTask extends BaseTask {
         return;
       }
 
-      const portData = getPortData<GangInfo>(this.ns, GANG_INFO_PORT);
-      const members = portData?.members ?? [];
+      const gangInfo = getPortData<GangInfo>(this.ns, GANG_INFO_PORT);
+      const members = gangInfo?.members ?? [];
+      const territory = gangInfo?.territory ?? 0;
 
       // set members to their optimal tasks
       assignOptimalGangTasks(this.ns, members);
 
-      if (this.ns.gang.getGangInformation().territory === 1) {
+      if (territory === 1) {
         // we own all the land, peace on earth
         // We should probably quit the task here since from here on we're just going to stay on the same tasks
         await this.ns.asleep(10_000);

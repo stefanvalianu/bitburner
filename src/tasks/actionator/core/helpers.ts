@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { ACTIONATOR_QUEUE_PORT, TASK_EVENTS_PORT } from "@repo/common/ports";
+import { ACTIONATOR_QUEUE_PORT, ACTIONATOR_REQUEST_PORT, TASK_EVENTS_PORT } from "@repo/common/ports";
 import { TaskEvent, TaskId } from "@repo/common/tasks/types";
 
 export interface SourcefileRequirement {
@@ -57,4 +57,8 @@ export function requestTaskStart(ns: NS, task: TaskId): void {
     type: "request-start",
     taskId: task
   } satisfies TaskEvent);
+}
+
+export function requestStopScriptAutorun(ns: NS, script: string): void {
+  ns.writePort(ACTIONATOR_REQUEST_PORT, script);
 }

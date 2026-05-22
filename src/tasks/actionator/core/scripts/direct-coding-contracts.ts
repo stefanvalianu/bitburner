@@ -35,7 +35,7 @@ function solve(ns: NS, contract: CodingContractObject): void {
 
     const submit = contract.submit as (answer: unknown) => string;
     const reward = submit(answer);
-    ns.tprint(`Solved ${contract.type} and got ${cyan}${reward}${reset}`);
+    ns.tprint(`Solved ${contract.type} and ${cyan}${reward}${reset}`);
   } catch (error) {
     ns.tprint(`${red}Failed to solve coding contract "${contract.type}": ${error instanceof Error ? error.message : String(error)}${reset}`);
   }

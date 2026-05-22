@@ -1,4 +1,7 @@
 import { Subscript } from "@repo/tasks/actionator/core/helpers";
+import { MINE_GANG_SCRIPT_PATH } from "./mine-gang";
+import { GANG_EQUIPMENT_SCRIPT } from "./identify-gang";
+import { SLEEVE_UPGRADE_SCRIPT } from "./direct-sleeve-upgrades";
 
 export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
   /*
@@ -13,7 +16,7 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
     }
   },
   {
-    scriptPath: "tasks/actionator/core/scripts/identify-gang.js",
+    scriptPath: GANG_EQUIPMENT_SCRIPT,
     repeat: "none",
     requirement: {
       sourceFile: 2,
@@ -24,7 +27,7 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
     Fast subscripts (info gathering)
   */
   {
-    scriptPath: "tasks/actionator/core/scripts/mine-gang.js",
+    scriptPath: MINE_GANG_SCRIPT_PATH,
     repeat: "fast",
     requirement: {
       sourceFile: 2,
@@ -60,6 +63,14 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
   },
   {
     scriptPath: "tasks/actionator/core/scripts/direct-sleeves.js",
+    repeat: "slow",
+    requirement: {
+      sourceFile: 10,
+      level: 1
+    }
+  },
+  {
+    scriptPath: SLEEVE_UPGRADE_SCRIPT,
     repeat: "slow",
     requirement: {
       sourceFile: 10,

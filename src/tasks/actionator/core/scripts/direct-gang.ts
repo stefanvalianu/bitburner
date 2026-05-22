@@ -5,8 +5,7 @@ import { UserPreferences } from "@repo/common/preferences";
 import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 
 // Each "cycle" allow us to use 15% of our budget to
-// purchase equipment for members of rank II and
-// above.
+// purchase equipment for members
 const PERCENTAGE_OF_BUDGET_TO_SPEND_ON_EQUIPMENT = 0.15;
 
 /*
@@ -44,8 +43,7 @@ export async function main(ns: NS): Promise<void> {
   ascendEligibleMembers(ns, gangInfo)
 
   // 3. Purchase equipment for eligible members 
-  const player = ns.getPlayer();
-  const budget = ((player?.money || 0) - (userPreferences?.reservedMoney || 0) * PERCENTAGE_OF_BUDGET_TO_SPEND_ON_EQUIPMENT);
+  const budget = (ns.getServerMoneyAvailable("home") - (userPreferences?.reservedMoney || 0)) * PERCENTAGE_OF_BUDGET_TO_SPEND_ON_EQUIPMENT;
 
   if (budget > 0) {
     purchaseGearForMembers(ns, budget, gangInfo, equipmentInfo);

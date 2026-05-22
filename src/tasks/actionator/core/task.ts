@@ -1,7 +1,7 @@
 import { NS } from "@ns";
 import { BaseTask } from "@repo/common/tasks/baseTask";
 import { ACTIONATOR_SUBSCRIPTS } from "./scripts";
-import { ACTIONATOR_QUEUE_PORT } from "@repo/common/ports";
+import { ACTIONATOR_QUEUE_PORT, ACTIONATOR_REQUEST_PORT, drainPortData } from "@repo/common/ports";
 import { actionatorTask } from "@repo/tasks/actionator/info";
 import { identifyRunnableSubscripts } from "./helpers";
 import { MAIN_UX_REFRESH_INTERVAL } from "@repo/common/constants";
@@ -11,20 +11,26 @@ const SLOW_REFRESH_INTERVAL = 3000;
 
 class ActionatorTask extends BaseTask {
   private readonly oneOffScripts: string[];
-  private readonly fastScripts: string[];
-  private readonly slowScripts: string[];
+  private readonly fastScripts: Set<string>;
+  private readonly slowScripts: Set<string>;
+
+  // scripts can request to be added here when they're done. They will not be re-ran.
+  private readonly haltedScripts: Set<string>;
 
   constructor(ns: NS) {
     super(ns, actionatorTask);
 
     const runnables = identifyRunnableSubscripts(ns, ACTIONATOR_SUBSCRIPTS);
     this.oneOffScripts = [];
-    this.fastScripts = [];
-    this.slowScripts = [];
+
+    this.fastScripts = new Set();
+    this.slowScripts = new Set();
+
+    this.haltedScripts = new Set();
 
     runnables.forEach(subscript => {
-      if (subscript.repeat === "fast") this.fastScripts.push(subscript.scriptPath);
-      else if (subscript.repeat === "slow") this.slowScripts.push(subscript.scriptPath);
+      if (subscript.repeat === "fast") this.fastScripts.add(subscript.scriptPath);
+      else if (subscript.repeat === "slow") this.slowScripts.add(subscript.scriptPath);
       else if (subscript.repeat === "none") this.oneOffScripts.push(subscript.scriptPath);
       else this.log.error(`Unhandled subscript`, subscript);
     });
@@ -50,6 +56,18 @@ class ActionatorTask extends BaseTask {
       // on the first loop, queue the one-run subscripts
       if (lastFastRun === 0 && lastSlowRun === 0) {
         this.oneOffScripts.forEach(s => this.ns.writePort(ACTIONATOR_QUEUE_PORT, s));
+      }
+
+      // scripts might have requested to be halted. if so, add them
+      const requests = drainPortData<string>(this.ns, ACTIONATOR_REQUEST_PORT);
+      if (requests && requests.length > 0) {
+        requests.forEach(s => {
+          this.haltedScripts.add(s);
+          this.fastScripts.delete(s);
+          this.slowScripts.delete(s);
+
+          this.log.info(`Script ${s} removed from actionator loop.`);
+        });
       }
       
       const now = Date.now();

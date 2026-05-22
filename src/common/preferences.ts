@@ -31,6 +31,9 @@ export interface UserPreferences {
 
   // If true, stops auto-changing sleeve actions
   pauseSleeveActions: boolean;
+
+  // whether to enable auto-purchasing of sleeve augmentations
+  purchaseSleeveAugmentations: boolean;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -40,4 +43,5 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   gangClashWinThreshold: undefined,
   hackMinimumMoneyPct: undefined,
   pauseSleeveActions: false,
+  purchaseSleeveAugmentations: true,
 };

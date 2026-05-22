@@ -1,11 +1,14 @@
 import { GangMemberInfo, NS } from "@ns";
 import { ACTIONATOR_QUEUE_PORT, GANG_INFO_PORT } from "@repo/common/ports";
 import { GangInfo, GangMember, MemberRank } from "@repo/common/info/gangInfo";
-import { invokeNextScript, requestTaskStart } from "@repo/tasks/actionator/core/helpers";
+import { invokeNextScript, requestStopScriptAutorun, requestTaskStart } from "@repo/tasks/actionator/core/helpers";
 import { GANG_BANGER_TASK_ID } from "@repo/tasks/gang-banger/info";
 import { GANG_EQUIPMENT_SCRIPT } from "./identify-gang";
 
+export const MINE_GANG_SCRIPT_PATH = "tasks/actionator/core/scripts/mine-gang.js";
+
 const KARMA_TO_START_GANG = -54_000;
+const MAX_GANG_MEMBERS = 12;
 
 /*
   This script is responsible for:
@@ -52,6 +55,11 @@ export async function main(ns: NS): Promise<void> {
     members: gangMembers,
     territory: gang.territory
   } satisfies GangInfo);
+
+  // if we're at max territory and max members, we don't need to update this info anymore
+  if (members.length === MAX_GANG_MEMBERS && gang.territory === 1) {
+    requestStopScriptAutorun(ns, MINE_GANG_SCRIPT_PATH);
+  }
 
   invokeNextScript(ns);
 }

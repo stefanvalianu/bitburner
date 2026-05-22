@@ -27,6 +27,8 @@ export async function main(ns: NS): Promise<void> {
     return;
   }
 
+  const player = ns.getPlayer();
+
   /*
     Each sleeve will follow the following heuristics:
     - Before a gang is formed, the sleeve will aim for at least 50% shock recovery,
@@ -78,6 +80,28 @@ export async function main(ns: NS): Promise<void> {
       }
 
       // don't keep going down the task tree, we need to do this
+      continue;
+    }
+
+    // After the gang is up, let's make the sleeves help the player train back up to a reasonable stat amount
+    if (player.skills.hacking < 75) {
+      ns.sleeve.setToUniversityCourse(sleeve.index, "Rothman University", "Algorithms");
+      continue;
+    }
+    if (player.skills.strength < 75) {
+      ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "str");
+      continue;
+    }
+    if (player.skills.defense < 75) {
+      ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "def");
+      continue;
+    }
+    if (player.skills.dexterity < 75) {
+      ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "dex");
+      continue;
+    }
+    if (player.skills.agility < 75) {
+      ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "agi");
       continue;
     }
 

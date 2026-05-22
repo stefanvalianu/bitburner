@@ -66,4 +66,8 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
       level: 1
     }
   },
+  {
+    scriptPath: "tasks/actionator/core/scripts/direct-coding-contracts.js",
+    repeat: "slow"
+  },
 ];

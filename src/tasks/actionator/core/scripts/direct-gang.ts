@@ -37,7 +37,7 @@ const ASC_MULTS: Record<MemberRank, number> = {
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
-  
+
   const userPreferences = getPortData<UserPreferences>(ns, USER_PREFERENCES_PORT);
 
   const equipmentInfo = getPortData<GangEquipmentInfo>(ns, GANG_EQUIPMENT_PORT);

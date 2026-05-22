@@ -1,7 +1,8 @@
 import { NS } from "@ns";
 import { GangEquipmentInfo } from "@repo/common/info/gangInfo";
 import { GANG_EQUIPMENT_PORT } from "@repo/common/ports";
-import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
+import { invokeNextScript, requestTaskStart } from "@repo/tasks/actionator/core/helpers";
+import { GANG_BANGER_TASK_ID } from "@repo/tasks/gang-banger/info";
 
 export const GANG_EQUIPMENT_SCRIPT = "tasks/actionator/core/scripts/identify-gang.js";
 
@@ -45,6 +46,13 @@ export async function main(ns: NS): Promise<void> {
     augmentations: augmentations,
     normalEquipment: equipment
   } satisfies GangEquipmentInfo);
+
+  /*
+    This script runs when actionator runs, almost always at startup.
+    As such, let's also kick off the gang-banger script to help users
+    re-setup on relaunch.
+  */
+  requestTaskStart(ns, GANG_BANGER_TASK_ID);
 
   invokeNextScript(ns);
 }

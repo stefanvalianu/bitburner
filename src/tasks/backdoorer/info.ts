@@ -7,7 +7,6 @@ export const backdoorerTask: TaskDefinition = {
   id: BACKDOORER_TASK_ID,
   description: "Attempts to backdoor all available servers. Continues until none are left.",
   icon: "🚪",
-  autostart: true,
   statePort: BACKDOORER_STATE_PORT,
   demand: {
     priority: "normal",

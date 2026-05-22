@@ -1,5 +1,5 @@
 import { GangGenInfo, GangMemberInfo, GangTaskStats, NS } from "@ns";
-import { GangMember, MemberRank } from "@repo/common/info/gangInfo";
+import { GangMember } from "@repo/common/info/gangInfo";
 
 const MAX_GANG_MEMBERS = 12;
 const TERRITORY_DONE = 1 - Number.EPSILON;
@@ -71,8 +71,7 @@ export function assignOptimalGangTasks(ns: NS, members: GangMember[]): void {
     const shouldTrain =
       !bestProductive ||
       (bestProductive.respect <= 0 && bestProductive.money <= 0) ||
-      (stage === "recruiting" && bestProductive.task.name !== "Terrorism") ||
-      (stage === "growing" && member.member.rank < 3);
+      (stage === "recruiting" && bestProductive.task.name !== "Terrorism");
 
     if (shouldTrain) {
       assignments.push({
@@ -159,7 +158,7 @@ function pickBestProductiveTask(
   const maxMoney = Math.max(1, ...rated.map((x) => x.money));
   const maxWanted = Math.max(1, ...rated.map((x) => Math.max(0, x.wanted)));
 
-  const weights = getObjectiveWeights(stage, member.member.rank);
+  const weights = getObjectiveWeights(stage);
 
   let best: RatedTask | undefined;
 
@@ -185,8 +184,7 @@ function pickBestProductiveTask(
 }
 
 function getObjectiveWeights(
-  stage: GangStage,
-  rank: MemberRank,
+  stage: GangStage
 ): {
   respect: number;
   money: number;
@@ -195,21 +193,21 @@ function getObjectiveWeights(
   if (stage === "recruiting") {
     return {
       respect: 1,
-      money: rank >= 4 ? 0.15 : 0.05,
+      money: 0.1,
       wanted: 0.3,
     };
   }
 
   if (stage === "growing") {
     return {
-      respect: rank <= 2 ? 0.85 : 0.65,
-      money: rank >= 3 ? 0.45 : 0.25,
+      respect: 0.75,
+      money: 0.2,
       wanted: 0.35,
     };
   }
 
   return {
-    respect: rank <= 2 ? 0.35 : 0.2,
+    respect: 0.3,
     money: 1,
     wanted: 0.45,
   };

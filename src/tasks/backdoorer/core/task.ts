@@ -13,6 +13,7 @@ class BackdoorerTask extends BaseTask<BackdoorerState> {
   protected async run_task(): Promise<void> {
     if(!this.ns.getResetInfo().ownedSF.has(4)) {
       this.log.warn(`Cannot run Backdoorer with Singularity APIs.`);
+      this.shutdown();
       return;
     }
     

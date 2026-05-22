@@ -1,4 +1,4 @@
-import { MemberRank, GangMember, GangInfo } from "@repo/common/info/gangInfo";
+import { GangMember, GangInfo } from "@repo/common/info/gangInfo";
 import { GANG_INFO_PORT, getPortData } from "@repo/common/ports";
 import { Col } from "@repo/features/components/Col";
 import { Row } from "@repo/features/components/Row";
@@ -8,10 +8,7 @@ import { useTheme } from "@repo/features/theme/ThemeProvider";
 import { TaskCustomPanel } from "@repo/tasks";
 import { useRef, useState, RefObject, useLayoutEffect } from "react";
 
-const ROMAN: Record<MemberRank, string> = { 1: "I", 2: "II", 3: "III", 4: "IV" };
-
-const TILE_SIZE = 48;
-const TILE_FONT_SIZE = 18;
+const TILE_SIZE = 24;
 
 export const GangBangerPanel: TaskCustomPanel = () => {
   const theme = useTheme();
@@ -50,10 +47,6 @@ function MemberTile({ member }: MemberTileProps) {
   const tileRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
 
-  const isTopRank = member.rank === 4;
-  const borderColor = isTopRank ? theme.colors.info : theme.colors.welllight;
-  const labelColor = isTopRank ? theme.colors.info : theme.colors.primary;
-
   return (
     <div
       ref={tileRef}
@@ -63,19 +56,15 @@ function MemberTile({ member }: MemberTileProps) {
         position: "relative",
         width: TILE_SIZE,
         height: TILE_SIZE,
-        border: `1px solid ${borderColor}`,
+        border: `1px solid ${theme.colors.welllight}`,
         background: theme.colors.backgroundsecondary,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        color: labelColor,
-        fontFamily: theme.font.face,
-        fontSize: TILE_FONT_SIZE,
-        fontWeight: "bold",
+        color: theme.colors.primary,
         boxSizing: "border-box",
       }}
     >
-      {ROMAN[member.rank]}
       {hovered && <MemberTooltip member={member} triggerRef={tileRef} />}
     </div>
   );
@@ -107,7 +96,6 @@ interface MemberTooltipProps {
 
 function MemberTooltip({ member, triggerRef }: MemberTooltipProps) {
   const theme = useTheme();
-  const ns = useNs();
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useLayoutEffect(() => {
@@ -123,11 +111,6 @@ function MemberTooltip({ member, triggerRef }: MemberTooltipProps) {
   }, [triggerRef, theme.spacing.xs]);
 
   if (!pos) return null;
-
-  const skills: Array<{ label: string; value: number; color?: string }> = [
-    { label: "avg skill", value: member.avgCombatSkill, color: theme.colors.white },
-    { label: "avg mult", value: member.avgCombatMult, color: theme.colors.white },
-  ];
 
   return (
     <div
@@ -148,16 +131,7 @@ function MemberTooltip({ member, triggerRef }: MemberTooltipProps) {
       <Col gap={theme.spacing.xs}>
         <Row gap={theme.spacing.sm} style={{ justifyContent: "space-between" }}>
           <span style={{ color: theme.colors.primary, fontWeight: "bold" }}>{member.name}</span>
-          <span style={{ color: theme.colors.info }}>rank {ROMAN[member.rank]}</span>
         </Row>
-        {skills.map((s) => (
-          <StatRow
-            key={s.label}
-            label={s.label}
-            value={`${ns.format.number(s.value, 0)}`}
-            valueColor={s.color}
-          />
-        ))}
       </Col>
     </div>
   );

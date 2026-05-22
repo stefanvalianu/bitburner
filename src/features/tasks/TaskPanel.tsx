@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@repo/features/components/Button";
 import { Col } from "@repo/features/components/Col";
 import { Modal } from "@repo/features/components/Modal";

@@ -1,5 +1,4 @@
-import { AugmentPair, CityName, NS, SleeveTask } from "@ns";
-import { SLEEVE_INFO_PORT, getPortData } from "@repo/common/ports";
+import { AugmentPair, CityName, SleeveTask } from "@ns";
 
 export interface SleeveDetails {
   index: number;
@@ -18,8 +17,4 @@ export interface SleeveDetails {
 
 export interface SleeveInfo {
   sleeves: SleeveDetails[];
-}
-
-export function readSleeveInfo(ns: NS): SleeveInfo | undefined {
-  return getPortData<SleeveInfo>(ns, SLEEVE_INFO_PORT);
 }

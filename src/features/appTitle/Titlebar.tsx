@@ -7,7 +7,7 @@ export function Titlebar() {
   const ns = useNs();
   const theme = useTheme();
 
-  const [tick, setTick] = useState<number>(0);
+  const [_tick, setTick] = useState<number>(0);
 
   // Simple, self-refreshing titlebar component.
   useEffect(() => {

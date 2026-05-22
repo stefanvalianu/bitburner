@@ -1,47 +1,18 @@
-import { FactionName, GangMemberInfo, NS } from "@ns";
+import { FactionName, NS } from "@ns";
 import { BaseTask } from "@repo/common/tasks/baseTask";
-import { pickRandomGangMemberName } from "./names";
 import { continueOrFightWar, MemberTasks, syncToTerritoryPowerUpdate } from "./warTracking";
 import { assignOptimalGangTasks } from "./taskSelection";
 import { gangBangerTask } from "@repo/tasks/gang-banger/info";
-import { MemberRank, GangBangerTaskState, GangMember } from "@repo/tasks/gang-banger/info";
 import { GANG_INFO_PORT, getPortData, USER_PREFERENCES_PORT } from "@repo/common/ports";
 import { UserPreferences } from "@repo/common/preferences";
 import { GangInfo } from "@repo/common/info/gangInfo";
 
-// Each "cycle" allow us to use 15% of our budget to
-// purchase equipment for members of rank II and
-// above.
-const PERCENTAGE_OF_BUDGET_TO_SPEND_ON_EQUIPMENT = 0.15;
-
-// At rank I, we ascend every 1.6 multiplier
-// At rank II, we ascend every 1.26 multiplier
-// At rank III, we ascend every 1.15 multiplier
-// At rank 4 we only ascend every 1.5 because we
-// want to minimize ascensions and keep the members
-// stable.
-const ASC_MULTS: Record<MemberRank, number> = {
-  1: 1.6,
-  2: 1.26,
-  3: 1.15,
-  4: 2,
-};
-
 // Slum Snakes rule!
 export const GANG_FACTION: FactionName = "Slum Snakes";
 
-class GangBangerTask extends BaseTask<GangBangerTaskState> {
-  // Equipment that persists. Something to prioritize for all members
-  private augmentationsNames: string[];
-
-  // Equipment that gets reset on ascension
-  private normalEquipmentNames: string[];
-
+class GangBangerTask extends BaseTask {
   constructor(ns: NS) {
     super(ns, gangBangerTask);
-
-    this.augmentationsNames = [];
-    this.normalEquipmentNames = [];
   }
 
   protected async run_task(): Promise<void> {
@@ -55,52 +26,20 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
     let inWarWindow = false;
     let preWarTasks: MemberTasks | undefined = undefined;
 
-    // Create the equipment list
-    const equipmentNames = this.ns.gang.getEquipmentNames();
-    for (const equipmentName of equipmentNames) {
-      const type = this.ns.gang.getEquipmentType(equipmentName);
-      const stats = this.ns.gang.getEquipmentStats(equipmentName);
-
-      // skip equipment with irrelevant stats
-      if (!stats.str && !stats.def && !stats.agi && !stats.dex) continue;
-
-      if (type === "Augmentation") {
-        this.augmentationsNames.push(equipmentName);
-      } else {
-        this.normalEquipmentNames.push(equipmentName);
-      }
-    }
-
     while (true) {
       if (!this.tick()) {
         return;
       }
 
-      // we always want to recruit if possible
-      this.tryRecruitMembers();
-
-      // create a helper list of members that we'll update throughout below steps
-      const members = this.getMembers();
-
-      // perform appropriate ascensions (not just before a war)
-      if (!inWarWindow) {
-        this.ascendEligibleMembers(members);
-      }
-
-      // purchase gear for members
-      this.purchaseGearForMembers(members);
+      const portData = getPortData<GangInfo>(this.ns, GANG_INFO_PORT);
+      const members = portData?.members ?? [];
 
       // set members to their optimal tasks
       assignOptimalGangTasks(this.ns, members);
 
-      // we only care about presenting non-warfare info
-      this.updateState({
-        members: Object.values(members),
-        gang: this.ns.gang.getGangInformation(),
-      });
-
       if (this.ns.gang.getGangInformation().territory === 1) {
         // we own all the land, peace on earth
+        // We should probably quit the task here since from here on we're just going to stay on the same tasks
         await this.ns.asleep(10_000);
       } else {
         const userPreferences = getPortData<UserPreferences>(this.ns, USER_PREFERENCES_PORT);
@@ -128,117 +67,6 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
         preWarTasks = warCycleUpdate.preWarTasks;
       }
     }
-  }
-
-  private tryRecruitMembers(): void {
-    if (this.ns.gang.canRecruitMember()) {
-      this.ns.gang.recruitMember(pickRandomGangMemberName(this.ns));
-    }
-  }
-
-  private ascendEligibleMembers(members: Record<string, GangMember>): void {
-    for (const memberName of Object.keys(members)) {
-      const member = members[memberName];
-      const newAscensionMultiplier = this.getMemberAscensionMultiplierGained(member.info);
-
-      if (newAscensionMultiplier >= ASC_MULTS[member.rank]) {
-        //ascend this member
-        if (this.ns.gang.ascendMember(memberName)) {
-          const newMemberInfo = this.ns.gang.getMemberInformation(memberName);
-          members[memberName] = {
-            info: newMemberInfo,
-            rank: this.getMemberRank(newMemberInfo),
-          } as GangMember;
-        }
-      }
-    }
-  }
-
-  private purchaseGearForMembers(members: Record<string, GangMember>): void {
-    const player = this.ns.getPlayer();
-    const totalMoney = player?.money || 0;
-    let budget = totalMoney * PERCENTAGE_OF_BUDGET_TO_SPEND_ON_EQUIPMENT;
-
-    if (budget === 0) return;
-
-    const membersWithoutAllEquipment = Object.values(members).filter(
-      (m) =>
-        m.info.augmentations.length < this.augmentationsNames.length ||
-        m.info.upgrades.length < this.normalEquipmentNames.length,
-    );
-
-    // loop through IV, III, II and try purchasing stuff
-    for (let i = 4; i > 1; i--) {
-      for (const member of membersWithoutAllEquipment) {
-        if (i !== member.rank) continue;
-
-        // first try purchasing augs
-        for (const augmentation of this.augmentationsNames) {
-          if (budget <= 0) return;
-
-          const cost = this.ns.gang.getEquipmentCost(augmentation);
-          if (this.ns.gang.purchaseEquipment(member.info.name, augmentation)) {
-            budget -= cost;
-          }
-        }
-
-        if (budget <= 0) return;
-
-        // then try purchasing upgrades
-        for (const upgrade of this.normalEquipmentNames) {
-          if (budget <= 0) return;
-
-          const cost = this.ns.gang.getEquipmentCost(upgrade);
-          if (this.ns.gang.purchaseEquipment(member.info.name, upgrade)) {
-            budget -= cost;
-          }
-        }
-
-        if (budget <= 0) return;
-      }
-    }
-  }
-
-  private getMembers(): Record<string, GangMember> {
-    let members: Record<string, GangMember> = {};
-
-    this.ns.gang.getMemberNames().forEach((name) => {
-      const info = this.ns.gang.getMemberInformation(name);
-      members[name] = {
-        info: info,
-        rank: this.getMemberRank(info),
-      } as GangMember;
-    });
-
-    return members;
-  }
-
-  private getMemberRank(member: GangMemberInfo): MemberRank {
-    // rank is checked by measuring the average combat ascension
-    // multipliers vs static thresholds (described in `info.ts`)
-    const ascensionMult = this.getMemberAscensionMultiplier(member);
-    if (ascensionMult < 6) return 1;
-    if (ascensionMult < 16) return 2;
-    if (ascensionMult < 32) return 3;
-    return 4;
-  }
-
-  private getMemberAscensionMultiplier(member: GangMemberInfo): number {
-    return Math.min(
-      //member.agi_asc_mult, // we omit agility because it seems to always be significantly lower than the other asc multipliers, greatly slowing down asc timings
-      member.def_asc_mult,
-      member.dex_asc_mult,
-      member.str_asc_mult,
-    );
-  }
-
-  private getMemberAscensionMultiplierGained(member: GangMemberInfo): number {
-    const multGains = this.ns.gang.getAscensionResult(member.name);
-
-    if (!multGains) return 1;
-
-    // we omit agility because it seems to always be significantly lower than the other asc multipliers, greatly slowing down asc timings
-    return Math.min(multGains.str, multGains.def, multGains.dex);
   }
 
   private async waitUntilGangCreated(): Promise<void> {

@@ -1,3 +1,5 @@
+import { MemberRank, GangMember, GangInfo } from "@repo/common/info/gangInfo";
+import { GANG_INFO_PORT, getPortData } from "@repo/common/ports";
 import { Col } from "@repo/features/components/Col";
 import { Row } from "@repo/features/components/Row";
 import { StatRow } from "@repo/features/components/StatRow";
@@ -5,8 +7,6 @@ import { useNs } from "@repo/features/ns/NsProvider";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
 import { TaskCustomPanel } from "@repo/tasks";
 import { useRef, useState, RefObject, useLayoutEffect } from "react";
-import { MemberRank, GangBangerTaskState, GangMember } from "@repo/tasks/gang-banger/info";
-import { GANG_BANGER_STATE_PORT, getPortData } from "@repo/common/ports";
 
 const ROMAN: Record<MemberRank, string> = { 1: "I", 2: "II", 3: "III", 4: "IV" };
 
@@ -17,17 +17,15 @@ export const GangBangerPanel: TaskCustomPanel = () => {
   const theme = useTheme();
   const ns = useNs();
 
-  const taskState = getPortData<GangBangerTaskState>(ns, GANG_BANGER_STATE_PORT);
+  const gangInfo = getPortData<GangInfo>(ns, GANG_INFO_PORT);
 
-  const members = taskState?.members ?? [];
-  const gang = taskState?.gang;
+  const members = gangInfo?.members ?? [];
 
-  const territoryPct = ns.format.number((gang?.territory ?? 0) * 100, 2);
+  const territoryPct = ns.format.number((gangInfo?.territory ?? 0) * 100, 2);
 
   return (
     <Col gap={theme.spacing.md}>
       <Row gap={theme.spacing.sm}>
-        <StatRow label="gang" value={gang?.faction ?? "—"} />
         <StatRow label="territory" value={`${territoryPct}%`} valueColor={theme.colors.info} />
       </Row>
       {members.length === 0 ? (
@@ -35,7 +33,7 @@ export const GangBangerPanel: TaskCustomPanel = () => {
       ) : (
         <div style={{ display: "flex", flexWrap: "wrap", gap: theme.spacing.sm }}>
           {members.map((m) => (
-            <MemberTile key={m.info.name} member={m} />
+            <MemberTile key={m.name} member={m} />
           ))}
         </div>
       )}
@@ -126,13 +124,9 @@ function MemberTooltip({ member, triggerRef }: MemberTooltipProps) {
 
   if (!pos) return null;
 
-  const info = member.info;
-  const skills: Array<{ label: string; level: number; mult: number; color?: string }> = [
-    { label: "str", level: info.str, mult: info.str_asc_mult, color: theme.colors.white },
-    { label: "def", level: info.def, mult: info.def_asc_mult, color: theme.colors.white },
-    { label: "dex", level: info.dex, mult: info.dex_asc_mult, color: theme.colors.white },
-    { label: "agi", level: info.agi, mult: info.agi_asc_mult, color: theme.colors.white },
-    { label: "cha", level: info.cha, mult: info.cha_asc_mult, color: theme.colors.cha },
+  const skills: Array<{ label: string; value: number; color?: string }> = [
+    { label: "avg skill", value: member.avgCombatSkill, color: theme.colors.white },
+    { label: "avg mult", value: member.avgCombatMult, color: theme.colors.white },
   ];
 
   return (
@@ -153,14 +147,14 @@ function MemberTooltip({ member, triggerRef }: MemberTooltipProps) {
     >
       <Col gap={theme.spacing.xs}>
         <Row gap={theme.spacing.sm} style={{ justifyContent: "space-between" }}>
-          <span style={{ color: theme.colors.primary, fontWeight: "bold" }}>{info.name}</span>
+          <span style={{ color: theme.colors.primary, fontWeight: "bold" }}>{member.name}</span>
           <span style={{ color: theme.colors.info }}>rank {ROMAN[member.rank]}</span>
         </Row>
         {skills.map((s) => (
           <StatRow
             key={s.label}
             label={s.label}
-            value={`${ns.format.number(s.level, 0)} (asc x${s.mult.toFixed(2)})`}
+            value={`${ns.format.number(s.value, 0)}`}
             valueColor={s.color}
           />
         ))}

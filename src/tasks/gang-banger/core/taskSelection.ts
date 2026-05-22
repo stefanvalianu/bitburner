@@ -1,5 +1,5 @@
-import { GangGenInfo, GangTaskStats, NS } from "@ns";
-import { GangMember, MemberRank } from "@repo/tasks/gang-banger/info";
+import { GangGenInfo, GangMemberInfo, GangTaskStats, NS } from "@ns";
+import { GangMember, MemberRank } from "@repo/common/info/gangInfo";
 
 const MAX_GANG_MEMBERS = 12;
 const TERRITORY_DONE = 1 - Number.EPSILON;
@@ -19,7 +19,7 @@ interface RatedTask {
 type GangStage = "recruiting" | "growing" | "money";
 
 interface Assignment {
-  member: GangMember;
+  member: Member;
   task: GangTaskStats;
   respect: number;
   wanted: number;
@@ -27,12 +27,17 @@ interface Assignment {
   score: number;
 }
 
-export function assignOptimalGangTasks(ns: NS, members: Record<string, GangMember>): void {
+interface Member {
+  info: GangMemberInfo,
+  member: GangMember
+}
+
+export function assignOptimalGangTasks(ns: NS, members: GangMember[]): void {
   const gangInfo = ns.gang.getGangInformation();
 
-  const latestMembers: GangMember[] = Object.values(members).map((member) => ({
-    info: ns.gang.getMemberInformation(member.info.name),
-    rank: member.rank,
+  const latestMembers: Member[] = members.map((member) => ({
+    info: ns.gang.getMemberInformation(member.name),
+    member: member,
   }));
 
   const tasks = ns.gang
@@ -67,7 +72,7 @@ export function assignOptimalGangTasks(ns: NS, members: Record<string, GangMembe
       !bestProductive ||
       (bestProductive.respect <= 0 && bestProductive.money <= 0) ||
       (stage === "recruiting" && bestProductive.task.name !== "Terrorism") ||
-      (stage === "growing" && member.rank < 3);
+      (stage === "growing" && member.member.rank < 3);
 
     if (shouldTrain) {
       assignments.push({
@@ -144,7 +149,7 @@ function wantedPenaltyTargetForStage(stage: GangStage): number {
 function pickBestProductiveTask(
   ns: NS,
   gangInfo: GangGenInfo,
-  member: GangMember,
+  member: Member,
   tasks: GangTaskStats[],
   stage: GangStage,
 ): RatedTask | undefined {
@@ -154,7 +159,7 @@ function pickBestProductiveTask(
   const maxMoney = Math.max(1, ...rated.map((x) => x.money));
   const maxWanted = Math.max(1, ...rated.map((x) => Math.max(0, x.wanted)));
 
-  const weights = getObjectiveWeights(stage, member.rank);
+  const weights = getObjectiveWeights(stage, member.member.rank);
 
   let best: RatedTask | undefined;
 
@@ -213,7 +218,7 @@ function getObjectiveWeights(
 function rateTask(
   ns: NS,
   gangInfo: GangGenInfo,
-  member: GangMember,
+  member: Member,
   task: GangTaskStats,
 ): RatedTask {
   return {
@@ -312,7 +317,7 @@ function applyWantedPenaltyGuard(
 function pickBestWantedReductionTask(
   ns: NS,
   gangInfo: GangGenInfo,
-  member: GangMember,
+  member: Member,
   wantedReductionTasks: GangTaskStats[],
 ): RatedTask | undefined {
   let best: RatedTask | undefined;

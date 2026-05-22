@@ -23,7 +23,6 @@ export const KILLSWITCH_PORT = 5;
 export const HACKING_SYSTEM_REQUEST_PORT = 10;
 export const HACKING_SYSTEM_STATE_PORT = 11;
 
-export const GANG_BANGER_STATE_PORT = 13;
 export const INFILTRATOR_STATE_PORT = 14;
 export const STOCK_TRADER_STATE_PORT = 15;
 
@@ -34,6 +33,8 @@ export const ACTIONATOR_QUEUE_PORT = 21;
 // dashboard (and potentially others) to consume
 export const SLEEVE_INFO_PORT = 32;
 export const GANG_INFO_PORT = 33;
+
+export const GANG_EQUIPMENT_PORT = 40;
 
 //export const SERVER_PURCHASE_COMMUNICATION_PORT = 11;
 
@@ -46,7 +47,6 @@ export function clearPorts(ns: NS) {
   ns.clearPort(USER_PREFERENCES_PORT);
   ns.clearPort(KILLSWITCH_PORT);
 
-  ns.clearPort(GANG_BANGER_STATE_PORT);
   ns.clearPort(INFILTRATOR_STATE_PORT);
   ns.clearPort(STOCK_TRADER_STATE_PORT);
 
@@ -58,6 +58,8 @@ export function clearPorts(ns: NS) {
 
   ns.clearPort(SLEEVE_INFO_PORT);
   ns.clearPort(GANG_INFO_PORT);
+
+  ns.clearPort(GANG_EQUIPMENT_PORT);
 }
 
 // Use consume if you want to destroy the data after reading

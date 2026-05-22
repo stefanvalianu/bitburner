@@ -29,7 +29,6 @@ export function PinnedTaskPanel({
   const slices = state.allocation?.servers ?? [];
   const ram = slices.reduce((sum, s) => sum + s.ram, 0);
   const canStop = state.status === "running" && !disableShutdown;
-  const canInspect = state.allocation !== null;
 
   const statusColor =
     state.status === "running"

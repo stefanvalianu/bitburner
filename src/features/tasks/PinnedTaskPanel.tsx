@@ -74,8 +74,8 @@ export function PinnedTaskPanel({
           <Button onClick={() => onUnpin(id)}>
             <PinIcon color={theme.colors.info} title={`Unpin ${id}`} />
           </Button>
-          <Button onClick={() => onStop(id)} variant="warn" disabled={!canStop}>
-            <PowerIcon color={canStop ? theme.colors.warning : theme.colors.secondary} title={`Stop ${id}`} />
+          <Button onClick={() => onStop(id)} variant="error" disabled={!canStop}>
+            <PowerIcon color={canStop ? theme.colors.hp : theme.colors.secondary} title={`Stop ${id}`} />
           </Button>
         </Row>
       </Row>

@@ -5,14 +5,15 @@ import { GangBangerPanel } from "./gang-banger/ux/panel";
 import { infoMinerTask } from "./info-miner/info";
 import { ULTRAHACKER_TASK_ID, ultrahackerTask } from "./ultrahacker/info";
 import { UltrahackerPanel } from "./ultrahacker/ux/panel";
+import { INFILTRATOR_TASK_ID, infiltratorTask } from "./infiltrator/info";
+import { InfiltratorPanel } from "./infiltrator/ux/panel";
 
 // highest in list = shows first in 'new task' UX per category
 export const ALL_TASKS: TaskDefinition[] = [
   //contractSolverTask,
   infoMinerTask,
   gangBangerTask,
-  //infiltratorTask,
-  //infiltrationSolverTask,
+  infiltratorTask,
   //stockTraderTask,
   //serverBuyerTask,
   ultrahackerTask,
@@ -28,7 +29,7 @@ export type TaskCustomPanel = (props: { id: TaskId; slot: TaskState }) => ReactN
 
 export const TASK_CUSTOM_PANELS: Record<TaskId, TaskCustomPanel> = {
   //[NOFORM_HACKER_TASK_ID]: NoformHackerPanel,
-  //[INFILTRATOR_TASK_ID]: InfiltratorPanel,
+  [INFILTRATOR_TASK_ID]: InfiltratorPanel,
   [ULTRAHACKER_TASK_ID]: UltrahackerPanel,
   [GANG_BANGER_TASK_ID]: GangBangerPanel,
   //[STOCK_TRADER_TASK_ID]: StockTraderPanel,

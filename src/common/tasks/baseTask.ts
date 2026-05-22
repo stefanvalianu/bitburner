@@ -71,6 +71,8 @@ export abstract class BaseTask<TState = undefined> {
       if (this.state !== null) {
         this.ns.writePort(this.taskDefinition.statePort, this.state);
       }
+    } else {
+      this.log.error(`Task trying to write state without a statePort defined.`);
     }
   }
 

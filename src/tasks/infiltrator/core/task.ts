@@ -27,7 +27,7 @@ class InfiltratorTask extends BaseTask<InfiltratorTaskState> {
         return;
       }
 
-      let now = Date.now()
+      let now = Date.now();
       if (now - lastUpdateDate >= ANALYSIS_POLL_MS) {
         lastUpdateDate = now;
         this.update_infiltration_options();
@@ -57,7 +57,7 @@ class InfiltratorTask extends BaseTask<InfiltratorTaskState> {
       infiltrations: this.ns.infiltration
         .getPossibleLocations()
         .map((location) => this.ns.infiltration.getInfiltration(location.name)),
-    });
+    } satisfies InfiltratorTaskState);
   }
 }
 

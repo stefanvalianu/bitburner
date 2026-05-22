@@ -1,20 +1,13 @@
-import type { NS } from "@ns";
-import { Col } from "../../../../../features/components/Col";
-import { Row } from "../../../../../features/components/Row";
-import { StatRow } from "../../../../../features/components/StatRow";
-import { useDashboardController } from "../../../useDashboardController";
-import { formatDuration } from "../../../formatting";
-import { TaskCustomPanel } from "../tasks";
-import {
-  MarketView,
-  PositionView,
-  STOCK_TRADER_CONFIG,
-  STOCK_TRADER_TASK_ID,
-  StockTraderTaskState,
-  TradeAction,
-} from "./info";
-import { useTheme } from "../../../../../features/theme/ThemeProvider";
-import { useNs } from "../../../../../features/ns/NsProvider";
+import { NS } from "@ns";
+import { formatDuration } from "@repo/common/formatting";
+import { getPortData, STOCK_TRADER_STATE_PORT } from "@repo/common/ports";
+import { Col } from "@repo/features/components/Col";
+import { Row } from "@repo/features/components/Row";
+import { StatRow } from "@repo/features/components/StatRow";
+import { useNs } from "@repo/features/ns/NsProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
+import { TaskCustomPanel } from "@repo/tasks";
+import { StockTraderTaskState, STOCK_TRADER_CONFIG, PositionView, MarketView, TradeAction } from "@repo/tasks/stock-trader/info";
 
 const TOP_OPPORTUNITIES = 5;
 const RECENT_ACTIONS_SHOWN = 10;
@@ -32,11 +25,8 @@ function formatMoney(ns: NS, value: number): string {
 export const StockTraderPanel: TaskCustomPanel = () => {
   const theme = useTheme();
   const ns = useNs();
-  const { state } = useDashboardController();
 
-  const taskState = state.tasks[STOCK_TRADER_TASK_ID] as unknown as
-    | StockTraderTaskState
-    | undefined;
+  const taskState = getPortData<StockTraderTaskState>(ns, STOCK_TRADER_STATE_PORT);
 
   if (!taskState) {
     return <span style={{ color: theme.colors.secondary }}>Stock trader not running.</span>;

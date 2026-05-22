@@ -80,10 +80,8 @@ export type TaskEvent = {
 export interface TaskDefinition {
   id: TaskId;
   demand: DemandSpec;
-  icon?: string;
+  icon: string;
   description: string;
-
-  category: "general" | "hacking";
 
   // Whether the manager should always try to keep this task running.
   // Lifecycle concern, not a resource ask - distinct from `demand`.

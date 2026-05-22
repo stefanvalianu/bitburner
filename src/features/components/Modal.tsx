@@ -133,10 +133,12 @@ export function Modal({ open, onClose, title, children, style, actions }: ModalP
               >
                 <Panel title={title} style={{ minWidth: 480, ...style }}>
                   {children}
-                  <Row gap={theme.spacing.sm} style={{ justifyContent: "flex-end" }}>
-                    {actions}
-                    <Button onClick={onClose}>Close</Button>
-                  </Row>
+                  {actions && (
+                    <Row gap={theme.spacing.sm} style={{ justifyContent: "flex-end" }}>
+                      {actions}
+                      <Button onClick={onClose}>Close</Button>
+                    </Row>
+                  )}
                 </Panel>
               </div>
             </ScrollScope>,

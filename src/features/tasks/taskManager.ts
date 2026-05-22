@@ -375,6 +375,14 @@ export class TaskManager {
     this.logger.info(`reallocate: requesting shutdown of ${ids.length} task(s): ${ids.join(", ")}`);
   }
 
+  get tasks(): Readonly<TaskManagerState> {
+    return this.taskState;
+  }
+
+  get isBusy(): boolean {
+    return this.reallocating;
+  }
+
   // Marks each running unbounded task whose allocation is below its cap (or
   // uncapped) as `stopping`. Mutates `tasks` in place and returns the ids it
   // touched. Used by both the manual reallocate() entrypoint and the

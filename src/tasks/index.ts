@@ -22,9 +22,9 @@ export const TASK_BY_ID: ReadonlyMap<TaskId, TaskDefinition> = new Map(
   ALL_TASKS.map((t) => [t.id, t]),
 );
 
-export type TaskCustomPanel = (props: { id: string; slot: TaskState }) => ReactNode;
+export type TaskCustomPanel = (props: { id: TaskId; slot: TaskState }) => ReactNode;
 
-export const TASK_CUSTOM_PANELS: Record<string, TaskCustomPanel> = {
+export const TASK_CUSTOM_PANELS: Record<TaskId, TaskCustomPanel> = {
   //[NOFORM_HACKER_TASK_ID]: NoformHackerPanel,
   //[INFILTRATOR_TASK_ID]: InfiltratorPanel,
   //[ULTRAHACKER_TASK_ID]: UltrahackerPanel,
@@ -32,6 +32,6 @@ export const TASK_CUSTOM_PANELS: Record<string, TaskCustomPanel> = {
   //[STOCK_TRADER_TASK_ID]: StockTraderPanel,
 };
 
-export function hasCustomPanel(id: string): boolean {
+export function hasCustomPanel(id: TaskId): boolean {
   return TASK_CUSTOM_PANELS[id] != null;
 }

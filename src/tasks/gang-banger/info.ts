@@ -7,7 +7,6 @@ export const GANG_BANGER_TASK_ID = "gang-banger";
 export const gangBangerTask: TaskDefinition = {
   id: GANG_BANGER_TASK_ID,
   description: "Manages your gangs. Slum snakes rule!",
-  category: "general",
   icon: "🐍",
   autostart: false,
   demand: {

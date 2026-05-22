@@ -1,14 +1,9 @@
 import { NS } from "@ns";
-import { BaseTask } from "../../../../../common/tasks/baseTask";
-import {
-  STOCK_TRADER_CONFIG,
-  STOCK_TRADER_TASK_ID,
-  StockTraderTaskState,
-  TradeAction,
-  PositionView,
-  MarketView,
-} from "../public/info";
 import { Intent, MarketSnapshot, computeProfitPotential, planTrades } from "./strategy";
+import { BaseTask } from "@repo/common/tasks/baseTask";
+import { StockTraderTaskState, TradeAction, STOCK_TRADER_TASK_ID, STOCK_TRADER_CONFIG, PositionView, MarketView, stockTraderTask } from "@repo/tasks/stock-trader/info";
+import { getPortData, USER_PREFERENCES_PORT } from "@repo/common/ports";
+import { UserPreferences } from "@repo/common/preferences";
 
 class StockTraderTask extends BaseTask<StockTraderTaskState> {
   private readonly commission: number;
@@ -28,17 +23,21 @@ class StockTraderTask extends BaseTask<StockTraderTaskState> {
   private recentActions: TradeAction[] = [];
 
   constructor(ns: NS) {
-    super(ns, STOCK_TRADER_TASK_ID);
+    super(ns, stockTraderTask);
     this.commission = this.ns.stock.getConstants().StockMarketCommission;
     this.symbols = this.ns.stock.getSymbols();
     this.sessionStartedAt = Date.now();
   }
 
   protected async run_task(): Promise<void> {
-    while (!this.shouldShutdown) {
+    while (true) {
+      if (!this.tick()) {
+        return;
+      }
+
       if (!this.ns.stock.hasTixApiAccess() || !this.ns.stock.has4SDataTixApi()) {
         this.log.warn("4S Market Data TIX API not available; idling.");
-        this.patchState({
+        this.updateState({
           has4SApi: false,
           positions: [],
           market: [],
@@ -53,8 +52,9 @@ class StockTraderTask extends BaseTask<StockTraderTaskState> {
 
       const snapshots = this.buildMarketSnapshots();
       const cash = this.ns.getServerMoneyAvailable("home");
-      const reserve =
-        this.snapshot.preferences.reservedMoney + STOCK_TRADER_CONFIG.COMMISSION_BUFFER;
+
+      const userPreferences = getPortData<UserPreferences>(this.ns, USER_PREFERENCES_PORT);
+      const reserve = (userPreferences?.reservedMoney ?? 0) + STOCK_TRADER_CONFIG.COMMISSION_BUFFER;
 
       const intents = planTrades(snapshots, cash, {
         enterLong: STOCK_TRADER_CONFIG.ENTER_LONG,
@@ -188,7 +188,7 @@ class StockTraderTask extends BaseTask<StockTraderTaskState> {
     market.sort((a, b) => b.profitPotential - a.profitPotential);
     positions.sort((a, b) => b.shares * b.bidPrice - a.shares * a.bidPrice);
 
-    this.patchState({
+    this.updateState({
       has4SApi: true,
       positions,
       market,

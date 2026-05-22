@@ -8,6 +8,8 @@ import { UltrahackerPanel } from "./ultrahacker/ux/panel";
 import { INFILTRATOR_TASK_ID, infiltratorTask } from "./infiltrator/info";
 import { InfiltratorPanel } from "./infiltrator/ux/panel";
 import { contractSolverTask } from "./contract-solver/info";
+import { STOCK_TRADER_TASK_ID, stockTraderTask } from "./stock-trader/info";
+import { StockTraderPanel } from "./stock-trader/ux/panel";
 
 // highest in list = shows first in 'new task' UX per category
 export const ALL_TASKS: TaskDefinition[] = [
@@ -15,7 +17,7 @@ export const ALL_TASKS: TaskDefinition[] = [
   infoMinerTask,
   gangBangerTask,
   infiltratorTask,
-  //stockTraderTask,
+  stockTraderTask,
   //serverBuyerTask,
   ultrahackerTask,
 ];
@@ -30,7 +32,7 @@ export const TASK_CUSTOM_PANELS: Record<TaskId, TaskCustomPanel> = {
   [INFILTRATOR_TASK_ID]: InfiltratorPanel,
   [ULTRAHACKER_TASK_ID]: UltrahackerPanel,
   [GANG_BANGER_TASK_ID]: GangBangerPanel,
-  //[STOCK_TRADER_TASK_ID]: StockTraderPanel,
+  [STOCK_TRADER_TASK_ID]: StockTraderPanel,
 };
 
 export function hasCustomPanel(id: TaskId): boolean {

@@ -5,8 +5,8 @@
       "path": ".",
     },
     {
-      "name": "👾 scripts",
-      "path": "scripts",
+      "name": "👾 src",
+      "path": "src",
     },
   ],
   "settings": {

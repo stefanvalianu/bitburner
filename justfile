@@ -1,9 +1,9 @@
 _default:
     @just --list
 
-# Bundles scripts/ into dist/.
+# Bundles src/ into dist/.
 build:
-    @vp i && vp check --fix && vp build
+    @vp i && vp run build
 
 # Runs the sync server (Tailscale Funnel + WS for the game + local control socket for `just deploy`). Holds the connection open; pushes are explicit. Pass --local to skip Tailscale Funnel and run only on localhost.
 run *FLAGS="":

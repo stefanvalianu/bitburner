@@ -1,19 +1,19 @@
 import { defineConfig } from "vite";
 import { glob } from "glob";
 import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
-import { writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
 
-// One Vite entry per source file so the dist/ tree mirrors scripts/.
+// One Vite entry per source file so the dist/ tree mirrors src/.
 // Bitburner's RAM accounting walks `import` chains across files, so we
 // deliberately do NOT collapse multiple files into a single bundle —
 // that would shift RAM costs in non-obvious ways.
 const root = fileURLToPath(new URL(".", import.meta.url));
 const entries = Object.fromEntries(
   glob
-    .sync("scripts/**/*.{ts,tsx,js,jsx}")
+    .sync("src/**/*.{ts,tsx,js,jsx}")
     .map((file) => [
-      file.slice("scripts/".length).replace(/\.(ts|tsx|js|jsx)$/, ""),
+      file.slice("src/".length).replace(/\.(ts|tsx|js|jsx)$/, ""),
       resolve(root, file),
     ]),
 );
@@ -25,7 +25,10 @@ function versionStamp() {
   return {
     name: "version-stamp",
     closeBundle() {
-      writeFileSync(resolve(root, "dist/version.txt"), Date.now().toString());
+      const versionFile = resolve(root, "dist/version.txt");
+
+      mkdirSync(dirname(versionFile), { recursive: true });
+      writeFileSync(versionFile, Date.now().toString());
     },
   };
 }
@@ -44,16 +47,30 @@ export default defineConfig({
         find: /^react\/jsx-(dev-)?runtime$/,
         replacement: resolve(root, "tools/react-jsx-runtime-shim.ts"),
       },
+      { find: /^@repo\/(.*)$/, replacement: resolve(root, "src/$1") },
     ],
   },
   plugins: [versionStamp()],
+  lint: {
+    ignorePatterns: [
+      "dist/**",
+      "obsolete-tasks/**",
+      "tools/**",
+      "*.config.*",
+      "NetscriptDefinitions.d.ts",
+    ],
+    options: {
+      typeAware: true,
+      typeCheck: true
+    }
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,
     target: "es2022",
     minify: false,
     sourcemap: false,
-    // Each scripts/ file is a Bitburner script — its `export async function main`
+    // Each src/ file is a Bitburner script — its `export async function main`
     // is invoked by the game, not by another module. Without this, Rollup
     // tree-shakes the export away and emits an empty file.
     rollupOptions: {

@@ -1,7 +1,7 @@
 import { CodingContractObject, NS } from "@ns";
-import { Logger } from "@repo/features/logging/useLogger";
 import { solvers } from "./solvers";
 import { ContractType, UntypedSolver } from "./solvers/types";
+import { Logger } from "@repo/common/logger";
 
 export class CodingContractSolver {
   constructor(

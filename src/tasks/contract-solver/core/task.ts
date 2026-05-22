@@ -1,24 +1,29 @@
 import { NS } from "@ns";
-import { CONTRACT_SOLVER_TASK_ID } from "@repo/tasks/contract-solver/public/info";
 import { BaseTask } from "@repo/common/tasks/baseTask";
 import { CodingContractSolver } from "./codingContractSolver";
+import { contractSolverTask } from "@repo/tasks/contract-solver/info";
+import { crawlServers } from "@repo/common/crawlServers";
+
+// This slower interval causes us to take longer to shutdown when requested
+const SEARCH_INTERVAL = 60_000;
 
 class ContractSolverTask extends BaseTask {
   private readonly contractSolver: CodingContractSolver;
 
   constructor(ns: NS) {
-    super(ns, CONTRACT_SOLVER_TASK_ID);
+    super(ns, contractSolverTask);
 
     this.contractSolver = new CodingContractSolver(this.ns, this.log);
   }
 
   protected async run_task(): Promise<void> {
     while (true) {
-      if (this.shouldShutdown) {
+      if (!this.tick()) {
         return;
       }
 
-      for (const server of this.snapshot.allServers) {
+      const servers = crawlServers(this.ns);
+      for (const server of servers) {
         const contracts = this.ns.ls(server.hostname, ".cct");
 
         for (const cct of contracts) {
@@ -33,8 +38,7 @@ class ContractSolverTask extends BaseTask {
         }
       }
 
-      // check every 10 secs (instead of 10 mins) so we can reasonably process a shutdown signal
-      await this.ns.asleep(10_000);
+      await this.ns.asleep(SEARCH_INTERVAL);
     }
   }
 }

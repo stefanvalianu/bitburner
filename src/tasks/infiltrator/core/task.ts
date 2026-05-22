@@ -9,7 +9,7 @@ import { infiltratorTask, InfiltratorTaskState } from "@repo/tasks/infiltrator/i
 const POLL_MS = 30;
 
 // We slow down the interval for sending infiltration updates, once a minute
-const ANALYSIS_POLL_MS = 60000;
+const ANALYSIS_POLL_MS = 60_000;
 
 class InfiltratorTask extends BaseTask<InfiltratorTaskState> {
   constructor(ns: NS) {

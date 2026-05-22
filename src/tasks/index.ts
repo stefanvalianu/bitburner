@@ -7,10 +7,11 @@ import { ULTRAHACKER_TASK_ID, ultrahackerTask } from "./ultrahacker/info";
 import { UltrahackerPanel } from "./ultrahacker/ux/panel";
 import { INFILTRATOR_TASK_ID, infiltratorTask } from "./infiltrator/info";
 import { InfiltratorPanel } from "./infiltrator/ux/panel";
+import { contractSolverTask } from "./contract-solver/info";
 
 // highest in list = shows first in 'new task' UX per category
 export const ALL_TASKS: TaskDefinition[] = [
-  //contractSolverTask,
+  contractSolverTask,
   infoMinerTask,
   gangBangerTask,
   infiltratorTask,

@@ -29,10 +29,6 @@ export async function main(ns: NS): Promise<void> {
   const equipmentNames = ns.gang.getEquipmentNames();
   for (const equipmentName of equipmentNames) {
     const type = ns.gang.getEquipmentType(equipmentName);
-    const stats = ns.gang.getEquipmentStats(equipmentName);
-
-    // skip equipment with irrelevant stats
-    if (!stats.str && !stats.def && !stats.agi && !stats.dex) continue;
 
     if (type === "Augmentation") {
       augmentations.push(equipmentName);

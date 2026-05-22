@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { INFO_MINER_QUEUE_PORT, SLEEVE_INFO_PORT } from "@repo/common/ports";
+import { SLEEVE_INFO_PORT } from "@repo/common/ports";
 import { SleeveDetails, SleeveInfo } from "@repo/common/info/sleeveInfo";
 import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 
@@ -22,8 +22,14 @@ export async function main(ns: NS): Promise<void> {
       index: i,
       city: sleeveInfo.city,
       shock: sleeveInfo.shock,
+      
+      str: sleeveInfo.skills.strength,
+      def: sleeveInfo.skills.defense,
+      dex: sleeveInfo.skills.dexterity,
+      agi: sleeveInfo.skills.agility,
+
       sync: sleeveInfo.sync,
-      task: ns.sleeve.getTask(i)?.type ?? "NONE",
+      task: ns.sleeve.getTask(i)?.type ?? null,
       purchaseableAugments: ns.sleeve.getSleevePurchasableAugs(i),
     });
   }
@@ -33,5 +39,5 @@ export async function main(ns: NS): Promise<void> {
     sleeves: sleeves
   } satisfies SleeveInfo);
 
-  invokeNextScript(ns, INFO_MINER_QUEUE_PORT);
+  invokeNextScript(ns);
 }

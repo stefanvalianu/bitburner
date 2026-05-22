@@ -115,11 +115,14 @@ export class TaskManager {
     const events = drainPortData<TaskEvent>(this.ns, TASK_EVENTS_PORT) ?? [];
     for (const event of events) {
       const slot = this.taskState.tasks.get(event.taskId);
-      if (!slot) continue;
 
       if (event.type === "shutdown") {
-        if (slot.status === "running") {
+        if (slot && slot.status === "running") {
           slot.status = "stopping";
+        }
+      } else if (event.type === "request-start") {
+        if (!slot) {
+          this.begin([event.taskId]);
         }
       }
     }

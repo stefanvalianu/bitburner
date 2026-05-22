@@ -1,11 +1,16 @@
-import { AugmentPair, CityName, NS } from "@ns";
+import { AugmentPair, CityName, NS, SleeveTask } from "@ns";
 import { SLEEVE_INFO_PORT, getPortData } from "@repo/common/ports";
 
 export interface SleeveDetails {
   index: number;
   city: CityName;
-  task: string;
+  task: SleeveTask["type"] | null;
   purchaseableAugments: AugmentPair[];
+
+  str: number;
+  def: number;
+  dex: number;
+  agi: number;
 
   shock: number;
   sync: number;

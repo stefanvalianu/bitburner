@@ -73,7 +73,7 @@ export const BASE_STATE_KEYS: ReadonlySet<string> = new Set([
 
 export type TaskEvent = {
   taskId: TaskId; 
-  type: "shutdown";  
+  type: "shutdown" | "request-start";  
 };
 
 // Note the script path of a task is assumed to be "lib/util/tasks/definitions/{id}/task.js"

@@ -2,7 +2,7 @@ import { NS } from "@ns";
 import { GANG_INFO_PORT, getPortData } from "@repo/common/ports";
 
 export interface GangInfo {
-
+  hasGang: boolean;
 }
 
 export function readGangInfo(ns: NS): GangInfo | undefined {

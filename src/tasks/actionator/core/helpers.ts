@@ -1,4 +1,6 @@
 import { NS } from "@ns";
+import { ACTIONATOR_QUEUE_PORT, TASK_EVENTS_PORT } from "@repo/common/ports";
+import { TaskEvent, TaskId } from "@repo/common/tasks/types";
 
 export interface SourcefileRequirement {
   sourceFile: number;
@@ -20,8 +22,8 @@ export interface Subscript {
   requirement?: SourcefileRequirement;
 }
 
-export function invokeNextScript(ns: NS, queuePort: number): void {
-  const nextScript = ns.readPort(queuePort) as string;
+export function invokeNextScript(ns: NS): void {
+  const nextScript = ns.readPort(ACTIONATOR_QUEUE_PORT) as string;
 
   if (nextScript === "NULL PORT DATA") {
     // this chain of scripts is finished.
@@ -48,4 +50,11 @@ export function identifyRunnableSubscripts(ns: NS, subscripts: Subscript[]): Sub
   }
 
   return scripts;
+}
+
+export function requestTaskStart(ns: NS, task: TaskId): void {
+  ns.writePort(TASK_EVENTS_PORT, {
+    type: "request-start",
+    taskId: task
+  } satisfies TaskEvent);
 }

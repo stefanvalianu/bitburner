@@ -5,8 +5,9 @@ import { continueOrFightWar, MemberTasks, syncToTerritoryPowerUpdate } from "./w
 import { assignOptimalGangTasks } from "./taskSelection";
 import { gangBangerTask } from "@repo/tasks/gang-banger/info";
 import { MemberRank, GangBangerTaskState, GangMember } from "@repo/tasks/gang-banger/info";
-import { getPortData, USER_PREFERENCES_PORT } from "@repo/common/ports";
+import { GANG_INFO_PORT, getPortData, USER_PREFERENCES_PORT } from "@repo/common/ports";
 import { UserPreferences } from "@repo/common/preferences";
+import { GangInfo } from "@repo/common/info/gangInfo";
 
 // Each "cycle" allow us to use 15% of our budget to
 // purchase equipment for members of rank II and
@@ -31,16 +32,28 @@ export const GANG_FACTION: FactionName = "Slum Snakes";
 
 class GangBangerTask extends BaseTask<GangBangerTaskState> {
   // Equipment that persists. Something to prioritize for all members
-  private readonly augmentationsNames: string[];
+  private augmentationsNames: string[];
 
   // Equipment that gets reset on ascension
-  private readonly normalEquipmentNames: string[];
+  private normalEquipmentNames: string[];
 
   constructor(ns: NS) {
     super(ns, gangBangerTask);
 
     this.augmentationsNames = [];
     this.normalEquipmentNames = [];
+  }
+
+  protected async run_task(): Promise<void> {
+    // we should keep waiting and trying to join a gang before continuing 
+    await this.waitUntilGangCreated();
+
+    // sync to the war clock
+    let lastProcessedCycles = await syncToTerritoryPowerUpdate(this.ns);
+    let cyclesSinceTerritoryPowerUpdate = 0;
+
+    let inWarWindow = false;
+    let preWarTasks: MemberTasks | undefined = undefined;
 
     // Create the equipment list
     const equipmentNames = this.ns.gang.getEquipmentNames();
@@ -57,15 +70,6 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
         this.normalEquipmentNames.push(equipmentName);
       }
     }
-  }
-
-  protected async run_task(): Promise<void> {
-    // sync to the war clock
-    let lastProcessedCycles = await syncToTerritoryPowerUpdate(this.ns);
-    let cyclesSinceTerritoryPowerUpdate = 0;
-
-    let inWarWindow = false;
-    let preWarTasks: MemberTasks | undefined = undefined;
 
     while (true) {
       if (!this.tick()) {
@@ -235,6 +239,24 @@ class GangBangerTask extends BaseTask<GangBangerTaskState> {
 
     // we omit agility because it seems to always be significantly lower than the other asc multipliers, greatly slowing down asc timings
     return Math.min(multGains.str, multGains.def, multGains.dex);
+  }
+
+  private async waitUntilGangCreated(): Promise<void> {
+    let gangInfo = getPortData<GangInfo>(this.ns, GANG_INFO_PORT);
+    let inGang = gangInfo?.hasGang ?? false;
+
+    while (!inGang) {
+      if (!this.tick()) {
+        // we need an immediate exit here before the script continues
+        this.ns.exit();
+      }
+
+      gangInfo = getPortData<GangInfo>(this.ns, GANG_INFO_PORT);
+      inGang = gangInfo?.hasGang ?? false;
+
+      this.ns.gang.createGang(GANG_FACTION);
+      await this.ns.asleep(10_000);
+    }
   }
 }
 

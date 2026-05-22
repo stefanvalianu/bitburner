@@ -83,16 +83,16 @@ export async function main(ns: NS): Promise<void> {
       continue;
     }
 
-    // After the gang is up, let's make the sleeves help the player train back up to a reasonable stat amount
+    // After the gang is up, let's make the sleeves help the player train back up to a reasonable stat amount to help with infiltrations
     if (player.skills.hacking < 75) {
       ns.sleeve.setToUniversityCourse(sleeve.index, "Rothman University", "Algorithms");
       continue;
     }
-    if (player.skills.strength < 75) {
+    if (player.skills.strength < 100) {
       ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "str");
       continue;
     }
-    if (player.skills.defense < 75) {
+    if (player.skills.defense < 100) {
       ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "def");
       continue;
     }

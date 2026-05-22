@@ -13,6 +13,7 @@ export interface ServerSlice {
 export interface Allocation {
   taskId: TaskId;
   servers: ServerSlice[];
+  totalRam: number;
 }
 
 export type TaskPriority = "critical" | "normal";

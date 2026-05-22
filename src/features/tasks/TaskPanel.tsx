@@ -12,9 +12,12 @@ import { PinnedTaskPanel } from "./PinnedTaskPanel";
 import { hasCustomPanel } from "@repo/tasks";
 import { TaskTile } from "./TaskTile";
 import { TaskPanelDialog } from "./TaskPanelDialog";
+import { ShuffleIcon } from "@repo/features/components/Icons";
+import { useNs } from "@repo/features/ns/NsProvider";
 
 export function TaskPanel() {
   const theme = useTheme();
+  const ns = useNs();
 
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [pinnedTasks, setPinnedTasks] = useState<Set<TaskId>>(new Set());
@@ -60,12 +63,24 @@ export function TaskPanel() {
 
   const actions = (
     <Row gap={theme.spacing.sm}>
+      <span style={{ color: theme.colors.secondary, fontSize: "0.85em" }}>
+        {`${ns.format.ram(taskManager.allocatedRam)} / ${ns.format.ram(taskManager.totalAvailableRam)}`}
+      </span>
       {taskManager.isReallocating && (
         <Row gap={theme.spacing.sm} style={{ alignItems: "center", color: theme.colors.secondary }}>
           <Spinner active />
           <span style={{ fontSize: "0.85em" }}>Task manager is busy...</span>
         </Row>
       )}
+      { taskManager.shouldReallocate &&
+        <Button onClick={taskManager.reallocate} variant="primary">
+          <ShuffleIcon
+            color={theme.colors.info}
+            title="Reallocate tasks to better utilize new server capacity. Will request shutdown from unbound tasks."
+          />
+          {" Reallocate"}
+        </Button>
+      }
       <Button onClick={() => setModalOpen(true)} disabled={taskManager.isReallocating}>
         + New task
       </Button>

@@ -34,6 +34,8 @@ export class TaskManager {
 
   private taskState: TaskManagerState;
 
+  private usedRam: number;
+
   // True while a reallocation cycle is in progress: unbounded tasks have been
   // asked to shut down so their RAM can be returned to the pool, and we're
   // waiting for them to die before re-requesting them. begin/shutdown/manual
@@ -48,6 +50,7 @@ export class TaskManager {
     this.logger = logger;
     this.taskState = { tasks: new Map() } ;
     this.gameState = gameState;
+    this.usedRam = 0;
   }
 
   // Triggers the manual creation of one or more task(s) to be placed/ran
@@ -139,6 +142,7 @@ export class TaskManager {
           this.logger.warn(`task ${task.id} died unexpectedly (pid=${task.pid})`);
         }
 
+        this.usedRam -= task.allocation?.totalRam ?? 0;
         this.taskState.tasks.delete(task.id);
       }
     }
@@ -313,13 +317,15 @@ export class TaskManager {
         `${id} on ${controller.hostname} → ${slices.length} hosts (${this.ns.format.ram(totalRam)}) pid=${pid}`,
       );
 
+      this.usedRam += totalRam;
+
       this.taskState.tasks.set(id, {
         id: id,
         pid: pid,
         host: controller.hostname,
         shutdownRequested: false,
         status: "running",
-        allocation: { taskId: id, servers: slices },
+        allocation: { taskId: id, servers: slices, totalRam: totalRam },
       } satisfies TaskState);
     }
 
@@ -380,6 +386,25 @@ export class TaskManager {
 
   get isReallocating(): boolean {
     return this.reallocating;
+  }
+
+  get shouldReallocate(): boolean {
+    const total = this.totalAvailableRam;
+
+    return (total - this.usedRam) / total < REALLOCATE_SLACK_FRACTION;
+  }
+
+  get allocatedRam(): number {
+    return this.usedRam;
+  }
+
+  get totalAvailableRam(): number {
+    let availableRam = 0;
+    this.gameState.current.servers.forEach(s => {
+      if (s.hasAdminRights) availableRam += s.maxRam
+    });
+
+    return availableRam;
   }
 
   // Marks each running unbounded task whose allocation is below its cap (or

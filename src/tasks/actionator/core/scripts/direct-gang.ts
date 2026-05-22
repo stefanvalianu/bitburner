@@ -76,8 +76,8 @@ function purchaseGearForMembers(ns: NS, budget: number, gangInfo: GangInfo, equi
     }
   );
 
-  // loop through IV, III, II and try purchasing stuff
-  for (let i = 4; i > 1; i--) {
+  // loop through IV, III, II, I and try purchasing stuff
+  for (let i = 4; i > 0; i--) {
     for (const member of membersWithoutAllEquipment) {
       if (i !== member.rank) continue;
 

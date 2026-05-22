@@ -2,7 +2,7 @@ import { NS } from "@ns";
 import { SleeveInfo } from "@repo/common/info/sleeveInfo";
 import { getPortData, SLEEVE_INFO_PORT, USER_PREFERENCES_PORT } from "@repo/common/ports";
 import { UserPreferences } from "@repo/common/preferences";
-import { invokeNextScript, requestStopScriptAutorun } from "@repo/tasks/actionator/core/helpers";
+import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 
 export const SLEEVE_UPGRADE_SCRIPT = "tasks/actionator/core/scripts/direct-sleeve-upgrades.js";
 
@@ -25,14 +25,9 @@ export async function main(ns: NS): Promise<void> {
   }
 
   let budget = (ns.getServerMoneyAvailable("home") - (userPreferences?.reservedMoney || 0)) * PERCENTAGE_OF_BUDGET_TO_SPEND_ON_SLEEVE_UPGRADES;
-  let moreAugsToPurchase = false;
 
   if (budget > 0) {
     for (const sleeve of sleeveInfo.sleeves) {
-      if (sleeve.purchaseableAugments.length > 0) {
-        moreAugsToPurchase = true;
-      }
-
       for (const aug of sleeve.purchaseableAugments) {
         if (budget >= aug.cost) {
           if (ns.sleeve.purchaseSleeveAug(sleeve.index, aug.name)) {
@@ -47,10 +42,6 @@ export async function main(ns: NS): Promise<void> {
         }
       }
     }
-  }
-
-  if (!moreAugsToPurchase) {
-    requestStopScriptAutorun(ns, SLEEVE_UPGRADE_SCRIPT);
   }
 
   invokeNextScript(ns);

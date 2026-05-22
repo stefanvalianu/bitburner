@@ -1,4 +1,3 @@
-import { InfilGameId } from "../info";
 import * as slash from "./slash";
 import * as bracket from "./bracket";
 import * as backward from "./backward";
@@ -12,7 +11,7 @@ export interface GameModule {
   step(root: Element, dispatch: (key: string) => void): boolean;
 }
 
-export const GAMES: Record<InfilGameId, GameModule> = {
+export const GAMES: Record<string, GameModule> = {
   slash,
   bracket,
   backward,

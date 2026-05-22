@@ -21,7 +21,7 @@
 // edges in the model — we don't compute wrapping paths, straight-line
 // moves are always correct.
 
-import { getHeadingText } from "../detector";
+import { getHeadingText } from "@repo/tasks/infiltrator/core/detector";
 
 interface Cell {
   x: number;

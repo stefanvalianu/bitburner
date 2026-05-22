@@ -21,7 +21,7 @@
 // player ends up having to nudge the cursor manually before the next
 // action fires.
 
-import { getHeadingText } from "../detector";
+import { getHeadingText } from "@repo/tasks/infiltrator/core/detector";
 
 interface Pos {
   row: number;

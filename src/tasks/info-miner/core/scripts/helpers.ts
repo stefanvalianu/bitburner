@@ -6,7 +6,7 @@ export function invokeNextScript(ns: NS): void {
 
   if (nextScript === "NULL PORT DATA") {
     // this chain of scripts is finished. we write back to the INFO_MINER_QUEUE_PORT to signal completion
-    ns.writePort(INFO_MINER_QUEUE_PORT, new Date().getTime());
+    ns.writePort(INFO_MINER_QUEUE_PORT, Date.now());
     return;
   }
    

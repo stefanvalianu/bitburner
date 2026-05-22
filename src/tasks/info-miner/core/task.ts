@@ -43,7 +43,7 @@ class PlayerMonitorTask extends BaseTask {
         could be issues if the whole chain takes > MAIN_UX_REFRESH_INTERVAL. If that's the case, there are
         bigger performance issues to address (and we could solve it by waiting for last task to write to port)
       */
-      const startedAt = new Date().getTime();
+      const startedAt = Date.now();
       this.ns.clearPort(INFO_MINER_QUEUE_PORT);
 
       // put all the child scripts on the port queue (except the first)

@@ -1,4 +1,4 @@
-import { getHeadingText } from "../detector";
+import { getHeadingText } from "@repo/tasks/infiltrator/core/detector";
 
 // SlashGame cycles the heading between "Guarding ...", "Distracted!", and
 // (on miss) "Alerted!". The only winning input is space, and only during

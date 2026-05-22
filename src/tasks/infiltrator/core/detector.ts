@@ -1,5 +1,3 @@
-import { InfilGameId } from "./info";
-
 // Each minigame mounts an <h4> with one of these prompt strings. We match
 // substrings to be resilient against tier-variant text. The heading also
 // changes within a single game (e.g. Slash flips between "Guarding ...",
@@ -9,7 +7,7 @@ import { InfilGameId } from "./info";
 // player augmentations (e.g. ChaosOfDionysus turns "Type it backward"
 // into just "Type it"), so the needles are kept as short common-prefix
 // substrings rather than full sentences.
-const GAME_HEADINGS: Array<{ id: InfilGameId; needles: string[] }> = [
+const GAME_HEADINGS: Array<{ id: string; needles: string[] }> = [
   { id: "slash", needles: ["Guarding", "Distracted", "Alerted"] },
   { id: "bracket", needles: ["Close the brackets"] },
   { id: "backward", needles: ["Type it"] }, // "Type it" | "Type it backward"
@@ -37,7 +35,7 @@ export function findInfiltrationRoot(doc: Document): Element | null {
   return null;
 }
 
-export function identify(root: Element): InfilGameId | null {
+export function identify(root: Element): string | null {
   const heading = root.querySelector("h4");
   const text = heading?.textContent ?? "";
   for (const entry of GAME_HEADINGS) {

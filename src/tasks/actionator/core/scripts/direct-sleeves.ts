@@ -16,14 +16,18 @@ export async function main(ns: NS): Promise<void> {
   const sleeveInfo = getPortData<SleeveInfo>(ns, SLEEVE_INFO_PORT);
   const userPreferences = getPortData<UserPreferences>(ns, USER_PREFERENCES_PORT);
 
+  if (!sleeveInfo || (userPreferences?.pauseSleeveActions ?? false)) {
+    // this kills the active script, but returning for clarity
+    invokeNextScript(ns, ACTIONATOR_QUEUE_PORT);
+    return;
+  }
+
   const targetShockLevel = userPreferences?.sleeveShockTarget ?? DEFAULT_SLEEVE_SHOCK_TARGET;
 
-  if (sleeveInfo) {
-    for (const sleeve of sleeveInfo.sleeves) {
-      if (sleeve.shock > targetShockLevel) {
-        ns.sleeve.setToShockRecovery(sleeve.index);
-        continue;
-      }
+  for (const sleeve of sleeveInfo.sleeves) {
+    if (sleeve.shock > targetShockLevel) {
+      ns.sleeve.setToShockRecovery(sleeve.index);
+      continue;
     }
   }
 

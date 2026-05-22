@@ -31,6 +31,9 @@ export interface UserPreferences {
 
   // The target shock level for sleeves to aim for before taking other actions.
   sleeveShockTarget?: number | undefined;
+
+  // If true, stops auto-changing sleeve actions
+  pauseSleeveActions: boolean;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -39,4 +42,6 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   autobuyHacknet: false,
   gangClashWinThreshold: undefined,
   hackMinimumMoneyPct: undefined,
+  sleeveShockTarget: undefined,
+  pauseSleeveActions: false,
 };

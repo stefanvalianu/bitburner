@@ -27,6 +27,9 @@ export const GANG_BANGER_STATE_PORT = 13;
 export const INFILTRATOR_STATE_PORT = 14;
 export const STOCK_TRADER_STATE_PORT = 15;
 
+export const ACTIONATOR_REQUEST_PORT = 20;
+export const ACTIONATOR_QUEUE_PORT = 21;
+
 // Ports used by the info-miner task to post info snapshots for the main
 // dashboard (and potentially others) to consume
 export const INFO_MINER_QUEUE_PORT = 30;
@@ -48,6 +51,9 @@ export function clearPorts(ns: NS) {
   ns.clearPort(INFILTRATOR_STATE_PORT);
   ns.clearPort(STOCK_TRADER_STATE_PORT);
 
+  ns.clearPort(ACTIONATOR_REQUEST_PORT);
+  ns.clearPort(ACTIONATOR_QUEUE_PORT);
+  
   ns.clearPort(HACKING_SYSTEM_REQUEST_PORT);
   ns.clearPort(HACKING_SYSTEM_STATE_PORT);
 

@@ -10,9 +10,11 @@ import { InfiltratorPanel } from "./infiltrator/ux/panel";
 import { contractSolverTask } from "./contract-solver/info";
 import { STOCK_TRADER_TASK_ID, stockTraderTask } from "./stock-trader/info";
 import { StockTraderPanel } from "./stock-trader/ux/panel";
+import { actionatorTask } from "./actionator/info";
 
 // highest in list = shows first in 'new task' UX per category
 export const ALL_TASKS: TaskDefinition[] = [
+  actionatorTask,
   contractSolverTask,
   infoMinerTask,
   gangBangerTask,

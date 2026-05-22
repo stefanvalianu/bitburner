@@ -1,17 +1,4 @@
-export interface SourcefileRequirement {
-  sourceFile: number;
-  level: number;
-}
-
-export interface Subscript {
-  scriptPath: string;
-
-  // Scripts that are not repeated will only run once.
-  repeated: boolean;
-
-  // Optionally define requirements to include this script in the chain
-  requirement?: SourcefileRequirement;
-}
+import { Subscript } from "@repo/common/tasks/types";
 
 export const INFO_MINER_SUBSCRIPTS: Subscript[] = [
   {

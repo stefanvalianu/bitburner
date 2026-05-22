@@ -1,4 +1,6 @@
 import { NS } from "@ns";
+import { INFO_MINER_QUEUE_PORT } from "@repo/common/ports";
+import { invokeNextScript } from "@repo/common/tasks/subscriptHelpers";
 
 /*
   This script is responsible for:
@@ -7,4 +9,6 @@ import { NS } from "@ns";
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+
+  invokeNextScript(ns, INFO_MINER_QUEUE_PORT);
 }

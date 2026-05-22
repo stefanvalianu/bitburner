@@ -71,7 +71,7 @@ function purchaseGearForMembers(ns: NS, budget: number, gangInfo: GangInfo, equi
         if (budget <= 0) return;
 
         const cost = ns.gang.getEquipmentCost(augmentation);
-        if (ns.gang.purchaseEquipment(member.name, augmentation)) {
+        if (cost <= budget && ns.gang.purchaseEquipment(member.name, augmentation)) {
           budget -= cost;
         }
       }
@@ -83,7 +83,7 @@ function purchaseGearForMembers(ns: NS, budget: number, gangInfo: GangInfo, equi
         if (budget <= 0) return;
 
         const cost = ns.gang.getEquipmentCost(upgrade);
-        if (ns.gang.purchaseEquipment(member.name, upgrade)) {
+        if (cost <= budget && ns.gang.purchaseEquipment(member.name, upgrade)) {
           budget -= cost;
         }
       }

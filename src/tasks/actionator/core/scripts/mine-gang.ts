@@ -1,8 +1,9 @@
 import { GangMemberInfo, NS } from "@ns";
-import { GANG_INFO_PORT } from "@repo/common/ports";
+import { ACTIONATOR_QUEUE_PORT, GANG_INFO_PORT } from "@repo/common/ports";
 import { GangInfo, GangMember, MemberRank } from "@repo/common/info/gangInfo";
 import { invokeNextScript, requestTaskStart } from "@repo/tasks/actionator/core/helpers";
 import { GANG_BANGER_TASK_ID } from "@repo/tasks/gang-banger/info";
+import { GANG_EQUIPMENT_SCRIPT } from "./identify-gang";
 
 const KARMA_TO_START_GANG = -54_000;
 
@@ -20,6 +21,9 @@ export async function main(ns: NS): Promise<void> {
   if (!inGang && player.karma <= KARMA_TO_START_GANG) {
     // this script will start a gang when instantiated, breaking this cycle
     requestTaskStart(ns, GANG_BANGER_TASK_ID);
+
+    // this script ran first; if we weren't in a gang, it didn't actually run, but we need it
+    ns.writePort(ACTIONATOR_QUEUE_PORT, GANG_EQUIPMENT_SCRIPT);
   }
 
   if (!inGang) {

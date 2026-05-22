@@ -8,6 +8,7 @@ import { useTheme } from "@repo/features/theme/ThemeProvider";
 import { useNs } from "@repo/features/ns/NsProvider";
 import { StatCard } from "./StatCard";
 import { useDashboard } from "@repo/features/app/DashboardProvider";
+import { ServerSubpanel } from "@repo/features/servers/ServerSubpanel";
 
 export function PlayerPanel() {
   const theme = useTheme();
@@ -35,10 +36,7 @@ export function PlayerPanel() {
             <SectionHeading>Crime</SectionHeading>
             <StatRow label="killed" value={ns.format.number(state.player.numPeopleKilled, 0)} />
             <StatRow label="karma" value={ns.format.number(state.player.karma, 2)} />
-            <SectionHeading>Servers</SectionHeading>
-            <div>
-              {state.servers.filter((s) => s.hasAdminRights && !s.purchasedByPlayer).length} / {state.servers.filter((s) => !s.purchasedByPlayer).length} nuked
-            </div>
+            <ServerSubpanel />
           </Col>
         </Col>
       </Row>

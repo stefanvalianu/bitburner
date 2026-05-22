@@ -1,6 +1,6 @@
 import { NS } from "@ns";
 import { HACKING_SYSTEM_REQUEST_PORT, HACKING_SYSTEM_STATE_PORT } from "@repo/common/ports";
-import { TaskDefinition, TaskState } from "@repo/common/tasks/types";
+import { TaskDefinition } from "@repo/common/tasks/types";
 
 export const ULTRAHACKER_TASK_ID = "ultrahacker";
 

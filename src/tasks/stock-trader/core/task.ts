@@ -1,7 +1,7 @@
 import { NS } from "@ns";
 import { Intent, MarketSnapshot, computeProfitPotential, planTrades } from "./strategy";
 import { BaseTask } from "@repo/common/tasks/baseTask";
-import { StockTraderTaskState, TradeAction, STOCK_TRADER_TASK_ID, STOCK_TRADER_CONFIG, PositionView, MarketView, stockTraderTask } from "@repo/tasks/stock-trader/info";
+import { StockTraderTaskState, TradeAction, STOCK_TRADER_CONFIG, PositionView, MarketView, stockTraderTask } from "@repo/tasks/stock-trader/info";
 import { getPortData, USER_PREFERENCES_PORT } from "@repo/common/ports";
 import { UserPreferences } from "@repo/common/preferences";
 

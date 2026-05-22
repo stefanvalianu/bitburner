@@ -1,11 +1,9 @@
-/*
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { CopyIcon, DoorIcon, HackIcon, HardwareIcon, LockIcon, MoneyBagIcon } from "@repo/features/components/Icons";
-import { useDashboardController } from "@repo/features/app/useDashboardController";
-import { getPlayerMonitorState } from "@repo/lib/util/tasks/definitions/player-monitor/info";
-import { ServerInfo } from "@repo/features/dashboardTypes";
+import { DoorIcon, HackIcon, HardwareIcon, LockIcon, MoneyBagIcon } from "@repo/features/components/Icons";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
 import { useNs } from "@repo/features/ns/NsProvider";
+import { useDashboard } from "../app/DashboardProvider";
+import { NS } from "@ns";
 
 const INDENT_PX = 18;
 const ROW_HEIGHT = "1.6em";
@@ -15,6 +13,23 @@ const SECURITY_NEAR_MIN_RATIO = 1.05;
 const MONEY_NEAR_MAX_RATIO = 0.95;
 
 type RailKind = "none" | "full" | "elbow" | "tee";
+
+interface ServerInfo {
+  hostname: string;
+
+  parent: string | null;
+  // DFS depth from home; intentionally overrides DarknetServerData.depth
+  // (which represents an unrelated net-depth concept).
+  depth: number;
+  // Per-ancestor "draw vertical line" flags. Length = depth - 1 (covers
+  // ancestors at depths 1..depth-1, since depth-0 root has no siblings to
+  // thread through). rails[i] = true means an ancestor at depth i+1 has
+  // later siblings, so a vertical guide line should pass through column i.
+  rails: boolean[];
+  // True if this node is the last child of its parent. The renderer uses
+  // this to clip the leaf column's vertical line to the top half.
+  isLastSibling: boolean;
+}
 
 function RailColumn({ kind }: { kind: RailKind }) {
   const theme = useTheme();
@@ -64,51 +79,6 @@ function RailColumn({ kind }: { kind: RailKind }) {
           }}
         />
       )}
-    </span>
-  );
-}
-
-function formatMoney(n: number): string {
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}t`;
-  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}b`;
-  if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}m`;
-  if (n >= 1e3) return `$${(n / 1e3).toFixed(2)}k`;
-  return `$${n.toFixed(0)}`;
-}
-
-// Walk the parent chain back to the root and join with " | " — the format the
-// game's terminal accepts as a connect-path mnemonic.
-function pathFromHome(s: ServerInfo, byHost: Map<string, ServerInfo>): string {
-  const path: string[] = [];
-  let cur: ServerInfo | undefined = s;
-  while (cur) {
-    path.unshift(cur.hostname);
-    cur = cur.parent ? byHost.get(cur.parent) : undefined;
-  }
-  return path.join(" | ");
-}
-
-function CopyPathButton({ text, color }: { text: string; color: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [copied, setCopied] = useState(false);
-  const onClick = () => {
-    // Reach navigator via ownerDocument.defaultView — naming `window` or
-    // `document` directly trips Bitburner's static RAM analyzer.
-    const view = ref.current?.ownerDocument?.defaultView;
-    const clip = view?.navigator?.clipboard;
-    if (!clip) return;
-    void clip.writeText(text).then(() => {
-      setCopied(true);
-      view?.setTimeout(() => setCopied(false), 1200);
-    });
-  };
-  return (
-    <span
-      ref={ref}
-      onClick={onClick}
-      style={{ cursor: "pointer", display: "inline-flex", alignItems: "center" }}
-    >
-      <CopyIcon color={color} title={copied ? "Copied!" : `Copy path — ${text}`} />
     </span>
   );
 }
@@ -230,18 +200,52 @@ function TopBar({ query, onQueryChange, matchCount, hasQuery }: TopBarProps) {
   );
 }
 
-export function ServerMapDialog() {
+function findAllServers(ns: NS, root: string = "home"): ServerInfo[] {
+  const result: ServerInfo[] = [];
+  const visited = new Set<string>();
+
+  function dfs(
+    host: string,
+    parent: string | null,
+    depth: number,
+    rails: boolean[],
+    isLastSibling: boolean,
+  ): void {
+    if (visited.has(host)) return;
+    visited.add(host);
+    const data = ns.getServer(host);
+    result.push({
+      hostname: data.hostname,
+      parent,
+      depth,
+      rails: [...rails],
+      isLastSibling,
+    } satisfies ServerInfo);
+
+    const children = ns.scan(host).filter((n) => !visited.has(n));
+    // Skip appending a rail entry when this node is root — root has no
+    // siblings, so depth-1 children render with zero rail columns.
+    const childRails = depth >= 1 ? [...rails, !isLastSibling] : rails;
+    for (let i = 0; i < children.length; i++) {
+      dfs(children[i], host, depth + 1, childRails, i === children.length - 1);
+    }
+  }
+
+  dfs(root, null, 0, [], true);
+  return result;
+}
+
+type Props = {
+  isOpen: boolean;
+}
+
+export function ServerMapDialog({ isOpen }: Props) {
   const theme = useTheme();
-  const { state } = useDashboardController();
   const ns = useNs();
 
-  const playerState = getPlayerMonitorState(state);
-  const hackingLevel = playerState?.player.skills.hacking || 0;
+  const { state } = useDashboard();
 
-  const byHost = useMemo(
-    () => new Map(state.allServers.map((s) => [s.hostname, s])),
-    [state.allServers],
-  );
+  const hackingLevel = state.player.skills.hacking;
 
   // Alternating row backgrounds. Use the two background tokens as solid
   // fills — both are darker than the panel surface (well/welllight), giving
@@ -256,14 +260,21 @@ export function ServerMapDialog() {
     if (!hasQuery) return { matchCount: 0, firstMatchHost: null as string | null };
     let count = 0;
     let first: string | null = null;
-    for (const s of state.allServers) {
+    for (const s of state.servers) {
       if (s.hostname.toLowerCase().includes(normalizedQuery)) {
         if (first === null) first = s.hostname;
         count++;
       }
     }
     return { matchCount: count, firstMatchHost: first };
-  }, [hasQuery, normalizedQuery, state.allServers]);
+  }, [hasQuery, normalizedQuery, state.servers]);
+
+  // When the available servers change, re-compute ServerInfo
+  const serverInfo = useMemo<ServerInfo[]>(() => {
+    return findAllServers(ns, "home");
+  }, [state.servers.length]);
+
+  if (!isOpen) return null;
 
   return (
     <div style={{ fontFamily: theme.font.face, fontSize: FONT_SIZE }}>
@@ -274,16 +285,15 @@ export function ServerMapDialog() {
         hasQuery={hasQuery}
       />
       <div style={{ overflow: "auto", maxHeight: "65vh" }}>
-        {state.allServers.map((s, idx) => (
+        {serverInfo.map((s, idx) => (
           <ServerRow
             key={s.hostname}
             server={s}
             background={rowBackgrounds[idx % 2]}
             hackingLevel={hackingLevel}
-            path={pathFromHome(s, byHost)}
             query={normalizedQuery}
             isFirstMatch={s.hostname === firstMatchHost}
-            formatGb={ns.format.ram}
+            ns={ns}
           />
         ))}
       </div>
@@ -323,20 +333,18 @@ interface ServerRowProps {
   server: ServerInfo;
   background: string;
   hackingLevel: number;
-  path: string;
   query: string;
   isFirstMatch: boolean;
-  formatGb: (input: number) => string;
+  ns: NS
 }
 
 function ServerRow({
   server: s,
   background,
   hackingLevel,
-  path,
   query,
   isFirstMatch,
-  formatGb,
+  ns
 }: ServerRowProps) {
   const theme = useTheme();
   const rowRef = useRef<HTMLDivElement>(null);
@@ -347,17 +355,19 @@ function ServerRow({
     }
   }, [isFirstMatch, query]);
 
-  const purchased = s.purchasedByPlayer;
-  const nuked = s.hasAdminRights;
-  const required = s.requiredHackingSkill || 0;
-  const portsRequired = s.numOpenPortsRequired || 0;
-  const portsOpen = s.openPortCount || 0;
+  const server = ns.getServer(s.hostname);
+
+  const purchased = server.purchasedByPlayer;
+  const nuked = server.hasAdminRights;
+  const required = server.requiredHackingSkill || 0;
+  const portsRequired = server.numOpenPortsRequired || 0;
+  const portsOpen = server.openPortCount || 0;
   const levelTooLow = hackingLevel < required;
   const portsMissing = portsOpen < portsRequired;
 
   const hostnameColor = purchased ? theme.colors.info : nuked ? theme.colors.primary : theme.colors.secondary;
 
-  const ramFrac = s.maxRam > 0 ? s.ramUsed / s.maxRam : 0;
+  const ramFrac = server.maxRam > 0 ? server.ramUsed / server.maxRam : 0;
   const ramHigh = ramFrac >= RAM_WARN_THRESHOLD;
   const hardwareColor = ramHigh ? theme.colors.error : theme.colors.secondary;
 
@@ -369,26 +379,26 @@ function ServerRow({
   })();
 
   const ramPct = (ramFrac * 100).toFixed(0);
-  const hardwareTooltip = `Cores: ${s.cpuCores}\nRAM: ${formatGb(s.ramUsed)}/${formatGb(s.maxRam)} (${ramPct}%)`;
+  const hardwareTooltip = `Cores: ${server.cpuCores}\nRAM: ${ns.format.ram(server.ramUsed)}/${ns.format.ram(server.maxRam)} (${ramPct}%)`;
 
   // Security and money are only meaningful for hackable targets. Player-owned
   // boxes have moneyMax=0 and minDifficulty=1 with no scaling, so we hide the
   // icons there to avoid implying actionable state.
-  const minDiff = s.minDifficulty ?? 0;
-  const curDiff = s.hackDifficulty ?? 0;
+  const minDiff = server.minDifficulty ?? 0;
+  const curDiff = server.hackDifficulty ?? 0;
   const showSecurity = minDiff > 0 && !purchased;
   const securityAtMin = curDiff <= minDiff * SECURITY_NEAR_MIN_RATIO;
   const securityColor = securityAtMin ? theme.colors.success : theme.colors.secondary;
   const securityTooltip = `Security: ${curDiff.toFixed(2)} (min ${minDiff.toFixed(2)})`;
 
-  const moneyMax = s.moneyMax ?? 0;
-  const moneyAvail = s.moneyAvailable ?? 0;
+  const moneyMax = server.moneyMax ?? 0;
+  const moneyAvail = server.moneyAvailable ?? 0;
   const showMoney = moneyMax > 0 && !purchased;
   const moneyFrac = moneyMax > 0 ? moneyAvail / moneyMax : 0;
   const moneyNearMax = moneyFrac >= MONEY_NEAR_MAX_RATIO;
   const moneyColor = moneyNearMax ? theme.colors.warning : theme.colors.secondary;
   const moneyPct = (moneyFrac * 100).toFixed(0);
-  const moneyTooltip = `Money: ${formatMoney(moneyAvail)} / ${formatMoney(moneyMax)} (${moneyPct}%)`;
+  const moneyTooltip = `Money: ${ns.format.number(moneyAvail, 2)} / ${ns.format.number(moneyMax, 2)} (${moneyPct}%)`;
 
   return (
     <div
@@ -425,8 +435,7 @@ function ServerRow({
           marginLeft: theme.spacing.sm,
         }}
       >
-        <CopyPathButton text={path} color={theme.colors.secondary} />
-        {s.backdoorInstalled && <DoorIcon color={theme.colors.success} title="Backdoor installed" />}
+        {server.backdoorInstalled && <DoorIcon color={theme.colors.success} title="Backdoor installed" />}
         {!nuked && <HackIcon color={theme.colors.warning} title={hackTooltip} />}
         <HardwareIcon color={hardwareColor} title={hardwareTooltip} />
         {showSecurity && <LockIcon color={securityColor} title={securityTooltip} />}
@@ -435,4 +444,3 @@ function ServerRow({
     </div>
   );
 }
-*/

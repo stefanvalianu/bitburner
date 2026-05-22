@@ -1,4 +1,5 @@
 import { NS } from "@ns";
+import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 
 /*
   This script is responsible for:
@@ -7,4 +8,6 @@ import { NS } from "@ns";
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+
+  invokeNextScript(ns);
 }

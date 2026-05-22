@@ -10,7 +10,7 @@ const POST_GANG_SHOCK_TARGET = 0;
 
 /*
   This script is responsible for:
-  - assigning tasks to sleeves
+  - assigning tasks to sleeves. This assumes all sleeves have max sync.
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");

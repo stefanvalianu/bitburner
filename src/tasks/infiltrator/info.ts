@@ -1,4 +1,4 @@
-import { InfiltrationLocation } from "@ns";
+import { ILocation, InfiltrationReward } from "@ns";
 import { INFILTRATOR_STATE_PORT } from "@repo/common/ports";
 import { TaskDefinition } from "@repo/common/tasks/types";
 
@@ -15,6 +15,13 @@ export const infiltratorTask: TaskDefinition = {
   },
 };
 
+export interface InfiltrationOption {
+  location: ILocation;
+  reward: InfiltrationReward;
+  difficulty: number;
+  canAttempt: boolean;
+}
+
 export interface InfiltratorTaskState {
-  infiltrations: InfiltrationLocation[];
+  infiltrations: InfiltrationOption[];
 }

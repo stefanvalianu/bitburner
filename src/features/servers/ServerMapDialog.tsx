@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { HackIcon, LockIcon, MoneyBagIcon } from "@repo/features/components/Icons";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
 import { useNs } from "@repo/features/ns/NsProvider";
@@ -78,16 +78,6 @@ function RailColumn({ kind }: { kind: RailKind }) {
           }}
         />
       )}
-    </span>
-  );
-}
-
-function LegendIcon({ icon, label }: { icon: ReactNode; label: string }) {
-  const theme = useTheme();
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: theme.spacing.xs }}>
-      {icon}
-      <span style={{ color: theme.colors.primarydark }}>{label}</span>
     </span>
   );
 }

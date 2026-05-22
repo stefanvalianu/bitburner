@@ -3,7 +3,7 @@ import { installEventPatch, dispatchTrusted } from "./eventPatch";
 import { findInfiltrationRoot, identify } from "./detector";
 import { GAMES } from "./games";
 import { BaseTask } from "@repo/common/tasks/baseTask";
-import { infiltratorTask, InfiltratorTaskState } from "@repo/tasks/infiltrator/info";
+import { InfiltrationOption, infiltratorTask, InfiltratorTaskState } from "@repo/tasks/infiltrator/info";
 
 // We need a quick poll interval to act on the games
 const POLL_MS = 30;
@@ -56,7 +56,15 @@ class InfiltratorTask extends BaseTask<InfiltratorTaskState> {
     this.updateState({
       infiltrations: this.ns.infiltration
         .getPossibleLocations()
-        .map((location) => this.ns.infiltration.getInfiltration(location.name)),
+        .map((location) => {
+          const infiltration = this.ns.infiltration.getInfiltration(location.name);
+          return {
+            difficulty: infiltration.difficulty,
+            location: infiltration.location,
+            reward: infiltration.reward,
+            canAttempt: infiltration.difficulty <= 3.5
+          } satisfies InfiltrationOption;
+        }),
     } satisfies InfiltratorTaskState);
   }
 }

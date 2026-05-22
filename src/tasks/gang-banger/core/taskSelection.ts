@@ -234,6 +234,19 @@ function applyWantedPenaltyGuard(
 ): void {
   if (wantedReductionTasks.length === 0) return;
 
+  // Vigilante's only lever is dragging wanted toward its floor of 1.
+  // The best penalty it could ever produce, ignoring the respect lost
+  // to the swap, is respect / (respect + 1). If even that ceiling
+  // sits below target, the bottleneck is respect — not wanted — and
+  // sacrificing respect generators here would just deepen the
+  // deficit. Skip the guard until respect is large enough that
+  // floor-wanted could plausibly clear the target.
+  const bestCasePenalty = gangInfo.respect / (gangInfo.respect + 1);
+  if (bestCasePenalty < targetWantedPenalty) return;
+
+  // we can be a little wanted..
+  if (gangInfo.wantedLevel <= 10) return;
+
   let projected = projectGangAfterAssignments(gangInfo, assignments);
 
   while (projected.wantedPenalty < targetWantedPenalty && projected.wantedLevel > 1) {

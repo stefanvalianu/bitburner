@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { DoorIcon, HackIcon, HardwareIcon, LockIcon, MoneyBagIcon } from "@repo/features/components/Icons";
+import { HackIcon, LockIcon, MoneyBagIcon } from "@repo/features/components/Icons";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
 import { useNs } from "@repo/features/ns/NsProvider";
 import { useDashboard } from "../app/DashboardProvider";
@@ -8,7 +8,6 @@ import { NS } from "@ns";
 const INDENT_PX = 18;
 const ROW_HEIGHT = "1.6em";
 const FONT_SIZE = 14;
-const RAM_WARN_THRESHOLD = 0.8;
 const SECURITY_NEAR_MIN_RATIO = 1.05;
 const MONEY_NEAR_MAX_RATIO = 0.95;
 
@@ -144,18 +143,6 @@ function TopBar({ query, onQueryChange, matchCount, hasQuery }: TopBarProps) {
         <LegendHostname color={theme.colors.primary} label="nuked" />
         <LegendHostname color={theme.colors.secondary} label="not nuked" />
         <LegendHostname color={theme.colors.info} bold label="player-owned" />
-        <LegendIcon
-          icon={<HardwareIcon color={theme.colors.error} title="RAM warning" />}
-          label={`ram ≥ ${RAM_WARN_THRESHOLD * 100}%`}
-        />
-        <LegendIcon
-          icon={<LockIcon color={theme.colors.success} title="Min security" />}
-          label="min security"
-        />
-        <LegendIcon
-          icon={<MoneyBagIcon color={theme.colors.warning} title="Max money" />}
-          label="max money"
-        />
       </div>
       <input
         type="text"
@@ -367,10 +354,6 @@ function ServerRow({
 
   const hostnameColor = purchased ? theme.colors.info : nuked ? theme.colors.primary : theme.colors.secondary;
 
-  const ramFrac = server.maxRam > 0 ? server.ramUsed / server.maxRam : 0;
-  const ramHigh = ramFrac >= RAM_WARN_THRESHOLD;
-  const hardwareColor = ramHigh ? theme.colors.error : theme.colors.secondary;
-
   const hackTooltip = (() => {
     const parts: string[] = [];
     if (levelTooLow) parts.push(`Skill needed: ${required} (you: ${hackingLevel})`);
@@ -378,25 +361,20 @@ function ServerRow({
     return parts.length > 0 ? parts.join("\n") : "Ready to hacky";
   })();
 
-  const ramPct = (ramFrac * 100).toFixed(0);
-  const hardwareTooltip = `Cores: ${server.cpuCores}\nRAM: ${ns.format.ram(server.ramUsed)}/${ns.format.ram(server.maxRam)} (${ramPct}%)`;
-
   // Security and money are only meaningful for hackable targets. Player-owned
   // boxes have moneyMax=0 and minDifficulty=1 with no scaling, so we hide the
   // icons there to avoid implying actionable state.
   const minDiff = server.minDifficulty ?? 0;
   const curDiff = server.hackDifficulty ?? 0;
-  const showSecurity = minDiff > 0 && !purchased;
   const securityAtMin = curDiff <= minDiff * SECURITY_NEAR_MIN_RATIO;
-  const securityColor = securityAtMin ? theme.colors.success : theme.colors.secondary;
+  const showSecurity = minDiff > 0 && !purchased && !securityAtMin;
   const securityTooltip = `Security: ${curDiff.toFixed(2)} (min ${minDiff.toFixed(2)})`;
 
   const moneyMax = server.moneyMax ?? 0;
   const moneyAvail = server.moneyAvailable ?? 0;
-  const showMoney = moneyMax > 0 && !purchased;
   const moneyFrac = moneyMax > 0 ? moneyAvail / moneyMax : 0;
   const moneyNearMax = moneyFrac >= MONEY_NEAR_MAX_RATIO;
-  const moneyColor = moneyNearMax ? theme.colors.warning : theme.colors.secondary;
+  const showMoney = moneyMax > 0 && !purchased && !moneyNearMax;
   const moneyPct = (moneyFrac * 100).toFixed(0);
   const moneyTooltip = `Money: ${ns.format.number(moneyAvail, 2)} / ${ns.format.number(moneyMax, 2)} (${moneyPct}%)`;
 
@@ -435,11 +413,9 @@ function ServerRow({
           marginLeft: theme.spacing.sm,
         }}
       >
-        {server.backdoorInstalled && <DoorIcon color={theme.colors.success} title="Backdoor installed" />}
         {!nuked && <HackIcon color={theme.colors.warning} title={hackTooltip} />}
-        <HardwareIcon color={hardwareColor} title={hardwareTooltip} />
-        {showSecurity && <LockIcon color={securityColor} title={securityTooltip} />}
-        {showMoney && <MoneyBagIcon color={moneyColor} title={moneyTooltip} />}
+        {showSecurity && <LockIcon color={theme.colors.secondary} title={securityTooltip} />}
+        {showMoney && <MoneyBagIcon color={theme.colors.secondary} title={moneyTooltip} />}
       </span>
     </div>
   );

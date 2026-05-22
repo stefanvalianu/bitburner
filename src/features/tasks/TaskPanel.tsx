@@ -73,7 +73,7 @@ export function TaskPanel() {
         </Row>
       )}
       { taskManager.shouldReallocate &&
-        <Button onClick={taskManager.reallocate} variant="primary">
+        <Button onClick={() => taskManager.reallocate()} variant="primary">
           <ShuffleIcon
             color={theme.colors.info}
             title="Reallocate tasks to better utilize new server capacity. Will request shutdown from unbound tasks."

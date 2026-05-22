@@ -78,7 +78,7 @@
   "tasks/actionator/core/contractSolvers/types.js": 1.6,
   "tasks/actionator/core/helpers.js": 4.6,
   "tasks/actionator/core/scripts/direct-coding-contracts.js": 21,
-  "tasks/actionator/core/scripts/direct-gang.js": 22.1,
+  "tasks/actionator/core/scripts/direct-gang.js": 22.2,
   "tasks/actionator/core/scripts/direct-sleeves.js": 19.6,
   "tasks/actionator/core/scripts/identify-gang.js": 7.7,
   "tasks/actionator/core/scripts/identify-singularity.js": 3.6,

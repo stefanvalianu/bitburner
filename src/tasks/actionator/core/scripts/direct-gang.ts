@@ -1,5 +1,5 @@
-import { NS } from "@ns";
-import { GangEquipmentInfo, GangInfo, GangMember, MemberRank } from "@repo/common/info/gangInfo";
+import { GangMemberAscension, GangMemberInfo, NS } from "@ns";
+import { GangEquipmentInfo, GangInfo } from "@repo/common/info/gangInfo";
 import { GANG_EQUIPMENT_PORT, GANG_INFO_PORT, getPortData, USER_PREFERENCES_PORT } from "@repo/common/ports";
 import { UserPreferences } from "@repo/common/preferences";
 import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
@@ -8,19 +8,6 @@ import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 // purchase equipment for members of rank II and
 // above.
 const PERCENTAGE_OF_BUDGET_TO_SPEND_ON_EQUIPMENT = 0.15;
-
-// At rank I, we ascend every 1.6 multiplier
-// At rank II, we ascend every 1.26 multiplier
-// At rank III, we ascend every 1.15 multiplier
-// At rank 4 we only ascend every 1.5 because we
-// want to minimize ascensions and keep the members
-// stable.
-const ASC_MULTS: Record<MemberRank, number> = {
-  1: 1.6,
-  2: 1.26,
-  3: 1.15,
-  4: 2,
-};
 
 /*
   This script is responsible for:
@@ -54,7 +41,7 @@ export async function main(ns: NS): Promise<void> {
   tryRecruitMembers(ns);
 
   // 2. Try ascending eligible members
-  ascendEligibleMembers(ns, gangInfo.members)
+  ascendEligibleMembers(ns, gangInfo)
 
   // 3. Purchase equipment for eligible members 
   const player = ns.getPlayer();
@@ -114,23 +101,51 @@ function tryRecruitMembers(ns: NS): void {
   }
 }
 
-function ascendEligibleMembers(ns: NS, members: GangMember[]): void {
-  for (const member of members) {
-    const newAscensionMultiplier = getMemberAscensionMultiplierGained(ns, member);
+/*
+  Ascensions are based on the game state. Pre-territory completion, we
+  optimize for the Terrorism task. Post-terrotiry, we optimize for
+  Human Trafficking.
+*/
+function ascendEligibleMembers(ns: NS, gangInfo: GangInfo): void {
+  for (const member of gangInfo.members) {
+    const ascResult = ns.gang.getAscensionResult(member.name);
 
-    if (newAscensionMultiplier >= ASC_MULTS[member.rank]) {
-      //ascend this member
-      ns.gang.ascendMember(member.name)
+    if (!ascResult) continue;
+    const optimizeHumanTrafficking = gangInfo.territory === 1;
+    const memberInfo = ns.gang.getMemberInformation(member.name);
+
+    const ascensionScore = optimizeHumanTrafficking ? getHumanTraffickingAscScore(ascResult) : getTerrorismAscScore(ascResult);
+    const currentScore = optimizeHumanTrafficking ? getHumanTraffickingScore(memberInfo) : getTerrorismScore(memberInfo);
+    const threshold = getAscThreshold(currentScore);
+
+    if (ascensionScore >= threshold) {
+      ns.gang.ascendMember(member.name);
     }
   }
 }
 
-function getMemberAscensionMultiplierGained(ns: NS, member: GangMember): number {
-  const multGains = ns.gang.getAscensionResult(member.name);
+function getAscThreshold(currentScore: number): number {
+  if (currentScore < 10) return 1.2;
+  if (currentScore < 100) return 1.3;
+  if (currentScore < 1_000) return 1.4;
+  if (currentScore < 10_000) return 1.5;
+  return 1.6;
+}
 
-  if (!multGains) return 1;
+function getHumanTraffickingAscScore(ascensionResult: GangMemberAscension): number {
+  return (0.3 * ascensionResult.hack + 0.05 * ascensionResult.str + 0.05 * ascensionResult.def + 0.3 * ascensionResult.dex + 0.3 * ascensionResult.cha);
+}
 
-  return Math.min(multGains.str, multGains.def, multGains.dex, multGains.agi);
+function getHumanTraffickingScore(member: GangMemberInfo): number {
+  return (0.3 * member.hack_asc_mult + 0.05 * member.str_asc_mult + 0.05 * member.def_asc_mult + 0.3 * member.dex_asc_mult + 0.3 * member.cha_asc_mult);
+}
+
+function getTerrorismAscScore(ascensionResult: GangMemberAscension): number {
+  return (ascensionResult.hack + ascensionResult.str + ascensionResult.def + ascensionResult.dex + ascensionResult.cha) / 5;
+}
+
+function getTerrorismScore(member: GangMemberInfo): number {
+  return (member.hack_asc_mult + member.str_asc_mult + member.def_asc_mult + member.dex_asc_mult + member.cha_asc_mult) / 5;
 }
 
 function pickRandomGangMemberName(ns: NS): string {

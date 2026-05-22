@@ -391,7 +391,7 @@ export class TaskManager {
   get shouldReallocate(): boolean {
     const total = this.totalAvailableRam;
 
-    return (total - this.usedRam) / total < REALLOCATE_SLACK_FRACTION;
+    return (total - this.usedRam) / total > REALLOCATE_SLACK_FRACTION;
   }
 
   get allocatedRam(): number {

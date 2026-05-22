@@ -391,7 +391,9 @@ export class TaskManager {
   get shouldReallocate(): boolean {
     const total = this.totalAvailableRam;
 
-    return (total - this.usedRam) / total > REALLOCATE_SLACK_FRACTION;
+    // we need an unbound task and some extra headroom RAM to require reallocation
+    return (total - this.usedRam) / total > REALLOCATE_SLACK_FRACTION &&
+            ALL_TASKS.filter(t => t.demand.unbounded === true).find(t => this.taskState.tasks.has(t.id)) !== undefined;
   }
 
   get allocatedRam(): number {

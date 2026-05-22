@@ -21,6 +21,7 @@ Scripts/features to be used within the game [Bitburner](https://github.com/bitbu
 - DependencyCruiser is used to enforce some dependencies within the code, with the goal of minimizing the chances of unintentionally increasing RAM usage.
 - Be mindful that Bitwarden will assume your script is using a RAM-costing function if it sees code literals matching the names of the counted scripts. For example, having a property called "hack" on a type, will cause Bitwarden's linter to assume you are using the hack() function and charge you RAM for it.
 - When deploying changes to Bitwarden, RAM increases will need to be confirmed. However, counting RAM is only possible after the scripts get transferred so even if you say "no", the script is still on the server. Be mindful and cognizant of RAM increases.
+- We cannot use React's lazy() features because they access both the document and the window dom objects, increasing script RAM usage by 50gb.
 
 ## Repository Structure
 

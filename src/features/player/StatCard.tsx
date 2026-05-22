@@ -92,7 +92,7 @@ function SkillRow({ label, value, valueColor, progress }: SkillRowProps) {
   return (
     <Col gap={0}>
       <StatRow label={label} value={value} valueColor={valueColor} />
-      { progress && <ProgressBar value={progress} color={valueColor} /> }
+      { progress !== undefined && <ProgressBar value={progress} color={valueColor} /> }
     </Col>
   );
 }

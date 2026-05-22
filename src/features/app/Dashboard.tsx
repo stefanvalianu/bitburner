@@ -4,6 +4,7 @@ import { Row } from "@repo/features/components/Row";
 import { LogButton } from "@repo/features/logging/LogButton";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
 import { PlayerPanel } from "@repo/features/player/PlayerPanel";
+import { TaskPanel } from "../tasks/TaskPanel";
 
 export function Dashboard() {
   const theme = useTheme();
@@ -19,6 +20,7 @@ export function Dashboard() {
         }
       >
         <PlayerPanel />
+        <TaskPanel />
       </DashboardPanel>
     </>
   );

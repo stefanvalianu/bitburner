@@ -11,8 +11,7 @@ import { useDashboard } from "@repo/features/app/DashboardProvider";
 import { PinnedTaskPanel } from "./PinnedTaskPanel";
 import { hasCustomPanel } from "@repo/tasks";
 import { TaskTile } from "./TaskTile";
-
-const TaskPanelDialog = lazy(() => import("./TaskPanelDialog"));
+import { TaskPanelDialog } from "./TaskPanelDialog";
 
 export function TaskPanel() {
   const theme = useTheme();
@@ -21,6 +20,10 @@ export function TaskPanel() {
   const [pinnedTasks, setPinnedTasks] = useState<Set<TaskId>>(new Set());
 
   const { taskManager } = useDashboard();
+
+  const closeModal = useCallback(() => {
+    setModalOpen(false);
+  }, [setModalOpen]);
 
   let pinnedItems: TaskState[] = [];
   let gridItems: TaskState[] = [];
@@ -51,23 +54,19 @@ export function TaskPanel() {
     });
   };
 
-  const closeModal = useCallback(() => {
-    setModalOpen(false);
-  }, [setModalOpen]);
-
   const stopTask = (id: TaskId) => {
     taskManager.shutdown(id);
   }
 
   const actions = (
     <Row gap={theme.spacing.sm}>
-      {taskManager.isBusy && (
+      {taskManager.isReallocating && (
         <Row gap={theme.spacing.sm} style={{ alignItems: "center", color: theme.colors.secondary }}>
           <Spinner active />
           <span style={{ fontSize: "0.85em" }}>Task manager is busy...</span>
         </Row>
       )}
-      <Button onClick={() => setModalOpen(true)} disabled={taskManager.isBusy}>
+      <Button onClick={() => setModalOpen(true)} disabled={taskManager.isReallocating}>
         + New task
       </Button>
     </Row>
@@ -83,7 +82,7 @@ export function TaskPanel() {
                 key={p.id}
                 id={p.id}
                 state={p}
-                disableShutdown={taskManager.isBusy}
+                disableShutdown={taskManager.isReallocating}
                 onStop={stopTask}
                 onUnpin={unpin}
               />
@@ -98,7 +97,7 @@ export function TaskPanel() {
                 id={g.id}
                 state={g}
                 canPin={hasCustomPanel(g.id)}
-                disableShutdown={taskManager.isBusy}
+                disableShutdown={taskManager.isReallocating}
                 onStop={stopTask}
                 onPin={pin}
               />
@@ -113,9 +112,7 @@ export function TaskPanel() {
         title="New task"
         style={{ minWidth: 800 }}
       >
-        <Suspense fallback={<Spinner active label="Loading..." />}>
-          <TaskPanelDialog onClose={closeModal} />
-        </Suspense>
+        <TaskPanelDialog visible={modalOpen} onClose={closeModal} />
       </Modal>
     </Panel>
   );

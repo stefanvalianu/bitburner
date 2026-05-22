@@ -7,18 +7,33 @@ import { useNs } from "@repo/features/ns/NsProvider";
 import { useMemo, useState } from "react";
 import { TaskId } from "@repo/common/tasks/types";
 import { getTaskScriptPath } from "@repo/common/tasks/helpers";
+import { Button } from "@repo/features/components/Button";
 
 type Props = {
+  visible: boolean;
   onClose: () => void;
 }
 
-function TaskPanelDialog({onClose}: Props) {
+export function TaskPanelDialog({visible, onClose}: Props) {
   const theme = useTheme();
   const ns = useNs();
 
   const [tasksToStart, setTasksToStart] = useState<Set<TaskId>>(new Set());
 
   const { taskManager } = useDashboard();
+
+  const taskRam = useMemo<Map<TaskId, number>>(() => {
+    let map = new Map<TaskId, number>();
+
+    for (const task of ALL_TASKS) {
+      map.set(task.id, ns.getScriptRam(getTaskScriptPath(task)));
+    }
+
+    return map;
+  }, [ALL_TASKS]);
+
+  // can't lazy load, so let's just not render
+  if (!visible) return null;
 
   const toggleSelected = (id: TaskId) => {
     setTasksToStart((prev) => {
@@ -27,6 +42,12 @@ function TaskPanelDialog({onClose}: Props) {
       else next.add(id);
       return next;
     });
+  }
+
+  const startTasks = () => {
+    taskManager.begin(Array.from(tasksToStart));
+    setTasksToStart(new Set());
+    onClose();
   }
 
   // Figure out which ports are in use
@@ -51,16 +72,6 @@ function TaskPanelDialog({onClose}: Props) {
       startableTasks.set(def.id, def.checkRequirements ? def.checkRequirements(ns) : undefined);
     }
   });
-
-  const taskRam = useMemo<Map<TaskId, number>>(() => {
-    let map = new Map<TaskId, number>();
-
-    for (const task of ALL_TASKS) {
-      map.set(task.id, ns.getScriptRam(getTaskScriptPath(task)));
-    }
-
-    return map;
-  }, [ALL_TASKS]);
 
   return (
     <>
@@ -128,7 +139,7 @@ function TaskPanelDialog({onClose}: Props) {
                     >
                       {(() => {
                         const entry = taskRam.get(task.id) ?? 0;
-                        if (!task.demand.unbounded) return `~ns.format.ram(entry)`;
+                        if (!task.demand.unbounded) return `~${ns.format.ram(entry)}`;
                         const cap = task.demand.maxRamDemand;
                         const upper = cap == null ? "∞" : ns.format.ram(cap);
                         return `from ~${ns.format.ram(entry)} to ~${upper}`;
@@ -154,10 +165,12 @@ function TaskPanelDialog({onClose}: Props) {
               </Col>
             );
           })}
+          <Row gap={theme.spacing.sm} style={{ justifyContent: "flex-end" }}>
+            <Button onClick={startTasks} disabled={tasksToStart.size === 0}>Start</Button>
+            <Button onClick={onClose}>Close</Button>
+          </Row>
         </Col>
       )}
     </>
   );
 }
-
-export default TaskPanelDialog;

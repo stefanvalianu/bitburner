@@ -50,10 +50,6 @@ export class TaskManager {
     this.gameState = gameState;
   }
 
-  isReallocating(): boolean {
-    return this.reallocating;
-  }
-
   // Triggers the manual creation of one or more task(s) to be placed/ran
   begin(taskIds: TaskId[]): void {
     if (this.reallocating) {
@@ -98,7 +94,7 @@ export class TaskManager {
   // Attempts to gracefully shutdown a given taskId
   shutdown(taskId: TaskId): void {
     if (this.reallocating) {
-      this.logger.warn(`Cannot shutdown ${taskId} while reallocation is in progress`);
+      this.logger.error(`Cannot shutdown ${taskId} while reallocation is in progress`);
       return;
     }
 
@@ -379,7 +375,7 @@ export class TaskManager {
     return this.taskState;
   }
 
-  get isBusy(): boolean {
+  get isReallocating(): boolean {
     return this.reallocating;
   }
 

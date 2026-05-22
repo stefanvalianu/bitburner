@@ -13,7 +13,7 @@ export async function main(ns: NS): Promise<void> {
   const userPreferences = getPortData<UserPreferences>(ns, USER_PREFERENCES_PORT);
   const nextBn = userPreferences?.nextBitNode ?? 12;
 
-  ns.singularity.destroyW0r1dD43m0n(nextBn, "main.js");
+  ns.singularity.destroyW0r1dD43m0n(nextBn, "bootstrap.js");
 
   invokeNextScript(ns);
 }

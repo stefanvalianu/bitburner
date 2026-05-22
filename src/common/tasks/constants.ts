@@ -1,0 +1,1 @@
+export const TASK_STATE_STORED_FILE = ".state/tasks.json";

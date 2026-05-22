@@ -28,6 +28,9 @@ export interface UserPreferences {
     the underlying constant.
   */
   hackMinimumMoneyPct?: number | undefined;
+
+  // The target shock level for sleeves to aim for before taking other actions.
+  sleeveShockTarget?: number | undefined;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {

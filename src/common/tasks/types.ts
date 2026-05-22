@@ -138,18 +138,3 @@ export interface WaitAndFreeTaskLeaseOptions {
   // completion
   forceKillOnExit?: boolean;
 }
-
-export interface SourcefileRequirement {
-  sourceFile: number;
-  level: number;
-}
-
-export interface Subscript {
-  scriptPath: string;
-
-  // Scripts that are not repeated will only run once.
-  repeated: boolean;
-
-  // Optionally define requirements to include this script in the chain
-  requirement?: SourcefileRequirement;
-}

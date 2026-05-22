@@ -5,8 +5,8 @@ export const ACTIONATOR_TASK_ID = "actionator";
 
 export const actionatorTask: TaskDefinition = {
   id: ACTIONATOR_TASK_ID,
-  description: "Takes various game actions like directing sleeves, the player, etc.",
-  icon: "👣",
+  description: "Repeatedly cycles through various tasks to take game actions that optimize RAM usage.",
+  icon: "♾️",
   autostart: true,
   demand: {
     priority: "critical",

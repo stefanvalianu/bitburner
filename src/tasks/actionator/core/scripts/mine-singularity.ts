@@ -1,11 +1,10 @@
 import { NS } from "@ns";
 import { INFO_MINER_QUEUE_PORT } from "@repo/common/ports";
-import { invokeNextScript } from "@repo/common/tasks/subscriptHelpers";
+import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 
 /*
   This script is responsible for:
-  - Backdooring all available servers
-  - Destroying the w0rld d3mon
+  - Updating the state of the player, their actions, etc
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");

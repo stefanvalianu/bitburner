@@ -1,7 +1,7 @@
 import { NS } from "@ns";
 import { GANG_INFO_PORT, INFO_MINER_QUEUE_PORT } from "@repo/common/ports";
 import { GangInfo } from "@repo/common/info/gangInfo";
-import { invokeNextScript } from "@repo/common/tasks/subscriptHelpers";
+import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 
 /*
   This script is responsible for:

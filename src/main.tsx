@@ -13,6 +13,8 @@ function killAllScripts(ns: NS): void {
     ns.killall(server.hostname);
   }
   ns.ui.setTailTitle("main.js killed");
+  ns.ui.setTailMinimized(true);
+  clearPorts(ns);
   ns.exit();
 }
 

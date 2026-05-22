@@ -1,12 +1,30 @@
 import { NS } from "@ns";
-import { Subscript } from "./types";
+
+export interface SourcefileRequirement {
+  sourceFile: number;
+  level: number;
+}
+
+export interface Subscript {
+  scriptPath: string;
+
+  /*
+    Scripts can repeat at 1 of 3 intervals:
+    Fast scripts update at the UX refresh rate
+    Slow scripts update at 3x the UX refresh rate
+    Scripts that don't repeat only run once.
+  */
+  repeat: "fast" | "slow" | "none";
+
+  // Optionally define requirements to include this script in the chain
+  requirement?: SourcefileRequirement;
+}
 
 export function invokeNextScript(ns: NS, queuePort: number): void {
   const nextScript = ns.readPort(queuePort) as string;
 
   if (nextScript === "NULL PORT DATA") {
-    // this chain of scripts is finished. we write back to the port to signal completion
-    ns.writePort(queuePort, Date.now());
+    // this chain of scripts is finished.
     return;
   }
    
@@ -14,16 +32,10 @@ export function invokeNextScript(ns: NS, queuePort: number): void {
   ns.spawn(nextScript, { spawnDelay: 0, temporary: true });
 }
 
-type RunnableSubscripts = {
-  oneOffPaths: string[];
-  repeatedPaths: string[];
-}
-
-export function identifyRunnableSubscripts(ns: NS, subscripts: Subscript[]): RunnableSubscripts {
+export function identifyRunnableSubscripts(ns: NS, subscripts: Subscript[]): Subscript[] {
   const sourceFiles = ns.getResetInfo().ownedSF;
 
-  let oneoffScripts: string[] = [];
-  let repeatedScripts: string[] = [];
+  let scripts: Subscript[] = [];
   
   for (const subscript of subscripts) {
     // figure out which scripts we actually want to run based on source file availability
@@ -32,13 +44,8 @@ export function identifyRunnableSubscripts(ns: NS, subscripts: Subscript[]): Run
       if (sourceFiles.get(subscript.requirement.sourceFile)! < subscript.requirement.level) continue;
     }
 
-    subscript.repeated ? 
-      repeatedScripts.push(subscript.scriptPath) :
-      oneoffScripts.push(subscript.scriptPath);
+    scripts.push(subscript);
   }
 
-  return {
-    oneOffPaths: oneoffScripts,
-    repeatedPaths: repeatedScripts,
-  };
+  return scripts;
 }

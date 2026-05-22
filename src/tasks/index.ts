@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import { TaskDefinition, TaskId, TaskState } from "@repo/common/tasks/types";
 import { GANG_BANGER_TASK_ID, gangBangerTask } from "./gang-banger/info";
 import { GangBangerPanel } from "./gang-banger/ux/panel";
-import { infoMinerTask } from "./info-miner/info";
 import { ULTRAHACKER_TASK_ID, ultrahackerTask } from "./ultrahacker/info";
 import { UltrahackerPanel } from "./ultrahacker/ux/panel";
 import { INFILTRATOR_TASK_ID, infiltratorTask } from "./infiltrator/info";
@@ -16,11 +15,9 @@ import { actionatorTask } from "./actionator/info";
 export const ALL_TASKS: TaskDefinition[] = [
   actionatorTask,
   contractSolverTask,
-  infoMinerTask,
   gangBangerTask,
   infiltratorTask,
   stockTraderTask,
-  //serverBuyerTask,
   ultrahackerTask,
 ];
 

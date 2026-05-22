@@ -2,70 +2,82 @@ import { NS } from "@ns";
 import { BaseTask } from "@repo/common/tasks/baseTask";
 import { ACTIONATOR_SUBSCRIPTS } from "./scripts";
 import { ACTIONATOR_QUEUE_PORT } from "@repo/common/ports";
-import { identifyRunnableSubscripts } from "@repo/common/tasks/subscriptHelpers";
-import { actionatorTask } from "../info";
+import { actionatorTask } from "@repo/tasks/actionator/info";
+import { identifyRunnableSubscripts } from "./helpers";
+import { MAIN_UX_REFRESH_INTERVAL } from "@repo/common/constants";
 
-// Changing actions every 3 seconds should be plenty
-const REFRESH_INTERVAL = 3000;
+const FAST_REFRESH_INTERVAL = MAIN_UX_REFRESH_INTERVAL;
+const SLOW_REFRESH_INTERVAL = 3000;
 
 class ActionatorTask extends BaseTask {
-  private readonly subscripts: string[];
-  private readonly oneoffSubscripts: string[];
+  private readonly oneOffScripts: string[];
+  private readonly fastScripts: string[];
+  private readonly slowScripts: string[];
 
   constructor(ns: NS) {
     super(ns, actionatorTask);
 
     const runnables = identifyRunnableSubscripts(ns, ACTIONATOR_SUBSCRIPTS);
-    this.subscripts = runnables.repeatedPaths;
-    this.oneoffSubscripts = runnables.oneOffPaths;
-    
-    this.log.info(`Actionator running with subscripts: ${this.subscripts.join(", ")}`);
+    this.oneOffScripts = [];
+    this.fastScripts = [];
+    this.slowScripts = [];
+
+    runnables.forEach(subscript => {
+      if (subscript.repeat === "fast") this.fastScripts.push(subscript.scriptPath);
+      else if (subscript.repeat === "slow") this.slowScripts.push(subscript.scriptPath);
+      else if (subscript.repeat === "none") this.oneOffScripts.push(subscript.scriptPath);
+      else this.log.error(`Unhandled subscript`, subscript);
+    });
+
+    this.log.info(`Actionator running with ${runnables.length} subscripts.`);
   }
 
+  /*
+    This task works by spawning a subscript task, which will spawn the next subscript task, etc, etc
+    The order of the tasks is encoded in an array pased to each script, which shrinks every hop. Note there
+    could be issues if the whole chain takes fills up the port. If that's the case, there are
+    bigger performance issues to address
+  */
   protected async run_task(): Promise<void> {
-    let firstRun = true;
+    let lastFastRun: number = 0;
+    let lastSlowRun: number = 0;
 
     while (true) {
       if (!this.tick()) {
         return;
       }
 
-      /*
-        This task works by spawning a subscript task, which will spawn the next subscript task, etc, etc
-        The order of the tasks is encoded in an array pased to each script, which shrinks every hop. Note there
-        could be issues if the whole chain takes > REFRESH_INTERVAL. If that's the case, there are
-        bigger performance issues to address (and we could solve it by waiting for last task to write to port)
-      */
-      const startedAt = Date.now();
-      this.ns.clearPort(ACTIONATOR_QUEUE_PORT);
+      // on the first loop, queue the one-run subscripts
+      if (lastFastRun === 0 && lastSlowRun === 0) {
+        this.oneOffScripts.forEach(s => this.ns.writePort(ACTIONATOR_QUEUE_PORT, s));
+      }
+      
+      const now = Date.now();
+      let scriptsToQueue: string[] = [];
 
-      if (firstRun) {
-        this.oneoffSubscripts.forEach(s => this.ns.writePort(ACTIONATOR_QUEUE_PORT, s));
-        firstRun = false;
+      if (now > lastFastRun + FAST_REFRESH_INTERVAL) {
+        // overdue for a fast run
+        scriptsToQueue.push(...this.fastScripts);
+        lastFastRun = now;
       }
 
-      // put all the child scripts on the port queue (except the first)
-      for (let i = 1; i < this.subscripts.length; i++) {
-        this.ns.writePort(ACTIONATOR_QUEUE_PORT, this.subscripts[i]);
+      if (now > lastSlowRun + SLOW_REFRESH_INTERVAL) {
+        // overdue for a slow run
+        scriptsToQueue.push(...this.slowScripts);
+        lastSlowRun = now;    
       }
 
-      // chain is started here
-      this.ns.run(this.subscripts[0], { temporary: true });
+      if (scriptsToQueue.length > 0) {
+        // put all the child scripts on the port queue (except the first)
+        for (let i = 1; i < scriptsToQueue.length; i++) {
+          this.ns.writePort(ACTIONATOR_QUEUE_PORT, scriptsToQueue[i]);
+        }
 
-      // wait until the final script in the chain drains and writes back to the port
-      await this.ns.nextPortWrite(ACTIONATOR_QUEUE_PORT);
-
-      // compute the time taken for the chain to execute
-      const timeTaken = this.ns.readPort(ACTIONATOR_QUEUE_PORT) as number - startedAt;
-
-      // if we took more time to finish the chain than the UX refresh interval, note that
-      if (timeTaken > REFRESH_INTERVAL) {
-        this.log.warn(`Actionator scripts took ${timeTaken}ms to execute, which is above the main UX refresh interval of ${REFRESH_INTERVAL}ms.`);
-        continue;
+        // chain is started here
+        this.ns.run(scriptsToQueue[0], { temporary: true });
       }
 
-      // try to have this update every second to maintain the UX display freshness
-      await this.ns.asleep(REFRESH_INTERVAL - timeTaken);
+      await this.ns.asleep(FAST_REFRESH_INTERVAL);
     }
   }
 }

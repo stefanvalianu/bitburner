@@ -1,8 +1,12 @@
 import { NS } from "@ns";
 import { INFO_MINER_QUEUE_PORT, SLEEVE_INFO_PORT } from "@repo/common/ports";
 import { SleeveDetails, SleeveInfo } from "@repo/common/info/sleeveInfo";
-import { invokeNextScript } from "@repo/common/tasks/subscriptHelpers";
+import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 
+/*
+  This script is responsible for:
+  - Updating current information about the player's sleeves
+*/
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
   

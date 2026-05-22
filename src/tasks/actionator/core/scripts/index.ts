@@ -81,4 +81,17 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
     scriptPath: "tasks/actionator/core/scripts/direct-coding-contracts.js",
     repeat: "slow"
   },
+  {
+    /*
+      This script uses a minimum of 32GB of ram from the w0rld d3mon destruction.
+      As such, it should probably not be used/included until your default home
+      server has > 64gb of RAM, or it will be hard to auto-place
+    */
+    scriptPath: "tasks/actionator/core/scripts/direct-end-game.js",
+    repeat: "slow",
+    requirement: {
+      sourceFile: 4,
+      level: 3
+    }
+  },
 ];

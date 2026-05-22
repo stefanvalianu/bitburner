@@ -34,6 +34,9 @@ export interface UserPreferences {
 
   // whether to enable auto-purchasing of sleeve augmentations
   purchaseSleeveAugmentations: boolean;
+
+  // Next bitNode to jump to after destroying the world demon. Defaults to 12 (infinite)
+  nextBitNode?: number | undefined;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {

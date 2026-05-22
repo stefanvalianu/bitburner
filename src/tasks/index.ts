@@ -9,6 +9,7 @@ import { InfiltratorPanel } from "./infiltrator/ux/panel";
 import { STOCK_TRADER_TASK_ID, stockTraderTask } from "./stock-trader/info";
 import { StockTraderPanel } from "./stock-trader/ux/panel";
 import { actionatorTask } from "./actionator/info";
+import { backdoorerTask } from "./backdoorer/info";
 
 // highest in list = shows first in 'new task' UX per category
 export const ALL_TASKS: TaskDefinition[] = [
@@ -17,6 +18,7 @@ export const ALL_TASKS: TaskDefinition[] = [
   infiltratorTask,
   stockTraderTask,
   ultrahackerTask,
+  backdoorerTask,
 ];
 
 export const TASK_BY_ID: ReadonlyMap<TaskId, TaskDefinition> = new Map(

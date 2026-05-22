@@ -6,13 +6,19 @@ import { WorldIcon } from "@repo/features/components/Icons";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
 import { SectionHeading } from "@repo/features/components/SectionHeading";
 import { useDashboard } from "@repo/features/app/DashboardProvider";
+import { useNs } from "@repo/features/ns/NsProvider";
+import { BACKDOORER_STATE_PORT, getPortData } from "@repo/common/ports";
+import { BackdoorerState } from "@repo/tasks/backdoorer/info";
 
 export function ServerSubpanel() {
   const theme = useTheme();
+  const ns = useNs();
 
   const [mapOpen, setMapOpen] = useState<boolean>(false);
   
   const { state } = useDashboard();
+
+  const backdoorInfo = getPortData<BackdoorerState>(ns, BACKDOORER_STATE_PORT);
 
   return (
     <>
@@ -20,6 +26,11 @@ export function ServerSubpanel() {
       <span>
         {state.servers.filter((s) => s.hasAdminRights && !s.purchasedByPlayer).length} / {state.servers.filter((s) => !s.purchasedByPlayer).length} nuked
       </span>
+      { backdoorInfo &&
+        <span>
+          {backdoorInfo.numBackdoored} / {backdoorInfo.total} backdoored
+        </span>
+      }
       <Button onClick={() => setMapOpen(true)}>
         <WorldIcon color={theme.colors.info} />
         Map

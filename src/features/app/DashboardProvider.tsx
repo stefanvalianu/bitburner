@@ -6,6 +6,7 @@ import { MAIN_UX_REFRESH_INTERVAL } from "@repo/common/constants";
 import { usePropagator } from "./usePropagator";
 import { Player, Server } from "@ns";
 import { crawlServers } from "@repo/common/crawlServers";
+import { ServerHacker } from "../servers/serverHacker";
 
 export interface DashboardState {
   player: Player;
@@ -42,6 +43,8 @@ export function DashboardProvider ({ children }: Props) {
     () => new TaskManager(ns, gameStateRef, taskManagerLogger),
     [ns, taskManagerLogger],
   );
+
+  const serverHackerRef = useRef<ServerHacker | undefined>(new ServerHacker(ns, gameStateRef));
   
   // convert port state for the shared info ports into the context's state, triggering downstream re-renders
   useEffect(() => {
@@ -55,10 +58,17 @@ export function DashboardProvider ({ children }: Props) {
       
       taskManager.runTick();
 
+      if (serverHackerRef.current) {
+        if (!serverHackerRef.current.runTick()) {
+          taskManagerLogger.info(`All servers nuked.`);
+          serverHackerRef.current = undefined;
+        }
+      }
+
       setGameState(newState);
     }, MAIN_UX_REFRESH_INTERVAL);
     return () => clearInterval(id);
-  }, [ns, taskManager]);
+  }, [ns, taskManager, taskManagerLogger]);
 
   // no point in memoizing this since re-renders are only triggered by state updates, which would invalidate
   const controller = {

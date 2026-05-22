@@ -43,7 +43,7 @@ export class TaskManager {
   // once they've all actually terminated.
   private restartIds: Set<TaskId> = new Set();
 
-  constructor(ns: NS, gameState: MutableRefObject<DashboardState>,logger: Logger) {
+  constructor(ns: NS, gameState: MutableRefObject<DashboardState>, logger: Logger) {
     this.ns = ns;
     this.logger = logger;
     this.taskState = { tasks: new Map() } ;

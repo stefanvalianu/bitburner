@@ -12,6 +12,7 @@ function killAllScripts(ns: NS): void {
   for (const server of servers) {
     ns.killall(server.hostname);
   }
+  ns.ui.setTailTitle("main.js killed");
   ns.exit();
 }
 

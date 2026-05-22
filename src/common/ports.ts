@@ -20,14 +20,14 @@ export const USER_PREFERENCES_PORT = 4;
 export const KILLSWITCH_PORT = 5;
 
 // Used by one of the various hacking system tasks.
-//export const HACKING_SYSTEM_COMMUNICATION_PORT = 10;
+export const HACKING_SYSTEM_REQUEST_PORT = 10;
+export const HACKING_SYSTEM_STATE_PORT = 11;
 
 export const GANG_BANGER_STATE_PORT = 13;
 
 // Ports used by the info-miner task to post info snapshots for the main
 // dashboard (and potentially others) to consume
 export const INFO_MINER_QUEUE_PORT = 30;
-export const IDENTIFY_SERVERS_PORT = 31;
 export const SLEEVE_INFO_PORT = 32;
 export const GANG_INFO_PORT = 33;
 
@@ -42,8 +42,10 @@ export function clearPorts(ns: NS) {
   ns.clearPort(USER_PREFERENCES_PORT);
   ns.clearPort(KILLSWITCH_PORT);
 
+  ns.clearPort(HACKING_SYSTEM_REQUEST_PORT);
+  ns.clearPort(HACKING_SYSTEM_STATE_PORT);
+
   ns.clearPort(INFO_MINER_QUEUE_PORT);
-  ns.clearPort(IDENTIFY_SERVERS_PORT);
   ns.clearPort(SLEEVE_INFO_PORT);
   ns.clearPort(GANG_INFO_PORT);
 }

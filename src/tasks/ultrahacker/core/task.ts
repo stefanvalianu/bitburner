@@ -1,16 +1,14 @@
 import { NS, Player, Server } from "@ns";
-import { UltrahackerTaskState, ULTRAHACKER_TASK_ID, UserCommunicationRequest } from "../public/info";
-import { BaseSpawnerTask } from "../../../../../common/tasks/baseSpawnerTask";
-import { Lease, RAM_EPS } from "../../../../../common/tasks/allocator";
-import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "../../../script/constants";
-import {
-  HACK_MINIMUM_MONEY_PCT,
-  tryFindGrowWeakSplit,
-  tryFindHackWeakGrowWeakSplit,
-} from "../threadCalculations";
-import { applyGrow, applyWeak } from "./simulationHelpers";
+import { Lease, RAM_EPS } from "@repo/common/tasks/allocator";
+import { BaseSpawnerTask } from "@repo/common/tasks/baseSpawnerTask";
+import { UltrahackerRequest, ultrahackerTask, UltrahackerTaskState } from "@repo/tasks/ultrahacker/info";
+import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "./scripts";
+import { getPortData, HACKING_SYSTEM_REQUEST_PORT, USER_PREFERENCES_PORT } from "@repo/common/ports";
+import { HACK_MINIMUM_MONEY_PCT, tryFindGrowWeakSplit, tryFindHackWeakGrowWeakSplit } from "./threadCalculations";
 import { analyzeOptions } from "./analyzeOptions";
-import { getPortData, HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
+import { applyGrow, applyWeak } from "./simulationHelpers";
+import { crawlServers } from "@repo/common/crawlServers";
+import { UserPreferences } from "@repo/common/preferences";
 
 // Number of milliseconds we aim to keep between consecutive batch operations
 // landing. Enforced via per-script `additionalMsec`, NOT the outer loop's sleep
@@ -126,7 +124,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   private lastXpSampleAt = 0;
 
   constructor(ns: NS) {
-    super(ns, ULTRAHACKER_TASK_ID);
+    super(ns, ultrahackerTask);
 
     this.hackRam = this.ns.getScriptRam(HACK_SCRIPT);
     this.growRam = this.ns.getScriptRam(GROW_SCRIPT);
@@ -136,17 +134,18 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   protected async run_task(): Promise<void> {
     this.cleanOrphanWorkers();
 
+    let allTargetServers = crawlServers(this.ns).filter(s => !s.purchasedByPlayer && s.moneyMax && s.moneyMax > 0);
+
     while (true) {
-      if (this.shouldShutdown) {
-        this.killAndFreeAllInflight();
+      if (!this.tick()) {
         return;
       }
 
       // 1. Consume user comms. A re-target request does NOT kill in-flight
       // batches — they drain naturally.
-      const userReq = getPortData<UserCommunicationRequest>(
+      const userReq = getPortData<UltrahackerRequest>(
         this.ns,
-        HACKING_SYSTEM_COMMUNICATION_PORT,
+        HACKING_SYSTEM_REQUEST_PORT,
         true,
       );
       if (userReq) this.userTarget = userReq.targetServer;
@@ -170,13 +169,13 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       // User-configurable "minimum money fraction preserved per HWGW batch".
       // Falls back to the module default if the preference is unset. Read
       // once per tick; passed into both target ranking and per-batch sizing.
-      const hackMinimumMoneyPct =
-        this.snapshot.preferences.hackMinimumMoneyPct ?? HACK_MINIMUM_MONEY_PCT;
+      const userPreferences = getPortData<UserPreferences>(this.ns, USER_PREFERENCES_PORT);
+      const hackMinimumMoneyPct = userPreferences?.hackMinimumMoneyPct ?? HACK_MINIMUM_MONEY_PCT;
 
       const options = analyzeOptions(
         this.ns,
         player,
-        this.snapshot.allServers,
+        allTargetServers.map(s => this.ns.getServer(s.hostname)),
         hackMinimumMoneyPct,
       );
       const desired = this.userTarget ?? options[0]?.hostname;
@@ -217,7 +216,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
       // 5. Publish state. The panel must NOT call ns.formulas / ns.getPlayer
       // itself (each NS reference inflates the panel script's static RAM
       // cost), so the ranked target list is shipped through state.
-      this.patchState({
+      this.updateState({
         target: this.pipeline!.hostname,
         userTarget: this.userTarget,
         targetOptions: options,
@@ -227,10 +226,26 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         inFlightCount: this.pipeline!.inFlight.length,
         drainingCount: this.draining.length,
         lastTickAt: Date.now(),
-      });
+      } satisfies UltrahackerTaskState);
 
       await this.ns.sleep(POLL_INTERVAL_MS);
     }
+  }
+
+  protected override shutdown(): void {
+    const killOne = (entry: InflightBatch) => {
+      for (const pid of entry.pids) {
+        if (this.ns.isRunning(pid)) this.ns.kill(pid);
+      }
+      this.allocator.return(entry.lease.leaseId);
+    };
+
+    if (this.pipeline) {
+      for (const b of this.pipeline.inFlight) killOne(b);
+      this.pipeline.inFlight = [];
+    }
+    for (const b of this.draining) killOne(b);
+    this.draining = [];   
   }
 
   // Switch the active pipeline to a new target. Existing in-flight batches
@@ -310,23 +325,6 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
         inflight.splice(i, 1);
       }
     }
-  }
-
-  // Shutdown path: kill every in-flight pid and free every lease.
-  private killAndFreeAllInflight(): void {
-    const killOne = (entry: InflightBatch) => {
-      for (const pid of entry.pids) {
-        if (this.ns.isRunning(pid)) this.ns.kill(pid);
-      }
-      this.allocator.return(entry.lease.leaseId);
-    };
-
-    if (this.pipeline) {
-      for (const b of this.pipeline.inFlight) killOne(b);
-      this.pipeline.inFlight = [];
-    }
-    for (const b of this.draining) killOne(b);
-    this.draining = [];
   }
 
   // Burst-schedule pass: fill the allocator until either no host has enough
@@ -770,9 +768,11 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   // pool view doesn't see them, so leases sized against the pool would
   // overrun real free RAM and ns.exec would return 0 on the larger batches.
   private cleanOrphanWorkers(): void {
+    if (this.management_state === null || this.management_state.allocation === null) return;
+
     const targets = new Set<string>([HACK_SCRIPT, GROW_SCRIPT, WEAKEN_SCRIPT]);
     let killed = 0;
-    for (const slice of this.allocation.servers) {
+    for (const slice of this.management_state.allocation.servers) {
       for (const proc of this.ns.ps(slice.hostname)) {
         if (targets.has(proc.filename)) {
           this.ns.kill(proc.pid);

@@ -22,7 +22,6 @@ export function TaskTile({ id, state, canPin, disableShutdown, onStop, onPin }: 
   const slices = state.allocation?.servers ?? [];
   const ram = slices.reduce((sum, s) => sum + s.ram, 0);
   const canStop = state.status === "running" && !disableShutdown;
-  const canInspect = state.allocation !== null;
 
   const statusColor =
     state.status === "running"
@@ -71,8 +70,8 @@ export function TaskTile({ id, state, canPin, disableShutdown, onStop, onPin }: 
             <PinIcon color={theme.colors.info} title={`Pin ${id}`} />
           </Button>
         )}
-        <Button onClick={() => onStop(id)} variant="warn" disabled={!canStop}>
-          <PowerIcon color={canStop ? theme.colors.warning : theme.colors.secondary} title={`Stop ${id}`} />
+        <Button onClick={() => onStop(id)} variant="error" disabled={!canStop}>
+          <PowerIcon color={canStop ? theme.colors.hp : theme.colors.secondary} title={`Stop ${id}`} />
         </Button>
       </Row>
     </div>

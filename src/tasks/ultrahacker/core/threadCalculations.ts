@@ -1,5 +1,5 @@
 import { NS, Player, Server } from "@ns";
-import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "../../../script/constants";
+import { GROW_SCRIPT, HACK_SCRIPT, WEAKEN_SCRIPT } from "@repo/tasks/ultrahacker/core/scripts";
 import { applyGrow, applyHack, applyWeak } from "./simulationHelpers";
 
 // ideally, do not allow a single hack to take a machine lower than

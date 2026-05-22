@@ -1,23 +1,17 @@
-import type { ReactNode } from "react";
-import { useMemo } from "react";
-import type { NS } from "@ns";
-import { Button } from "../../../../../features/components/Button";
-import { Col } from "../../../../../features/components/Col";
-import { TargetIcon, UntargetIcon } from "../../../../../features/components/Icons";
-import { Row } from "../../../../../features/components/Row";
-import { SortableColumn, SortableTable } from "../../../../../features/components/SortableTable";
-import { useDashboardController } from "../../../useDashboardController";
-import { HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
-import { formatDuration } from "../../../formatting";
-import { TaskCustomPanel } from "../tasks";
-import {
-  ULTRAHACKER_TASK_ID,
-  UserCommunicationRequest,
-  type ServerAnalysis,
-  type UltrahackerTaskState,
-} from "./info";
-import { useTheme } from "../../../../../features/theme/ThemeProvider";
-import { useNs } from "../../../../../features/ns/NsProvider";
+import { NS } from "@ns";
+import { formatDuration } from "@repo/common/formatting";
+import { Button } from "@repo/features/components/Button";
+import { Col } from "@repo/features/components/Col";
+import { UntargetIcon, TargetIcon } from "@repo/features/components/Icons";
+import { Row } from "@repo/features/components/Row";
+import { SortableColumn, SortableTable } from "@repo/features/components/SortableTable";
+import { useNs } from "@repo/features/ns/NsProvider";
+import { useTheme } from "@repo/features/theme/ThemeProvider";
+import { TaskCustomPanel } from "@repo/tasks";
+import { ReactNode, useMemo } from "react";
+import { ServerAnalysis, UltrahackerTaskState, UltrahackerRequest } from "@repo/tasks/ultrahacker/info";
+import { getPortData, HACKING_SYSTEM_REQUEST_PORT, HACKING_SYSTEM_STATE_PORT } from "@repo/common/ports";
+import { useDashboard } from "@repo/features/app/DashboardProvider";
 
 type Theme = ReturnType<typeof useTheme>;
 
@@ -83,9 +77,10 @@ const buildColumns = (
 export const UltrahackerPanel: TaskCustomPanel = () => {
   const theme = useTheme();
   const ns = useNs();
-  const { state } = useDashboardController();
 
-  const taskState = state.tasks[ULTRAHACKER_TASK_ID] as unknown as UltrahackerTaskState | undefined;
+  const { state } = useDashboard();
+
+  const taskState = getPortData<UltrahackerTaskState>(ns, HACKING_SYSTEM_STATE_PORT);
   const target = taskState?.target ?? "";
   const userTarget = taskState?.userTarget;
   // Shipped from the task — see comment on UltrahackerTaskState.targetOptions
@@ -112,8 +107,8 @@ export const UltrahackerPanel: TaskCustomPanel = () => {
   // Current target's live security/money — read from the dashboard snapshot
   // so we don't keep stale fields in task state.
   const targetServer = useMemo(
-    () => (target ? state.allServers.find((s) => s.hostname === target) : undefined),
-    [target, state.allServers],
+    () => (target ? state.servers.find((s) => s.hostname === target) : undefined),
+    [target, state.servers],
   );
   const targetCurrentSecurity = targetServer?.hackDifficulty ?? 0;
   const targetMinSecurity = targetServer?.minDifficulty ?? 0;
@@ -128,15 +123,15 @@ export const UltrahackerPanel: TaskCustomPanel = () => {
 
   const handleTarget = (hostname: string) => {
     ns.writePort(
-      HACKING_SYSTEM_COMMUNICATION_PORT,
-      JSON.stringify({ targetServer: hostname } satisfies UserCommunicationRequest),
+      HACKING_SYSTEM_REQUEST_PORT,
+      JSON.stringify({ targetServer: hostname } satisfies UltrahackerRequest),
     );
   };
 
   const handleUntarget = () => {
     ns.writePort(
-      HACKING_SYSTEM_COMMUNICATION_PORT,
-      JSON.stringify({ targetServer: undefined } satisfies UserCommunicationRequest),
+      HACKING_SYSTEM_REQUEST_PORT,
+      JSON.stringify({ targetServer: undefined } satisfies UltrahackerRequest),
     );
   };
 

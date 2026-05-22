@@ -15,10 +15,6 @@ export interface Subscript {
 
 export const INFO_MINER_SUBSCRIPTS: Subscript[] = [
   {
-    scriptPath: "tasks/info-miner/core/scripts/identify-servers.js",
-    repeated: false,
-  },
-  {
     scriptPath: "tasks/info-miner/core/scripts/identify-singularity.js",
     repeated: false,
     requirement: {

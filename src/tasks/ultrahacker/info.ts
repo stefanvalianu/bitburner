@@ -1,9 +1,26 @@
-import { DashboardState } from "../../../dashboardTypes";
-import { HACKING_SYSTEM_COMMUNICATION_PORT } from "../../../ports";
-import { TaskDefinition, TaskState } from "../../../../../common/tasks/types";
-import { getPlayerMonitorState } from "../../player-monitor/info";
+import { NS } from "@ns";
+import { HACKING_SYSTEM_REQUEST_PORT, HACKING_SYSTEM_STATE_PORT } from "@repo/common/ports";
+import { TaskDefinition, TaskState } from "@repo/common/tasks/types";
 
 export const ULTRAHACKER_TASK_ID = "ultrahacker";
+
+export const ultrahackerTask: TaskDefinition = {
+  id: ULTRAHACKER_TASK_ID,
+  description: "Hacking controller to use in endgame.",
+  icon: "🏅",
+  autostart: false,
+  requestPort: HACKING_SYSTEM_REQUEST_PORT,
+  statePort: HACKING_SYSTEM_STATE_PORT,
+  demand: {
+    priority: "normal",
+    unbounded: true,
+  },
+  checkRequirements: (ns: NS) => {
+    if(!ns.fileExists(ns.enums.ProgramName.formulas, "home")) return "Missing Formulas.exe";
+
+    return undefined;
+  },
+};
 
 export interface ServerAnalysis {
   hostname: string;
@@ -20,7 +37,7 @@ export interface ServerAnalysis {
   xpPerSecond: number;
 }
 
-export interface UltrahackerTaskState extends TaskState {
+export interface UltrahackerTaskState {
   // active pipeline target the task is currently scheduling batches against
   target: string;
 
@@ -57,27 +74,7 @@ export interface UltrahackerTaskState extends TaskState {
   lastTickAt: number;
 }
 
-export interface UserCommunicationRequest {
+export interface UltrahackerRequest {
   // Which server should the ultrahacker target
   targetServer?: string | undefined;
 }
-
-export const ultrahackerTask: TaskDefinition = {
-  id: ULTRAHACKER_TASK_ID,
-  description: "Hacking controller to use in endgame.",
-  category: "hacking",
-  icon: "🏅",
-  autostart: false,
-  communicationPort: HACKING_SYSTEM_COMMUNICATION_PORT,
-  demand: {
-    priority: "normal",
-    unbounded: true,
-  },
-  checkRequirements: (state: DashboardState) => {
-    const playerState = getPlayerMonitorState(state);
-    if (playerState === undefined || playerState.inventory === undefined) return "Just a sec...";
-    if (!playerState.inventory.hasFormulas) return "Missing Formulas.exe";
-
-    return undefined;
-  },
-};

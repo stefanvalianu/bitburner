@@ -4,7 +4,7 @@ import { TaskDefinition } from "@repo/common/tasks/types";
 import { Allocator, Lease } from "@repo/common/tasks/allocator";
 import { getTaskScriptPath } from "./helpers";
 
-export abstract class BaseSpawnerTask extends BaseTask {
+export abstract class BaseSpawnerTask<TState = undefined> extends BaseTask<TState> {
   protected readonly allocator: Allocator;
   protected readonly childPids: number[];
 

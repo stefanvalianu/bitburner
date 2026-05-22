@@ -1,6 +1,5 @@
 import { NS, Player, Server } from "@ns";
-import { ServerInfo } from "../../../dashboardTypes";
-import { ServerAnalysis } from "../public/info";
+import { ServerAnalysis } from "@repo/tasks/ultrahacker/info";
 
 // Predicate for "can this server be the subject of a HWGW pipeline?".
 // Exported so any code path that hands a server to thread-calc helpers can
@@ -25,7 +24,7 @@ export function isHackableServer(s: Server): boolean {
 export function analyzeOptions(
   ns: NS,
   player: Player,
-  allServers: ServerInfo[],
+  allServers: Server[],
   hackMinimumMoneyPct: number,
 ): ServerAnalysis[] {
   // identify all the options and simulate them in optimal conditions

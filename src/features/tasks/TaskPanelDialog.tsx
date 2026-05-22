@@ -166,7 +166,7 @@ export function TaskPanelDialog({visible, onClose}: Props) {
             );
           })}
           <Row gap={theme.spacing.sm} style={{ justifyContent: "flex-end" }}>
-            <Button onClick={startTasks} disabled={tasksToStart.size === 0}>Start</Button>
+            <Button onClick={startTasks} disabled={tasksToStart.size === 0} variant="primary">Start</Button>
             <Button onClick={onClose}>Close</Button>
           </Row>
         </Col>

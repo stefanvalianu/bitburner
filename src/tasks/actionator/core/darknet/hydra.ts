@@ -130,14 +130,12 @@ class HydraTask {
         {
           if (format === "numeric") {
             // 00000 passwords
-            let firstGuess = "0".repeat(length);
+            let guess = "0".repeat(length);
+            if (!attempted.has(guess)) return guess;
 
             // 12345 passwords
-            if (attempted.has(firstGuess)) {
-              return Array.from({ length: length }, (_, i) => i + 1).join("");
-            } else {
-              return firstGuess;
-            }
+            guess = Array.from({ length: length }, (_, i) => i + 1).join("");
+            if (!attempted.has(guess)) return guess;
           }
           if (format === "alphabetic")
           {

@@ -89,7 +89,6 @@ export async function main(ns: NS): Promise<void> {
     }
 
     // TODO here we will need to work for important companies until some threshold
-    ns.tprint(`hack ${hackMult} str ${strMult} def ${defMult} dex ${dexMult} agi ${agiMult}`);
 
     // Let's make the sleeves help the player train back up to a reasonable stat amount to help with infiltrations
     if (player.skills.hacking < 30 * hackMult) {

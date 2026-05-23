@@ -36,7 +36,9 @@ class GangBangerTask extends BaseTask {
       const territory = gangInfo?.territory ?? 0;
 
       // set members to their optimal tasks
-      assignOptimalGangTasks(this.ns, members);
+      try {
+        assignOptimalGangTasks(this.ns, members);
+      } catch {} // Handle edge cases of members dying while we try to getMemberInformation()
 
       if (territory === 1) {
         // we own all the land, peace on earth

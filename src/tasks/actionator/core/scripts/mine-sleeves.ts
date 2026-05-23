@@ -9,6 +9,7 @@ import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+  ns.atExit(() => invokeNextScript(ns));
   
   let sleeves: SleeveDetails[] = [];
 
@@ -38,6 +39,4 @@ export async function main(ns: NS): Promise<void> {
   ns.writePort(SLEEVE_INFO_PORT, {
     sleeves: sleeves
   } satisfies SleeveInfo);
-
-  invokeNextScript(ns);
 }

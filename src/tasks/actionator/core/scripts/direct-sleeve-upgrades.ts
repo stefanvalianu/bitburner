@@ -14,12 +14,12 @@ const PERCENTAGE_OF_BUDGET_TO_SPEND_ON_SLEEVE_UPGRADES = 0.3;
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+  ns.atExit(() => invokeNextScript(ns));
   
   const sleeveInfo = getPortData<SleeveInfo>(ns, SLEEVE_INFO_PORT);
   const userPreferences = getPortData<UserPreferences>(ns, USER_PREFERENCES_PORT);
 
   if (!sleeveInfo || userPreferences?.purchaseSleeveAugmentations === false) {
-    invokeNextScript(ns);
     return;
 
   }
@@ -37,12 +37,9 @@ export async function main(ns: NS): Promise<void> {
 
         if (budget <= 0) {
           // early exit
-          invokeNextScript(ns);
           return;
         }
       }
     }
   }
-
-  invokeNextScript(ns);
 }

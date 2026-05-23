@@ -1,7 +1,5 @@
 import { NS } from "@ns";
 import { crawlServers } from "@repo/common/crawlServers";
-import { getPortData, USER_PREFERENCES_PORT } from "@repo/common/ports";
-import { UserPreferences } from "@repo/common/preferences";
 import { invokeNextScript, requestTaskStart } from "@repo/tasks/actionator/core/helpers";
 import { BACKDOORER_TASK_ID } from "@repo/tasks/backdoorer/info";
 
@@ -12,13 +10,10 @@ import { BACKDOORER_TASK_ID } from "@repo/tasks/backdoorer/info";
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+  ns.atExit(() => invokeNextScript(ns));
 
   // if there are backdoorable servers, we should request for the backdooring task to start
   if (crawlServers(ns).find(s => !s.purchasedByPlayer && s.hackDifficulty && !s.backdoorInstalled) !== undefined) {
     requestTaskStart(ns, BACKDOORER_TASK_ID);
   }
-  
-  const userPreferences = getPortData<UserPreferences>(ns, USER_PREFERENCES_PORT);
-
-  invokeNextScript(ns);
 }

@@ -14,6 +14,7 @@ const POST_GANG_SHOCK_TARGET = 0;
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+  ns.atExit(() => invokeNextScript(ns));
   
   const sleeveInfo = getPortData<SleeveInfo>(ns, SLEEVE_INFO_PORT);
   const userPreferences = getPortData<UserPreferences>(ns, USER_PREFERENCES_PORT);
@@ -23,7 +24,6 @@ export async function main(ns: NS): Promise<void> {
 
   if (!sleeveInfo || (userPreferences?.pauseSleeveActions ?? false)) {
     // this kills the active script, but returning for clarity
-    invokeNextScript(ns);
     return;
   }
 
@@ -116,6 +116,4 @@ export async function main(ns: NS): Promise<void> {
       ns.sleeve.setToCommitCrime(sleeve.index, "Bond Forgery");
     }
   }
-
-  invokeNextScript(ns);
 }

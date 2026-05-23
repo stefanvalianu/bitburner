@@ -17,6 +17,7 @@ const MAX_GANG_MEMBERS = 12;
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+  ns.atExit(() => invokeNextScript(ns));
   
   const inGang = ns.gang.inGang();
   const player = ns.getPlayer();
@@ -38,7 +39,6 @@ export async function main(ns: NS): Promise<void> {
       maxMembers: MAX_GANG_MEMBERS,
       name: ""
     } satisfies GangInfo);
-    invokeNextScript(ns);
     return;
   }
 
@@ -61,6 +61,4 @@ export async function main(ns: NS): Promise<void> {
   if (members.length === MAX_GANG_MEMBERS && gang.territory === 1) {
     requestStopScriptAutorun(ns, MINE_GANG_SCRIPT_PATH);
   }
-
-  invokeNextScript(ns);
 }

@@ -16,12 +16,12 @@ export const GANG_EQUIPMENT_SCRIPT = "tasks/actionator/core/scripts/identify-gan
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+  ns.atExit(() => invokeNextScript(ns));
 
   let augmentations: string[] = [];
   let equipment: string[] = [];
 
   if (!ns.gang.inGang()) {
-    invokeNextScript(ns);
     return;
   }
 
@@ -49,6 +49,4 @@ export async function main(ns: NS): Promise<void> {
     re-setup on relaunch.
   */
   requestTaskStart(ns, GANG_BANGER_TASK_ID);
-
-  invokeNextScript(ns);
 }

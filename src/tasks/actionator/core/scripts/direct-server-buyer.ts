@@ -14,6 +14,7 @@ export const CLOUD_SERVER_PREFIX = "cloud";
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+  ns.atExit(() => invokeNextScript(ns));
   
   const userPreferences = getPortData<UserPreferences>(ns, USER_PREFERENCES_PORT);
   const shouldAutobuy = userPreferences?.autobuyServers || false;
@@ -21,7 +22,6 @@ export async function main(ns: NS): Promise<void> {
 
   if ((ns.getServerMoneyAvailable("home") - (userPreferences?.reservedMoney || 0)) <= 0 || (!shouldAutobuy && (purchaseRequests === undefined || purchaseRequests.length === 0))) {
     // no money, or nothing to do
-    invokeNextScript(ns);
     return;
   }
 
@@ -68,8 +68,6 @@ export async function main(ns: NS): Promise<void> {
       maxCloudServers: ns.cloud.getServerLimit(),
     } satisfies CloudServerState);
   }
-
-  invokeNextScript(ns);
 }
 
 // avoid trying to be tricky and just get the latest

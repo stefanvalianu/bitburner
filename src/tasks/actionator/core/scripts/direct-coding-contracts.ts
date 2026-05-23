@@ -14,6 +14,7 @@ const reset = "\u001b[0m";
 
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+  ns.atExit(() => invokeNextScript(ns));
   
   const servers = crawlServers(ns);
   for (const server of servers) {
@@ -24,8 +25,6 @@ export async function main(ns: NS): Promise<void> {
       solve(ns, contract);
     }
   }
-
-  invokeNextScript(ns);
 }
 
 function solve(ns: NS, contract: CodingContractObject): void {

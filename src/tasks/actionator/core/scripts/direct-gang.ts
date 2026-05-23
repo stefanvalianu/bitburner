@@ -23,6 +23,7 @@ const PERCENTAGE_OF_BUDGET_TO_SPEND_ON_EQUIPMENT = 0.15;
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+  ns.atExit(() => invokeNextScript(ns));
 
   const userPreferences = getPortData<UserPreferences>(ns, USER_PREFERENCES_PORT);
 
@@ -32,7 +33,6 @@ export async function main(ns: NS): Promise<void> {
 
   if (!gangInfo || !hasGang || !equipmentInfo) {
     // can't do anything until we're in a gang and have the info we need
-    invokeNextScript(ns);
     return;
   }
 
@@ -48,8 +48,6 @@ export async function main(ns: NS): Promise<void> {
   if (budget > 0) {
     purchaseGearForMembers(ns, budget, gangInfo, equipmentInfo);
   }
-
-  invokeNextScript(ns);
 }
 
 function purchaseGearForMembers(ns: NS, budget: number, gangInfo: GangInfo, equipmentInfo: GangEquipmentInfo): void {

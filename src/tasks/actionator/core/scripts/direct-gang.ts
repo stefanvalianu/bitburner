@@ -23,6 +23,7 @@ const PERCENTAGE_OF_BUDGET_TO_SPEND_ON_EQUIPMENT = 0.15;
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+  ns.atExit(() => invokeNextScript(ns));
 
   const userPreferences = getPortData<UserPreferences>(ns, USER_PREFERENCES_PORT);
 
@@ -32,7 +33,6 @@ export async function main(ns: NS): Promise<void> {
 
   if (!gangInfo || !hasGang || !equipmentInfo) {
     // can't do anything until we're in a gang and have the info we need
-    invokeNextScript(ns);
     return;
   }
 
@@ -48,8 +48,6 @@ export async function main(ns: NS): Promise<void> {
   if (budget > 0) {
     purchaseGearForMembers(ns, budget, gangInfo, equipmentInfo);
   }
-
-  invokeNextScript(ns);
 }
 
 function purchaseGearForMembers(ns: NS, budget: number, gangInfo: GangInfo, equipmentInfo: GangEquipmentInfo): void {
@@ -61,35 +59,30 @@ function purchaseGearForMembers(ns: NS, budget: number, gangInfo: GangInfo, equi
     }
   );
 
-  // loop through IV, III, II, I and try purchasing stuff
-  for (let i = 4; i > 0; i--) {
-    for (const member of membersWithoutAllEquipment) {
-      if (i !== member.rank) continue;
-
-      // first try purchasing augs
-      for (const augmentation of equipmentInfo.augmentations) {
-        if (budget <= 0) return;
-
-        const cost = ns.gang.getEquipmentCost(augmentation);
-        if (ns.gang.purchaseEquipment(member.name, augmentation)) {
-          budget -= cost;
-        }
-      }
-
+  for (const member of membersWithoutAllEquipment) {
+    // first try purchasing augs
+    for (const augmentation of equipmentInfo.augmentations) {
       if (budget <= 0) return;
 
-      // then try purchasing upgrades
-      for (const upgrade of equipmentInfo.normalEquipment) {
-        if (budget <= 0) return;
-
-        const cost = ns.gang.getEquipmentCost(upgrade);
-        if (ns.gang.purchaseEquipment(member.name, upgrade)) {
-          budget -= cost;
-        }
+      const cost = ns.gang.getEquipmentCost(augmentation);
+      if (cost <= budget && ns.gang.purchaseEquipment(member.name, augmentation)) {
+        budget -= cost;
       }
-
-      if (budget <= 0) return;
     }
+
+    if (budget <= 0) return;
+
+    // then try purchasing upgrades
+    for (const upgrade of equipmentInfo.normalEquipment) {
+      if (budget <= 0) return;
+
+      const cost = ns.gang.getEquipmentCost(upgrade);
+      if (cost <= budget && ns.gang.purchaseEquipment(member.name, upgrade)) {
+        budget -= cost;
+      }
+    }
+
+    if (budget <= 0) return;
   }
 }
 

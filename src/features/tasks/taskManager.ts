@@ -15,6 +15,7 @@ import { getTaskScriptPath } from "@repo/common/tasks/helpers";
 import { crawlServers } from "@repo/common/crawlServers";
 import { DashboardState } from "../app/DashboardProvider";
 import { MutableRefObject } from "react";
+import { TASK_STATE_STORED_FILE } from "@repo/common/tasks/constants";
 
 // RAM held back from the allocator on `home` for the dashboard process and
 // any ad-hoc scripts the player launches outside the task manager. The pool
@@ -51,6 +52,25 @@ export class TaskManager {
     this.taskState = { tasks: new Map() } ;
     this.gameState = gameState;
     this.usedRam = 0;
+
+    this.loadTasksFromFile();
+  }
+
+  loadTasksFromFile(): void {
+    const raw = this.ns.read(TASK_STATE_STORED_FILE);
+    if (raw === "") return;
+    
+    const data = JSON.parse(raw) as TaskId[];
+    if (data) {
+      data.forEach(d => this.taskState.tasks.set(d, {
+        id: d,
+        allocation: null,
+        pid: null,
+        host: null,
+        shutdownRequested: false,
+        status: "requested"
+      }));
+    }
   }
 
   // Triggers the manual creation of one or more task(s) to be placed/ran
@@ -368,6 +388,12 @@ export class TaskManager {
     */
     this.ns.clearPort(TASK_STATE_PORT);
     this.ns.writePort(TASK_STATE_PORT, this.taskState);
+
+    let activeTaskIds: TaskId[] = [];
+    this.taskState.tasks.forEach(t => {
+      if (t.status === "running") activeTaskIds.push(t.id);
+    });
+    this.ns.write(TASK_STATE_STORED_FILE, JSON.stringify(activeTaskIds), "w");
   }
 
   reallocate(): void {
@@ -391,7 +417,9 @@ export class TaskManager {
   get shouldReallocate(): boolean {
     const total = this.totalAvailableRam;
 
-    return (total - this.usedRam) / total > REALLOCATE_SLACK_FRACTION;
+    // we need an unbound task and some extra headroom RAM to require reallocation
+    return (total - this.usedRam) / total > REALLOCATE_SLACK_FRACTION &&
+            ALL_TASKS.filter(t => t.demand.unbounded === true).find(t => this.taskState.tasks.has(t.id)) !== undefined;
   }
 
   get allocatedRam(): number {

@@ -20,6 +20,7 @@ import {
 } from "react";
 import { useNs } from "@repo/features/ns/NsProvider";
 import { DEFAULT_PREFERENCES, UserPreferences } from "@repo/common/preferences";
+import { USER_PREFERENCES_PORT } from "@repo/common/ports";
 
 const PREFERENCES_FILE = ".state/preferences.json";
 
@@ -49,6 +50,11 @@ export function PreferencesProvider({ children }: Props) {
       return DEFAULT_PREFERENCES;
     }
   });
+
+  useEffect(() => {
+    ns.clearPort(USER_PREFERENCES_PORT);
+    ns.writePort(USER_PREFERENCES_PORT, preferences);
+  }, [preferences]);
 
   const preferencesRef = useRef<UserPreferences>(preferences);
   useEffect(() => {

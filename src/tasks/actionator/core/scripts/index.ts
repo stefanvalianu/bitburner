@@ -7,14 +7,14 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
   /*
     One-Off subscripts
   */
-  {
+  /*{
     scriptPath: "tasks/actionator/core/scripts/identify-singularity.js",
     repeat: "none",
     requirement: {
       sourceFile: 4,
       level: 1 // this script is cheap enough that we can justify it at 16x GB
     }
-  },
+  },*/
   {
     scriptPath: GANG_EQUIPMENT_SCRIPT,
     repeat: "none",
@@ -43,13 +43,29 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
     }
   },
   {
+    scriptPath: "tasks/actionator/core/scripts/mine-hydra.js",
+    repeat: "fast",
+  },
+  {
+    scriptPath: "tasks/actionator/core/scripts/mine-bladeburner-info.js",
+    repeat: "fast",
+  },
+  {
+    scriptPath: "tasks/actionator/core/scripts/mine-bladeburner-cities.js",
+    repeat: "fast",
+  },
+  {
+    scriptPath: "tasks/actionator/core/scripts/mine-bladeburner-actions.js",
+    repeat: "fast",
+  },
+  /*{
     scriptPath: "tasks/actionator/core/scripts/mine-singularity.js",
     repeat: "fast",
     requirement: {
       sourceFile: 4,
       level: 3
     }
-  },
+  },*/
   /*
     Slow subscripts (directing game systems)
   */
@@ -78,7 +94,22 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
     }
   },
   {
+    scriptPath: "tasks/actionator/core/scripts/direct-server-buyer.js",
+    repeat: "slow"
+  },
+  {
     scriptPath: "tasks/actionator/core/scripts/direct-coding-contracts.js",
     repeat: "slow"
   },
+  /*{
+    // This script uses a minimum of 32GB of ram from the w0rld d3mon destruction.
+    // As such, it should probably not be used/included until your default home
+    // server has > 64gb of RAM, or it will be hard to auto-place
+    scriptPath: "tasks/actionator/core/scripts/direct-end-game.js",
+    repeat: "slow",
+    requirement: {
+      sourceFile: 4,
+      level: 3
+    }
+  },*/
 ];

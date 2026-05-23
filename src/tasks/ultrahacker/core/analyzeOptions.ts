@@ -54,6 +54,9 @@ function profitCalculation(
   player: Player,
   hackMinimumMoneyPct: number,
 ): number {
+  // safety check - make sure hacking returns non-0 %
+  if (0 === ns.formulas.hacking.hackPercent(server, player)) return 0;
+
   const time = approximateBatchTime(ns, server, player);
   const chance = ns.formulas.hacking.hackChance(server, player);
   // tryFindHackWeakGrowWeakSplit sizes hack threads so each batch steals

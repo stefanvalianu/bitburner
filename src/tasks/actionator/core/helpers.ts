@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { ACTIONATOR_QUEUE_PORT, ACTIONATOR_REQUEST_PORT, TASK_EVENTS_PORT } from "@repo/common/ports";
+import { ACTIONATOR_QUEUE_PORT, ACTIONATOR_REQUEST_PORT, getPortData, TASK_EVENTS_PORT } from "@repo/common/ports";
 import { TaskEvent, TaskId } from "@repo/common/tasks/types";
 
 export interface SourcefileRequirement {
@@ -61,4 +61,15 @@ export function requestTaskStart(ns: NS, task: TaskId): void {
 
 export function requestStopScriptAutorun(ns: NS, script: string): void {
   ns.writePort(ACTIONATOR_REQUEST_PORT, script);
+}
+
+export function updatePartialState<TName>(ns: NS, port: number, update: Partial<TName>, base?: TName): void {
+  const state = base ?? getPortData<TName>(ns, port);
+  if (!state) return;
+
+  ns.clearPort(port);
+  ns.writePort(port, {
+    ...state,
+    ...update 
+  } satisfies TName);
 }

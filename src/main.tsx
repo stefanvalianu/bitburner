@@ -8,7 +8,7 @@ import { crawlServers } from "@repo/common/crawlServers";
 // we run killAll() on every possible server, instead of trusting
 // some other component to produce readable state for us.
 function killAllScripts(ns: NS): void {
-  const servers = crawlServers(ns);
+  const servers = crawlServers(ns, true);
   for (const server of servers) {
     ns.killall(server.hostname);
   }

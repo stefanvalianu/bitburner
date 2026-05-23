@@ -14,6 +14,7 @@ const POST_GANG_SHOCK_TARGET = 0;
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+  ns.atExit(() => invokeNextScript(ns));
   
   const sleeveInfo = getPortData<SleeveInfo>(ns, SLEEVE_INFO_PORT);
   const userPreferences = getPortData<UserPreferences>(ns, USER_PREFERENCES_PORT);
@@ -23,9 +24,15 @@ export async function main(ns: NS): Promise<void> {
 
   if (!sleeveInfo || (userPreferences?.pauseSleeveActions ?? false)) {
     // this kills the active script, but returning for clarity
-    invokeNextScript(ns);
     return;
   }
+
+  const player = ns.getPlayer();
+  const hackMult = player.mults.hacking + player.mults.hacking_exp;
+  const strMult = player.mults.strength + player.mults.strength_exp;
+  const defMult = player.mults.defense + player.mults.defense_exp;
+  const dexMult = player.mults.dexterity + player.mults.dexterity_exp;
+  const agiMult = player.mults.agility + player.mults.agility_exp;
 
   /*
     Each sleeve will follow the following heuristics:
@@ -81,10 +88,32 @@ export async function main(ns: NS): Promise<void> {
       continue;
     }
 
+    // TODO here we will need to work for important companies until some threshold
+
+    // Let's make the sleeves help the player train back up to a reasonable stat amount to help with infiltrations
+    if (player.skills.hacking < 30 * hackMult) {
+      ns.sleeve.setToUniversityCourse(sleeve.index, "Rothman University", "Algorithms");
+      continue;
+    }
+    if (player.skills.strength < 50 * strMult) {
+      ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "str");
+      continue;
+    }
+    if (player.skills.defense < 50 * defMult) {
+      ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "def");
+      continue;
+    }
+    if (player.skills.dexterity < 20 * dexMult) {
+      ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "dex");
+      continue;
+    }
+    if (player.skills.agility < 20 * agiMult) {
+      ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "agi");
+      continue;
+    }
+
     if (crimeTask === null || crimeTask.crimeType !== "Bond Forgery") {
       ns.sleeve.setToCommitCrime(sleeve.index, "Bond Forgery");
     }
   }
-
-  invokeNextScript(ns);
 }

@@ -7,6 +7,5 @@ import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
-
-  invokeNextScript(ns);
+  ns.atExit(() => invokeNextScript(ns));
 }

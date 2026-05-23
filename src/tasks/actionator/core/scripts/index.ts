@@ -78,6 +78,10 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
     }
   },
   {
+    scriptPath: "tasks/actionator/core/scripts/direct-server-buyer.js",
+    repeat: "slow"
+  },
+  {
     scriptPath: "tasks/actionator/core/scripts/direct-coding-contracts.js",
     repeat: "slow"
   },

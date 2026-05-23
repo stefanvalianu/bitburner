@@ -38,7 +38,8 @@ export const GANG_INFO_PORT = 33;
 
 export const GANG_EQUIPMENT_PORT = 40;
 
-//export const SERVER_PURCHASE_COMMUNICATION_PORT = 11;
+export const CLOUD_SERVER_STATE_PORT = 41;
+export const CLOUD_SERVER_REQUEST_PORT = 42;
 
 // Ran on main dashboard start-up to avoid dirty state
 export function clearPorts(ns: NS) {
@@ -64,6 +65,9 @@ export function clearPorts(ns: NS) {
   ns.clearPort(GANG_INFO_PORT);
 
   ns.clearPort(GANG_EQUIPMENT_PORT);
+
+  ns.clearPort(CLOUD_SERVER_STATE_PORT);
+  ns.clearPort(CLOUD_SERVER_REQUEST_PORT);
 }
 
 // Use consume if you want to destroy the data after reading

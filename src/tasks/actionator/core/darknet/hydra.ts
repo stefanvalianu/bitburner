@@ -63,8 +63,8 @@ class HydraTask {
         for (const neighbor of neighbors) {
           await this.proliferate(neighbor);
         }
-      } catch(e) {
-        this.ns.tprint(`${red}Error${reset} during attempting proliferation: ${e}`);
+      } catch(e: any) {
+        this.ns.tprint(`${red}Error${reset} during attempting proliferation: ${JSON.stringify(e)}`);
         continue;
       }
       
@@ -85,17 +85,24 @@ class HydraTask {
       return;
     }
 
-    const password = this.getPasswordForModel(neighbor);
+    const attemptedPasswords = new Set<string>();
 
-    if (password === undefined) return;
+    // keep attempting to solve until the password solver gives us a duplicate password
+    let password = this.getPasswordForModel(neighbor, attemptedPasswords);
 
-    const result = await this.ns.dnet.authenticate(neighbor.hostname, password);
+    while (password !== undefined && !attemptedPasswords.has(password)) {
+      attemptedPasswords.add(password);
+      const result = await this.ns.dnet.authenticate(neighbor.hostname, password);
 
-    if (result.success) {
-      this.infect(neighbor.hostname);
-    } else {
-      this.ns.tprint(`${red}Failed${reset} to authenticate against ${red}${neighbor.hostname}${cyan} using password ${cyan}${password}${reset}`);
+      if (result.success) {
+        this.infect(neighbor.hostname);
+        return;
+      }
+
+      password = this.getPasswordForModel(neighbor, attemptedPasswords);
     }
+
+    this.ns.tprint(`Failed model ${red}${neighbor.modelId}${reset} hint: ${cyan}${neighbor.passwordHint}${reset} data: ${cyan}${neighbor.data}${reset} format: ${cyan}${neighbor.passwordFormat}${reset} len: ${cyan}${length}${reset} host: ${cyan}${neighbor.hostname}${reset} attempts: ${cyan}[${[...attemptedPasswords].join(" :: ")}]${reset}`);
   }
 
   private infect(target: string): void {
@@ -109,7 +116,7 @@ class HydraTask {
     }
   }
 
-  private getPasswordForModel(target: DarknetServer): string | undefined {
+  private getPasswordForModel(target: DarknetServer, attempted: Set<string>): string | undefined {
     const hint = target.passwordHint;
     const data = target.data;
     const format = target.passwordFormat;
@@ -122,7 +129,15 @@ class HydraTask {
       case "FreshInstall_1.0":
         {
           if (format === "numeric") {
-            return "0".repeat(length);
+            // 00000 passwords
+            let firstGuess = "0".repeat(length);
+
+            // 12345 passwords
+            if (attempted.has(firstGuess)) {
+              return Array.from({ length: length }, (_, i) => i + 1).join("");
+            } else {
+              return firstGuess;
+            }
           }
           if (format === "alphabetic")
           {
@@ -134,7 +149,7 @@ class HydraTask {
         {
           if (format === "numeric") {
             // remove non-digits
-            return hint.replace(/\D/g, "");
+            return hint.replace(/\D/g, "").substring(0, length);
           }
         }
 
@@ -142,12 +157,11 @@ class HydraTask {
         {
           if (format === "numeric") {
             // remove non-digits
-            return hint.replace(/\D/g, "");
+            return hint.replace(/\D/g, "").substring(0, length);
           }
         }
 
       default: 
-        this.ns.tprint(`UNHANDLED PW ${red}${target.modelId}${reset} hint: ${cyan}${hint}${reset} data: ${cyan}${data}${reset} format: ${cyan}${format}${reset} len: ${cyan}${length}${reset} host: ${cyan}${target.hostname}${reset}`);
         return undefined;
     }
   }

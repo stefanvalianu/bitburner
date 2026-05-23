@@ -46,6 +46,18 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
     scriptPath: "tasks/actionator/core/scripts/mine-hydra.js",
     repeat: "fast",
   },
+  {
+    scriptPath: "tasks/actionator/core/scripts/mine-bladeburner-info.js",
+    repeat: "fast",
+  },
+  {
+    scriptPath: "tasks/actionator/core/scripts/mine-bladeburner-cities.js",
+    repeat: "fast",
+  },
+  {
+    scriptPath: "tasks/actionator/core/scripts/mine-bladeburner-actions.js",
+    repeat: "fast",
+  },
   /*{
     scriptPath: "tasks/actionator/core/scripts/mine-singularity.js",
     repeat: "fast",

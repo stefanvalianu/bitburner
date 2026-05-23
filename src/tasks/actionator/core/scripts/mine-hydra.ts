@@ -66,5 +66,6 @@ export async function main(ns: NS): Promise<void> {
 }
 
 function updateState(ns: NS, state: HydraStatus): void {
+  ns.clearPort(HYDRA_STATE_PORT);
   ns.writePort(HYDRA_STATE_PORT, state);
 }

@@ -44,6 +44,8 @@ export const CLOUD_SERVER_REQUEST_PORT = 42;
 export const HYDRA_UPDATE_PORT = 45;
 export const HYDRA_STATE_PORT = 46;
 
+export const BLADEBURNER_STATE_PORT = 48;
+
 // Ran on main dashboard start-up to avoid dirty state
 export function clearPorts(ns: NS) {
   // clear core system ports
@@ -74,6 +76,8 @@ export function clearPorts(ns: NS) {
 
   ns.clearPort(HYDRA_UPDATE_PORT);
   ns.clearPort(HYDRA_STATE_PORT);
+
+  ns.clearPort(BLADEBURNER_STATE_PORT);
 }
 
 // Use consume if you want to destroy the data after reading

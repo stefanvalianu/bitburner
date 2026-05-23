@@ -63,6 +63,7 @@ export async function main(ns: NS): Promise<void> {
   }
 
   if (dirty) {
+    ns.clearPort(CLOUD_SERVER_STATE_PORT);
     ns.writePort(CLOUD_SERVER_STATE_PORT, {
       cloudServers: getCloudServers(ns),
       maxCloudServers: ns.cloud.getServerLimit(),

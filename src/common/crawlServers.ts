@@ -24,14 +24,17 @@ export interface ServerInfo {
   This is a common function as the core app requires accurate
   access to server info before any sub-tasks are spawned (to place tasks)
 */
-export function crawlServers(ns: NS): Server[] {
+export function crawlServers(ns: NS, includeDarknet?: boolean): Server[] {
   const visited = new Map<string, Server>();
   const queue: string[] = ["home"];
 
   while (queue.length > 0) {
     const hostname = queue.shift()!;
     if (visited.has(hostname)) continue;
-    visited.set(hostname, ns.getServer(hostname));
+
+    const cur = ns.getServer(hostname);
+    if (!includeDarknet && cur.isOnline !== undefined) continue; // skip darknet servers
+    visited.set(hostname, cur);
 
     for (const neighbor of ns.scan(hostname)) {
       if (!visited.has(neighbor)) queue.push(neighbor);

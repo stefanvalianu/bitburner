@@ -134,7 +134,7 @@ class UltrahackerTask extends BaseSpawnerTask<UltrahackerTaskState> {
   protected async run_task(): Promise<void> {
     this.cleanOrphanWorkers();
 
-    let allTargetServers = crawlServers(this.ns).filter(s => !s.purchasedByPlayer && s.moneyMax && s.moneyMax > 0);
+    let allTargetServers = crawlServers(this.ns).filter(s => !s.purchasedByPlayer && s.moneyMax && s.moneyMax > 0 && s.moneyAvailable);
 
     while (true) {
       if (!this.tick()) {

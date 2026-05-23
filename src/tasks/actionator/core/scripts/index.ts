@@ -42,6 +42,10 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
       level: 1
     }
   },
+  {
+    scriptPath: "tasks/actionator/core/scripts/mine-hydra.js",
+    repeat: "fast",
+  },
   /*{
     scriptPath: "tasks/actionator/core/scripts/mine-singularity.js",
     repeat: "fast",

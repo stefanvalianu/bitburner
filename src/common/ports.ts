@@ -41,6 +41,9 @@ export const GANG_EQUIPMENT_PORT = 40;
 export const CLOUD_SERVER_STATE_PORT = 41;
 export const CLOUD_SERVER_REQUEST_PORT = 42;
 
+export const HYDRA_OUTPUT_PORT = 45;
+export const HYDRA_STATE_PORT = 46;
+
 // Ran on main dashboard start-up to avoid dirty state
 export function clearPorts(ns: NS) {
   // clear core system ports
@@ -68,6 +71,9 @@ export function clearPorts(ns: NS) {
 
   ns.clearPort(CLOUD_SERVER_STATE_PORT);
   ns.clearPort(CLOUD_SERVER_REQUEST_PORT);
+
+  ns.clearPort(HYDRA_OUTPUT_PORT);
+  ns.clearPort(HYDRA_STATE_PORT);
 }
 
 // Use consume if you want to destroy the data after reading

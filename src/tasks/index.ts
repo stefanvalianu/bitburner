@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 import { TaskDefinition, TaskId, TaskState } from "@repo/common/tasks/types";
-import { GANG_BANGER_TASK_ID, gangBangerTask } from "./gang-banger/info";
-import { GangBangerPanel } from "./gang-banger/ux/panel";
+import { gangBangerTask } from "./gang-banger/info";
 import { ULTRAHACKER_TASK_ID, ultrahackerTask } from "./ultrahacker/info";
 import { UltrahackerPanel } from "./ultrahacker/ux/panel";
 import { INFILTRATOR_TASK_ID, infiltratorTask } from "./infiltrator/info";
@@ -30,7 +29,6 @@ export type TaskCustomPanel = (props: { id: TaskId; slot: TaskState }) => ReactN
 export const TASK_CUSTOM_PANELS: Record<TaskId, TaskCustomPanel> = {
   [INFILTRATOR_TASK_ID]: InfiltratorPanel,
   [ULTRAHACKER_TASK_ID]: UltrahackerPanel,
-  [GANG_BANGER_TASK_ID]: GangBangerPanel,
   [STOCK_TRADER_TASK_ID]: StockTraderPanel,
 };
 

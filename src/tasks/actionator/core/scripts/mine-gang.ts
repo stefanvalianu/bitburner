@@ -34,7 +34,9 @@ export async function main(ns: NS): Promise<void> {
     ns.writePort(GANG_INFO_PORT, {
       hasGang: false,
       members: [],
-      territory: 0
+      territory: 0,
+      maxMembers: MAX_GANG_MEMBERS,
+      name: ""
     } satisfies GangInfo);
     invokeNextScript(ns);
     return;
@@ -50,7 +52,9 @@ export async function main(ns: NS): Promise<void> {
   ns.writePort(GANG_INFO_PORT, {
     hasGang: inGang,
     members: gangMembers,
-    territory: gang.territory
+    territory: gang.territory,
+    maxMembers: MAX_GANG_MEMBERS,
+    name: gang.faction
   } satisfies GangInfo);
 
   // if we're at max territory and max members, we don't need to update this info anymore

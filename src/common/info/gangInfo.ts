@@ -6,7 +6,10 @@ export interface GangInfo {
   hasGang: boolean;
 
   members: GangMember[];
+  maxMembers: number;
+
   territory: number;
+  name: string;
 }
 
 export interface GangEquipmentInfo {

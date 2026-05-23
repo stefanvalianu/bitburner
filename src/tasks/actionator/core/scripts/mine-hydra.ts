@@ -32,7 +32,6 @@ export async function main(ns: NS): Promise<void> {
       if (result.success) {
         updateState(ns, {
           servers: new Map([[host, {hostname: host} satisfies HydraServer]]),
-          poisoned: false,
         });
 
         // scp all files

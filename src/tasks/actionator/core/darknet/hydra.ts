@@ -22,11 +22,11 @@ class HydraTask {
 
   async run(): Promise<void> {
     this.ns.tprint(`Hydra starting`);
-    
+
     while (true) {
       const state = getPortData<HydraStatus>(this.ns, HYDRA_STATE_PORT);
 
-      if (state?.poisoned) {
+      if (state === undefined) {
         this.ns.exit();
       }
 

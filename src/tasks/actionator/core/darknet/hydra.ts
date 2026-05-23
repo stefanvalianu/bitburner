@@ -80,23 +80,27 @@ class HydraTask {
   }
 
   private async proliferate(neighbor: DarknetServer): Promise<void> {
-    if (neighbor.hasSession && !this.ns.isRunning(HYDRA_SCRIPT, neighbor.hostname)) {
+    if (neighbor.hasSession) {
       this.infect(neighbor.hostname);
       return;
     }
 
     const password = this.getPasswordForModel(neighbor);
 
+    if (password === undefined) return;
+
     const result = await this.ns.dnet.authenticate(neighbor.hostname, password);
 
     if (result.success) {
       this.infect(neighbor.hostname);
     } else {
-      //this.ns.tprint(`${red}Failed${reset} to authenticate against ${neighbor.hostname} of type ${neighbor.modelId}. Details: ${cyan}${JSON.stringify(result)}${reset}`);
+      this.ns.tprint(`${red}Failed${reset} to authenticate against ${red}${neighbor.hostname}${cyan} using password ${cyan}${password}${reset}`);
     }
   }
 
   private infect(target: string): void {
+    if (this.ns.isRunning(HYDRA_SCRIPT, target)) return;
+
     const files = this.ns.ls(this.hostname, ".js");
     this.ns.scp(files, target);
           
@@ -105,17 +109,46 @@ class HydraTask {
     }
   }
 
-  private getPasswordForModel(target: DarknetServer): string {
+  private getPasswordForModel(target: DarknetServer): string | undefined {
+    const hint = target.passwordHint;
+    const data = target.data;
+    const format = target.passwordFormat;
+    const length = target.passwordLength;
+
     switch (target.modelId) {
       case "ZeroLogon":
         return "";
 
-      //case "FreshInstall_1.0":
+      case "FreshInstall_1.0":
+        {
+          if (format === "numeric") {
+            return "0".repeat(length);
+          }
+          if (format === "alphabetic")
+          {
+            return "admin";
+          }
+        }
+
+      case "DeskMemo_3.1":
+        {
+          if (format === "numeric") {
+            // remove non-digits
+            return hint.replace(/\D/g, "");
+          }
+        }
+
+      case "CloudBlare(tm)":
+        {
+          if (format === "numeric") {
+            // remove non-digits
+            return hint.replace(/\D/g, "");
+          }
+        }
 
       default: 
-        this.ns.tprint(`${cyan}${target.modelId}${reset}: data ${target.data}, pwlen ${target.passwordLength}, pwformat ${target.passwordFormat}, pwhint ${red}${target.passwordHint}${reset}`);
-        //this.ns.tprint(`Unexpected modelId encountered: ${red}${target.modelId}${reset}`);
-        return "";
+        this.ns.tprint(`UNHANDLED PW ${red}${target.modelId}${reset} hint: ${cyan}${hint}${reset} data: ${cyan}${data}${reset} format: ${cyan}${format}${reset} len: ${cyan}${length}${reset} host: ${cyan}${target.hostname}${reset}`);
+        return undefined;
     }
   }
 

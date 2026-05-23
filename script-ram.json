@@ -93,7 +93,7 @@
   "tasks/actionator/core/scripts/identify-singularity.js": 5.8,
   "tasks/actionator/core/scripts/index.js": 1.7,
   "tasks/actionator/core/scripts/mine-gang.js": 9.2,
-  "tasks/actionator/core/scripts/mine-hydra.js": 6.25,
+  "tasks/actionator/core/scripts/mine-hydra.js": 6.45,
   "tasks/actionator/core/scripts/mine-singularity.js": 3.6,
   "tasks/actionator/core/scripts/mine-sleeves.js": 19.6,
   "tasks/actionator/core/task.js": 3.7,

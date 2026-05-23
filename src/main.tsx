@@ -1,8 +1,9 @@
 import type { NS } from "@ns";
-import { clearPorts, KILLSWITCH_PORT } from "@repo/common/ports";
+import { clearPorts, HYDRA_STATE_PORT, KILLSWITCH_PORT } from "@repo/common/ports";
 import { App } from "@repo/features/app/App";
 import { AppTitle } from "@repo/features/appTitle/AppTitle";
 import { crawlServers } from "@repo/common/crawlServers";
+import { HYDRA_EXIT_STATUS } from "./common/info/hydra";
 
 // Do a realtime scan of all servers to be triply sure that
 // we run killAll() on every possible server, instead of trusting
@@ -15,6 +16,7 @@ function killAllScripts(ns: NS): void {
   ns.ui.setTailTitle("main.js killed");
   ns.ui.setTailMinimized(true);
   clearPorts(ns);
+  ns.writePort(HYDRA_STATE_PORT, HYDRA_EXIT_STATUS);
   ns.exit();
 }
 

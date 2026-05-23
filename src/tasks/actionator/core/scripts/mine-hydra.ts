@@ -32,10 +32,16 @@ export async function main(ns: NS): Promise<void> {
       if (result.success) {
         updateState(ns, {
           servers: new Map([[host, {hostname: host} satisfies HydraServer]]),
+          poisoned: false,
         });
 
-        ns.scp(HYDRA_SCRIPT, host);
-        ns.exec(HYDRA_SCRIPT, host, { temporary: true });
+        // scp all files
+        const files = ns.ls("home", ".js");
+        ns.scp(files, host, "home");
+              
+        if (0 === ns.exec(HYDRA_SCRIPT, host)) {
+          ns.tprint(`Error starting hydra script.`);
+        }
       } else {
         ns.tprint(`Failed to authenticate to first server: ${JSON.stringify(result)}`);
       }

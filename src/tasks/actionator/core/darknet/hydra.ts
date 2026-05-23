@@ -21,9 +21,14 @@ class HydraTask {
   }
 
   async run(): Promise<void> {
+    this.ns.tprint(`Hydra starting`);
+    
     while (true) {
       const state = getPortData<HydraStatus>(this.ns, HYDRA_STATE_PORT);
-      if (state === undefined) return; // this state is only cleared on exit once written
+
+      if (state?.poisoned) {
+        this.ns.exit();
+      }
 
       this.ns.tprint(`ram: ${this.ns.getServerUsedRam()} / ${this.ns.dnet.getBlockedRam()}`);
       await this.ns.asleep(HYDRA_POLL_INTERVAL);

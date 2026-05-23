@@ -28,6 +28,11 @@ export async function main(ns: NS): Promise<void> {
   }
 
   const player = ns.getPlayer();
+  const hackMult = player.mults.hacking + player.mults.hacking_exp;
+  const strMult = player.mults.strength + player.mults.strength_exp;
+  const defMult = player.mults.defense + player.mults.defense_exp;
+  const dexMult = player.mults.dexterity + player.mults.dexterity_exp;
+  const agiMult = player.mults.agility + player.mults.agility_exp;
 
   /*
     Each sleeve will follow the following heuristics:
@@ -83,24 +88,27 @@ export async function main(ns: NS): Promise<void> {
       continue;
     }
 
-    // After the gang is up, let's make the sleeves help the player train back up to a reasonable stat amount to help with infiltrations
-    if (player.skills.hacking < 75) {
+    // TODO here we will need to work for important companies until some threshold
+    ns.tprint(`hack ${hackMult} str ${strMult} def ${defMult} dex ${dexMult} agi ${agiMult}`);
+
+    // Let's make the sleeves help the player train back up to a reasonable stat amount to help with infiltrations
+    if (player.skills.hacking < 30 * hackMult) {
       ns.sleeve.setToUniversityCourse(sleeve.index, "Rothman University", "Algorithms");
       continue;
     }
-    if (player.skills.strength < 100) {
+    if (player.skills.strength < 50 * strMult) {
       ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "str");
       continue;
     }
-    if (player.skills.defense < 100) {
+    if (player.skills.defense < 50 * defMult) {
       ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "def");
       continue;
     }
-    if (player.skills.dexterity < 75) {
+    if (player.skills.dexterity < 20 * dexMult) {
       ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "dex");
       continue;
     }
-    if (player.skills.agility < 75) {
+    if (player.skills.agility < 20 * agiMult) {
       ns.sleeve.setToGymWorkout(sleeve.index, "Powerhouse Gym", "agi");
       continue;
     }

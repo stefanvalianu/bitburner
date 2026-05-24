@@ -1,18 +1,18 @@
 import { NS } from "@ns";
 import { DarknetServer } from "@repo/tasks/actionator/core/darknet/types";
-import { Codebreaker } from "./codebreaker";
+import { Codebreaker, CodebreakerResult } from "./codebreaker";
 
 export class AccountsManagerCodebreaker extends Codebreaker {
   constructor(target: DarknetServer, ns: NS) { super(target, ns); }
   
-  async tryAuthenticate(): Promise<boolean> {
+  async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.target.passwordFormat === "numeric") {
       // guessing a number between X and Y. assume 0 and 10 for now.
       const numbers = this.getExactlyTwoNumbers(this.target.passwordHint);
 
       if (numbers === undefined) {
         this.printCoreInfo();
-        return false;
+        return { result: "impossible" };
       }
 
       let low = numbers[0];
@@ -24,7 +24,7 @@ export class AccountsManagerCodebreaker extends Codebreaker {
       const result = await this.ns.dnet.authenticate(this.target.hostname, guess.toString());
 
       if (result.success) {
-        return true;
+        return { result: "ok", password: guess.toString() };
       } else {
         this.ns.tprint(`result: ${JSON.stringify(result)}`);
 
@@ -38,7 +38,7 @@ export class AccountsManagerCodebreaker extends Codebreaker {
     }
 
     this.printCoreInfo();
-    return false;
+    return { result: "impossible" };
   }
 
   private getExactlyTwoNumbers(input: string): [number, number] | undefined {

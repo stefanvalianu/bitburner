@@ -1,5 +1,5 @@
 import { DarknetServerDetails, NS, Server } from "@ns";
-import { HydraStatus } from "@repo/common/info/hydra";
+import { getIdentifier, HydraStatus } from "@repo/common/info/hydra";
 import { getPortData, HYDRA_STATE_PORT } from "@repo/common/ports";
 import { HYDRA_TO_SCRIPT, HydraCore } from "./hydra-core";
 
@@ -21,12 +21,14 @@ interface Neighbor {
   Note that calling thread-positive scripts like heartbleed or phishingAttack will maximize thread usage by spawning
   (killing this host, running, then spawning back). This will enable maximal RAM usage on otherwise limited hardware.
 */
-class HydraTask extends HydraCore {
+class Hydra extends HydraCore {
   constructor(ns: NS) {
     super(ns);
   }
 
   async run(): Promise<void> {
+    // To avoid hyper-aggressive respawns, let's wait a tiny bit before continuing
+    await this.ns.asleep(1000);
     const state = getPortData<HydraStatus>(this.ns, HYDRA_STATE_PORT);
 
     // check for a kill-switch so we don't run after the main system is offline
@@ -60,30 +62,6 @@ class HydraTask extends HydraCore {
     // P4: spawn as a phisher
     this.respawn("phish");
   }
-/*
-  private async proliferate(neighbor: DarknetServer): Promise<void> {
-    if (neighbor.hasSession) {
-      this.infect(neighbor.hostname);
-      return;
-    }
-
-    const codebreaker = getCodebreaker(neighbor, this.ns);
-    if (await codebreaker.tryAuthenticate()) {
-      this.infect(neighbor.hostname);
-      return;
-    }
-   }
-
-  private infect(target: string): void {
-    if (this.ns.isRunning(HYDRA_SCRIPT, target)) return;
-
-    const files = this.ns.ls(this.host.hostname, ".js");
-    this.ns.scp(files, target);
-          
-    if (0 === this.ns.exec(HYDRA_SCRIPT, target, { temporary: true, preventDuplicates: true })) {
-      this.ns.tprint(`${RED}Error${RESET} starting hydra script against ${target}.`);
-    }
-  }*/
 
   /*
     TODO: can we run singularity backdoor() functions on servers to avoid needing neighhbor-exec
@@ -101,9 +79,11 @@ class HydraTask extends HydraCore {
       return {
         darknetServer: darknet,
         server: normal,
-        identity: this.getIdentifier(normal.hostname, normal.ip, darknet.modelId),
+        identity: getIdentifier(normal.hostname, normal.ip, darknet.modelId),
       } satisfies Neighbor
     }).filter(n => n.darknetServer.isOnline);
+
+    const playerCharisma = this.ns.getPlayer().skills.charisma;
 
     // Go through all servers, execing when necessary and identifying an infectable target
     let infectable: string | undefined = undefined;
@@ -114,7 +94,17 @@ class HydraTask extends HydraCore {
       const hydraServer = state.servers.get(neighbor.identity);
 
       if (hydraServer === undefined || hydraServer.password === undefined) {
-        // we've either never seen this server before, or we have but failed to crack it
+        // already found someone to break, don't need this
+        if (infectable) continue;
+
+        // we literally can't
+        if (state.uninfectableServers.has(neighbor.identity)) continue;
+
+        // ensure we have appropriate cha skill
+        if (neighbor.darknetServer.requiredCharismaSkill > playerCharisma) continue;
+
+        // seems like a good candidate to try infecting
+        infectable = neighbor.server.hostname;
       }
       else {
         // this is something we should be able to solve (unless somehow password expired?)
@@ -134,12 +124,12 @@ class HydraTask extends HydraCore {
   }
 
   private getIsRunningHydraScript(target: string): boolean {
-    return Object.values(HYDRA_TO_SCRIPT).find(script => this.ns.scriptRunning(script)) !== undefined;
+    return Object.values(HYDRA_TO_SCRIPT).find(script => this.ns.scriptRunning(script, target)) !== undefined;
   }
 }
 
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
 
-  await new HydraTask(ns).run();
+  await new Hydra(ns).run();
 }

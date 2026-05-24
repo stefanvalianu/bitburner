@@ -1,20 +1,21 @@
 import { NS } from "@ns";
 import { DarknetServer } from "@repo/tasks/actionator/core/darknet/types";
-import { Codebreaker } from "./codebreaker";
+import { Codebreaker, CodebreakerResult } from "./codebreaker";
 
 export class BellaCuoreCodebreaker extends Codebreaker {
   constructor(target: DarknetServer, ns: NS) { super(target, ns); }
 
-  async tryAuthenticate(): Promise<boolean> {
+  async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.target.passwordFormat === "numeric") {
-      const result = await this.ns.dnet.authenticate(this.target.hostname, this.romanNumeralToNumber(this.target.data).toString());
+      const password = this.romanNumeralToNumber(this.target.data).toString();
+      const result = await this.ns.dnet.authenticate(this.target.hostname, password);
       if (result.success) {
-        return true;
+        return { result: "ok", password };
       }
     }
 
     this.printCoreInfo();
-    return false;
+    return { result: "impossible" };
   }
 
   private romanNumeralToNumber(roman: string): number {

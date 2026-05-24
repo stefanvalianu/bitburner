@@ -1,18 +1,18 @@
 import { NS } from "@ns";
-import { Codebreaker } from "./codebreaker";
+import { Codebreaker, CodebreakerResult } from "./codebreaker";
 import { DarknetServer } from "@repo/tasks/actionator/core/darknet/types";
 
 export class ZeroLogonCodebreaker extends Codebreaker {
   constructor(target: DarknetServer, ns: NS) { super(target, ns); }
 
-  async tryAuthenticate(): Promise<boolean> {
+  async tryAuthenticate(): Promise<CodebreakerResult> {
     const result = await this.ns.dnet.authenticate(this.target.hostname, "");
 
     if (!result.success) {
       this.printCoreInfo();
-      return false;
+      return { result: "impossible" };
     }
 
-    return true;
+    return { result: "ok", password: "" };
   }
 }

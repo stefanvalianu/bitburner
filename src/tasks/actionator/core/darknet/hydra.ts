@@ -2,6 +2,7 @@ import { DarknetServerDetails, NS, Server } from "@ns";
 import { getIdentifier, HydraStatus } from "@repo/common/info/hydra";
 import { getPortData, HYDRA_STATE_PORT } from "@repo/common/ports";
 import { HYDRA_TO_SCRIPT, HydraCore } from "./hydra-core";
+import { solve } from "../contractSolvers";
 
 export const HYDRA_SCRIPT = "tasks/actionator/core/darknet/hydra.js";
 
@@ -44,11 +45,16 @@ class Hydra extends HydraCore {
       }
     }
 
+    // Check for coding contracts and solve them
+    const contracts = this.ns.ls(this.host.hostname, ".cct");
+
+    for (const cct of contracts) {
+      const contract = this.ns.codingcontract.getContract(cct, this.host.hostname);
+      solve(this.ns, contract);
+    }
+
     // Use the storm seed for chaos warping if available
     this.ns.dnet.unleashStormSeed();
-
-    // we should also check for coding contracts and do them!
-    // TODO
 
     // P1: if we have spare files sitting around, identify them and send them to the controller
     // TODO

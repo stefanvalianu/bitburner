@@ -25,11 +25,11 @@ class ReclaimHydra extends HydraCore {
     while (this.ns.dnet.getBlockedRam() > 0) {
       const result = await this.ns.dnet.memoryReallocation();
       if (!result.success) {
-      this.ns.tprint(`Weird error reclaiming ${this.host.identity}: ${JSON.stringify(result)}`);
+        this.ns.tprint(`Weird error reclaiming ${this.host.identity}: ${JSON.stringify(result)}`);
         break;
       }
     }
-
+    
     // always respawn as a main hydra
     this.respawn("main");
   }

@@ -28,7 +28,7 @@ class Hydra extends HydraCore {
 
   async run(): Promise<void> {
     // To avoid hyper-aggressive respawns, let's wait a tiny bit before continuing
-    await this.ns.asleep(1000);
+    await this.ns.asleep(600);
     const state = getPortData<HydraStatus>(this.ns, HYDRA_STATE_PORT);
 
     // check for a kill-switch so we don't run after the main system is offline
@@ -44,7 +44,9 @@ class Hydra extends HydraCore {
       }
     }
 
-    // P0.5: we should also check for coding contracts and do them!
+    // Use mysterious executables
+
+    // we should also check for coding contracts and do them!
     // TODO
 
     // P1: if we have spare files sitting around, identify them and send them to the controller
@@ -54,7 +56,6 @@ class Hydra extends HydraCore {
     const target = this.identify_infectable_neighbor(state);
     if (target) {
       this.respawn("proliferate", target);
-      return;
     }
 
     // P3: if we have un-claimed RAM, spawn as a reclaimer

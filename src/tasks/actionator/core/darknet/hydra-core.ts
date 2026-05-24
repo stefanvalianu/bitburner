@@ -39,7 +39,7 @@ export abstract class HydraCore {
   protected respawn(hydra: Hydra, arg?: string): void {
     const scriptPath = HYDRA_TO_SCRIPT[hydra];
     const scriptRam = this.ns.getScriptRam(scriptPath);
-    const maxRam = this.ns.getServerMaxRam();
+    const maxRam = this.ns.getServerMaxRam() - this.host.blockedRam;
 
     this.ns.spawn(scriptPath, { spawnDelay: 0, threads: Math.floor(maxRam / scriptRam), temporary: false, preventDuplicates: true }, arg ?? 0);
   }

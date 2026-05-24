@@ -26,6 +26,7 @@ export function getCodebreaker(target: DarknetServer, ns: NS): Codebreaker {
     case "Factori-Os":
     case "Pr0verFl0":
     case "NIL":
+    case "OpenWebAccessPoint":
     default: return new UnknownCodebreaker(target, ns);
   }
 }

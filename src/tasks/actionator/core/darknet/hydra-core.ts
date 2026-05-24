@@ -35,11 +35,16 @@ export abstract class HydraCore {
     Respawns the current hydra with a new one. Be aware that
     each sub-hydra should always respawn back into the main hydra to allow
     the main hydra to allow centralized communications/planning, etc.
+
+    Returns (doesn't spawn) if script cannot be placed.
   */
   protected respawn(hydra: Hydra, arg?: string): void {
     const scriptPath = HYDRA_TO_SCRIPT[hydra];
     const scriptRam = this.ns.getScriptRam(scriptPath);
     const maxRam = this.ns.getServerMaxRam() - this.host.blockedRam;
+    const threads = Math.floor(maxRam / scriptRam);
+
+    if (threads < 1) return;
 
     this.ns.spawn(scriptPath, { spawnDelay: 0, threads: Math.floor(maxRam / scriptRam), temporary: false, preventDuplicates: true }, arg ?? 0);
   }

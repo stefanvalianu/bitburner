@@ -71,6 +71,10 @@ class Hydra extends HydraCore {
 
     // P4: spawn as a phisher
     this.respawn("phish");
+
+    // if we reach here, it means we couldn't spawn. Wait until the net changes
+    await this.ns.dnet.nextMutation();
+    await this.run();
   }
 
   /*

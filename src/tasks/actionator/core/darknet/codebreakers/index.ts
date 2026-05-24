@@ -29,7 +29,10 @@ export function getCodebreaker(target: DarknetServer, ns: NS): Codebreaker {
     case "NIL": return new NilCodebreaker(target, ns);
     case "Factori-Os":
     case "Pr0verFl0":
+    case "KingOfTheHill":
+    case "RateMyPix.Auth":
     case "OpenWebAccessPoint":
+    case "(The Labyrinth)":
     default: return new UnknownCodebreaker(target, ns);
   }
 }

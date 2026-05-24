@@ -13,6 +13,7 @@ import { AccountsManagerCodebreaker } from "./accountsManager";
 import { DeepGreenCodebreaker } from "./deepGreen";
 import { LaikaCodebreaker } from "./laika";
 import { NilCodebreaker } from "./nil";
+import { OpenWebAccessPointCodebreaker } from "./openWebAccessPoint";
 
 export function getCodebreaker(target: DarknetServer, ns: NS): Codebreaker {
   switch (target.modelId) {
@@ -27,11 +28,11 @@ export function getCodebreaker(target: DarknetServer, ns: NS): Codebreaker {
     case "DeepGreen": return new DeepGreenCodebreaker(target, ns);
     case "Laika4": return new LaikaCodebreaker(target, ns);
     case "NIL": return new NilCodebreaker(target, ns);
+    case "OpenWebAccessPoint": return new OpenWebAccessPointCodebreaker(target, ns);
     case "Factori-Os":
     case "Pr0verFl0":
     case "KingOfTheHill":
     case "RateMyPix.Auth":
-    case "OpenWebAccessPoint":
     case "(The Labyrinth)":
     default: return new UnknownCodebreaker(target, ns);
   }

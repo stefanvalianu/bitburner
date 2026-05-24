@@ -47,7 +47,7 @@ export class AccountsManagerCodebreaker extends Codebreaker {
               logResult = JSON.parse(info.logs[0]) as PasswordAttemptLog;
             } catch {}
 
-            if (logResult && logResult.passwordAttempted) {
+            if (logResult && logResult.passwordAttempted && logResult.data) {
               const logGuess = Number(logResult.passwordAttempted);
               if (logGuess >= high || logGuess <= low) {
                 // This log seems stale, we're already closer to the target. re-generate a log

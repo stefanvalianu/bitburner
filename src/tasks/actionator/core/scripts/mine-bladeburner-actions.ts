@@ -44,7 +44,7 @@ function readActions(ns: NS): ActionInfo[] {
       actions.push({
         type,
         name,
-        count: ns.bladeburner.getActionCountRemaining(type, name),
+        count: Math.floor(ns.bladeburner.getActionCountRemaining(type, name)),
         level,
         chanceMin,
         chanceMax,

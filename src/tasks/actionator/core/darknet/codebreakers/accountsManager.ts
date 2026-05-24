@@ -32,29 +32,40 @@ export class AccountsManagerCodebreaker extends Codebreaker {
         if (result.success) {
           return { result: "ok", password };
         } else {
+          /*
+            This is tricky since we are choosing to consume the log, but many different servers could be 
+            running this operation (attacks from different sides). This means we really need to use the 
+            log as a general re-calibration and update our bounds accordingly. 
+          */
           const info = await this.ns.dnet.heartbleed(this.target.hostname);
 
           if (info.success && info.logs.length > 0) {
             const logResult = JSON.parse(info.logs[0]) as PasswordAttemptLog;
 
             if (logResult && logResult.passwordAttempted) {
-              if (logResult.passwordAttempted === password) {
-                // this is the right log
-                if (logResult.data.toLowerCase() === "lower") {
-                  high = guess;
-                } else {
-                  low = guess;
-                }
-
-                guess = Math.floor((low + high) / 2);
-                password = guess.toString();
+              const logGuess = Number(logResult.passwordAttempted);
+              if (logGuess >= high || logGuess <= low) {
+                // This log seems stale, we're already closer to the target. re-generate a log
                 result = await this.ns.dnet.authenticate(this.target.hostname, password);
+                continue;
               }
-            }
 
+              guess = logGuess;
+
+              if (logResult.data.toLowerCase() === "lower") {
+                high = guess;
+              } else {
+                low = guess;
+              }
+
+              guess = Math.floor((low + high) / 2);
+              password = guess.toString();
+              result = await this.ns.dnet.authenticate(this.target.hostname, password);
+            }
             // we probably read some other crappy log, keep trying (stay in the loop)
           } 
           else {
+            // some other hydra instance is competing with us for logs, let them get it
             break;
           }
         }

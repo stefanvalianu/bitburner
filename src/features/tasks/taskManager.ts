@@ -21,7 +21,7 @@ import { TASK_STATE_STORED_FILE } from "@repo/common/tasks/constants";
 // any ad-hoc scripts the player launches outside the task manager. The pool
 // is built from `maxRam`, not actual free RAM, so without this buffer tasks
 // would oversubscribe `home` and fail to exec.
-export const HOME_RESERVED_RAM_GB = 8;
+export const HOME_RESERVED_RAM_GB = 9;
 
 // Minimum fraction of total RAM that must be unallotted before the dashboard
 // offers a "Reallocate" action. Below this slack, redistribution can't move

@@ -90,6 +90,8 @@
   "tasks/actionator/core/darknet/codebreakers/deskMemo.js": 2,
   "tasks/actionator/core/darknet/codebreakers/freshInstall.js": 2,
   "tasks/actionator/core/darknet/codebreakers/index.js": 2.6,
+  "tasks/actionator/core/darknet/codebreakers/laika.js": 2,
+  "tasks/actionator/core/darknet/codebreakers/nil.js": 2.6,
   "tasks/actionator/core/darknet/codebreakers/octantVoxel.js": 2,
   "tasks/actionator/core/darknet/codebreakers/php.js": 2,
   "tasks/actionator/core/darknet/codebreakers/unknown.js": 1.6,

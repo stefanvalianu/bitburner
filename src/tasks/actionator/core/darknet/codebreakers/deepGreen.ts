@@ -147,7 +147,7 @@ export class DeepGreenCodebreaker extends Codebreaker {
               logResult = JSON.parse(info.logs[0]) as PasswordAttemptLog;
             } catch {}
 
-            if (logResult && logResult.passwordAttempted) {
+            if (logResult && logResult.passwordAttempted && logResult.data) {
               const feedback = logResult.data.split(",").map(s => s.trim());
               solver.applyFeedback(logResult.passwordAttempted, Number(feedback[0]), Number(feedback[1]));
 
@@ -158,8 +158,7 @@ export class DeepGreenCodebreaker extends Codebreaker {
           } 
           else {
             // some other hydra instance is competing with us for logs, let them get it
-            // TODO this might be risky here, potentially can cause resets across hydras before they solve
-            break;
+            return { result: "insufficient_data" };
           }
         }
       }

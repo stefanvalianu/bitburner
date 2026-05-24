@@ -70,7 +70,7 @@ export class AccountsManagerCodebreaker extends Codebreaker {
           } 
           else {
             // some other hydra instance is competing with us for logs, let them get it
-            break;
+            return { result: "insufficient_data" };
           }
         }
       }

@@ -29,6 +29,8 @@ const BLACK_OP_READY_CHANCE = 0.97;
 const BLACK_OP_SUPPORT_CHANCE = 0.86;
 const MAX_SUPPORT_SLEEVES = 4;
 
+type SleeveContract = "Retirement" | "Bounty Hunter" | "Tracking";
+
 /*
   This script is responsible for:
   - Assigning optimal tasks for sleeves
@@ -69,10 +71,10 @@ export async function main(ns: NS): Promise<void> {
   const needEstimates = inBladeburner && needsEstimateWork(ns);
   const shouldSupport = inBladeburner && shouldSupportMainBladeburner(ns);
 
-  let usedRetirement = false;
-  let usedBountyHunter = false;
-  let usedTracking = false;
-  let supportSleeves = 0;
+  let retirementOwner = findContractOwner(ns, sleeveInfo, "Retirement");
+  let bountyHunterOwner = findContractOwner(ns, sleeveInfo, "Bounty Hunter");
+  let trackingOwner = findContractOwner(ns, sleeveInfo, "Tracking");
+  let supportSleeves = countSupportSleeves(ns, sleeveInfo);
 
   for (const sleeve of sleeveInfo.sleeves) {
     const task = ns.sleeve.getTask(sleeve.index);
@@ -142,30 +144,48 @@ export async function main(ns: NS): Promise<void> {
     }
 
     if (inBladeburner) {
+      if (isBladeburnerContractTask(task, "Retirement")) {
+        if (retirementOwner === sleeve.index) {
+          continue;
+        }
+      }
+
+      if (isBladeburnerContractTask(task, "Bounty Hunter")) {
+        if (bountyHunterOwner === sleeve.index) {
+          continue;
+        }
+      }
+
+      if (isBladeburnerContractTask(task, "Tracking")) {
+        if (trackingOwner === sleeve.index) {
+          continue;
+        }
+      }
+
       if (
-        !usedRetirement &&
+        retirementOwner === -1 &&
         canSleeveDoContract(ns, sleeve.index, "Retirement", SLEEVE_CONTRACT_MIN_CHANCE)
       ) {
-        usedRetirement = true;
+        retirementOwner = sleeve.index;
         setSleeveContract(ns, sleeve.index, task, "Retirement");
         continue;
       }
 
       if (
-        !usedBountyHunter &&
+        bountyHunterOwner === -1 &&
         canSleeveDoContract(ns, sleeve.index, "Bounty Hunter", SLEEVE_CONTRACT_MIN_CHANCE)
       ) {
-        usedBountyHunter = true;
+        bountyHunterOwner = sleeve.index;
         setSleeveContract(ns, sleeve.index, task, "Bounty Hunter");
         continue;
       }
 
       if (
         needEstimates &&
-        !usedTracking &&
+        trackingOwner === -1 &&
         canSleeveDoContract(ns, sleeve.index, "Tracking", SLEEVE_TRACKING_MIN_CHANCE)
       ) {
-        usedTracking = true;
+        trackingOwner = sleeve.index;
         setSleeveContract(ns, sleeve.index, task, "Tracking");
         continue;
       }
@@ -193,10 +213,36 @@ export async function main(ns: NS): Promise<void> {
   }
 }
 
+function findContractOwner(
+  ns: NS,
+  sleeveInfo: SleeveInfo,
+  contract: SleeveContract,
+): number {
+  for (const sleeve of sleeveInfo.sleeves) {
+    if (isBladeburnerContractTask(ns.sleeve.getTask(sleeve.index), contract)) {
+      return sleeve.index;
+    }
+  }
+
+  return -1;
+}
+
+function countSupportSleeves(ns: NS, sleeveInfo: SleeveInfo): number {
+  let count = 0;
+
+  for (const sleeve of sleeveInfo.sleeves) {
+    if (ns.sleeve.getTask(sleeve.index)?.type === "SUPPORT") {
+      count++;
+    }
+  }
+
+  return count;
+}
+
 function canSleeveDoContract(
   ns: NS,
   sleeveIndex: number,
-  contract: "Retirement" | "Bounty Hunter" | "Tracking",
+  contract: SleeveContract,
   minChance: number,
 ): boolean {
   if (Math.floor(ns.bladeburner.getActionCountRemaining("Contracts", contract)) < 1) {
@@ -216,17 +262,24 @@ function setSleeveContract(
   ns: NS,
   sleeveIndex: number,
   task: SleeveTask | null,
-  contract: "Retirement" | "Bounty Hunter" | "Tracking",
+  contract: SleeveContract,
 ): void {
-  if (
-    task?.type === "BLADEBURNER" &&
-    task.actionType === "Contracts" &&
-    task.actionName === contract
-  ) {
+  if (isBladeburnerContractTask(task, contract)) {
     return;
   }
 
   ns.sleeve.setToBladeburnerAction(sleeveIndex, "Take on contracts", contract);
+}
+
+function isBladeburnerContractTask(
+  task: SleeveTask | null,
+  contract: SleeveContract,
+): boolean {
+  return (
+    task?.type === "BLADEBURNER" &&
+    task.actionType === "Contracts" &&
+    task.actionName === contract
+  );
 }
 
 function needsEstimateWork(ns: NS): boolean {

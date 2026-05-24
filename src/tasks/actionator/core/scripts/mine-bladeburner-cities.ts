@@ -13,6 +13,10 @@ export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
   ns.atExit(() => invokeNextScript(ns));
   
+  if (!ns.bladeburner.inBladeburner()) {
+    return;
+  }
+
   const state = getPortData<BladeburnerState>(ns, BLADEBURNER_STATE_PORT);
   if (!state) return;
 

@@ -3,6 +3,7 @@ import { getIdentifier, HydraInstanceUpdate, HydraServer, HydraStatus } from "@r
 import { drainPortData, getPortData, HYDRA_STATE_PORT, HYDRA_UPDATE_PORT } from "@repo/common/ports";
 import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 import { HYDRA_SCRIPT } from "@repo/tasks/actionator/core/darknet/hydra";
+import { bootstrapHydra } from "../darknet/bootstrap";
 
 /*
   This script is responsible for:
@@ -27,46 +28,16 @@ export async function main(ns: NS): Promise<void> {
   const data = getPortData<HydraStatus>(ns, HYDRA_STATE_PORT);
 
   // first run - spread hydra to darkweb
-  if (data === undefined || data.servers.size === 0) {
-    // we need to crack the first server and deploy hydra to it
-    const targets = ns.dnet.probe();
-
-    if (targets.length === 1) {
-      const host = targets[0];
-      const result = await ns.dnet.authenticate(host, "");
-
-      const identity = getIdentifier(host, ns.getServer(host).ip, ns.dnet.getServerDetails(host).modelId);
-
-      // note the 'darkweb' server is actually not being inserted by its identity, which is OK since we explicitly disallow traversing to it in the proliferfator.
-      if (result.success) {
-        updateState(ns, {
-          notesFound: new Map(),
-          uninfectableServers: new Set(),
-          servers: new Map(
-            [
-              [identity, {
-                depth: -1,
-                lastUpdate: Date.now(),
-                action: "none",
-                healthy: true,
-                password: "",
-                identity: identity,
-                hostname: host,
-              } satisfies HydraServer]
-            ])
-        });
-
-        // scp all files
-        const files = ns.ls("home", ".js");
-        ns.scp(files, host, "home");
-        ns.exec(HYDRA_SCRIPT, host, { temporary: false, preventDuplicates: true });
-      } else {
-        ns.tprint(`Failed to authenticate to first server: ${JSON.stringify(result)}`);
-      }
+  if (data === undefined) {
+    if (ns.getHostname() !== "home") {
+      // this script is not spawned on home; so the following spread to darknet won't work.
+      if(0 === ns.exec("tasks/actionator/core/darknet/homeBirth.js", "home", { temporary: true, preventDuplicates: true })) {
+        ns.tprint("Failed to spawn hydra birth script on home.");
+      };
     } else {
-      ns.tprint(`Unexpected results from ns.dnet.probe: ${targets.join(",")}`);
+      await bootstrapHydra(ns);
     }
-
+    
     return;
   }
 

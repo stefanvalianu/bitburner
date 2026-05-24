@@ -22,7 +22,7 @@ class ReclaimHydra extends HydraCore {
       lastUpdate: Date.now(),
     });
 
-    while (this.ns.dnet.getBlockedRam() > 0.99) {
+    while (this.ns.dnet.getBlockedRam() > 0) {
       const result = await this.ns.dnet.memoryReallocation();
       if (!result.success) {
       this.ns.tprint(`Weird error reclaiming ${this.host.identity}: ${JSON.stringify(result)}`);

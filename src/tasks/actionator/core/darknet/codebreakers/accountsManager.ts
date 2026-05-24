@@ -25,14 +25,13 @@ export class AccountsManagerCodebreaker extends Codebreaker {
       let guess = Math.floor((low + high) / 2);
       let password = guess.toString();
 
-      let result = await this.ns.dnet.authenticate(this.target.hostname, password);
+      let result = await this.authenticate(this.target.hostname, password);
 
       // binary search our way to the number
       while (low !== high) {
+        if (result === null) return { result: "transient" }
         if (result.success) {
           return { result: "ok", password };
-        } else if (result.code === 351) {
-          return { result: "disconnected" };
         } else {
           /*
             This is tricky since we are choosing to consume the log, but many different servers could be 
@@ -72,7 +71,7 @@ export class AccountsManagerCodebreaker extends Codebreaker {
           } 
           else {
             // some other hydra instance is competing with us for logs, let them get it
-            return { result: "retry" };
+            return { result: "transient" };
           }
         }
       }

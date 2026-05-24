@@ -26,12 +26,11 @@ export class OctantVoxelCodebreaker extends Codebreaker {
 
     // Important: "0" is a valid password, so do not use `if (password)`
     if (password !== undefined) {
-      const result = await this.ns.dnet.authenticate(this.target.hostname, password);
+      const result = await this.authenticate(this.target.hostname, password);
+      if (result === null) return { result: "transient" };
 
       if (result.success) {
         return { result: "ok", password };
-      } else if (result.code === 351) {
-        return { result: "disconnected" };
       }
     }
 

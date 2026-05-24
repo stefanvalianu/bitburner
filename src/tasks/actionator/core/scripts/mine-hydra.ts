@@ -59,10 +59,7 @@ export async function main(ns: NS): Promise<void> {
         // scp all files
         const files = ns.ls("home", ".js");
         ns.scp(files, host, "home");
-              
-        if (0 === ns.exec(HYDRA_SCRIPT, host, { temporary: false, preventDuplicates: true })) {
-          ns.tprint(`Error starting hydra script.`);
-        }
+        ns.exec(HYDRA_SCRIPT, host, { temporary: false, preventDuplicates: true });
       } else {
         ns.tprint(`Failed to authenticate to first server: ${JSON.stringify(result)}`);
       }

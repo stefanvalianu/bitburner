@@ -163,14 +163,13 @@ export class NilCodebreaker extends Codebreaker {
      });
     
     let password = solver.nextGuess();
-    let result = await this.ns.dnet.authenticate(this.target.hostname, password!);
+    let result = await this.authenticate(this.target.hostname, password!);
 
     // time to play some wordle
     while (!solver.solved) {
+      if (result === null) return { result: "transient" };
       if (result.success) {
         return { result: "ok", password: password };
-      } else if (result.code === 351) {
-        return { result: "disconnected" };
       } else {
         /*
           Reminder that multiple different instances of this hydra (on different hosts) could
@@ -195,7 +194,7 @@ export class NilCodebreaker extends Codebreaker {
         } 
         else {
           // some other hydra instance is competing with us for logs, let them get it
-          return { result: "retry" };
+          return { result: "transient" };
         }
       }
     }

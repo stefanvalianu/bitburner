@@ -1,9 +1,10 @@
-import { NS } from "@ns";
+import { DarknetResult, NS } from "@ns";
 import { CYAN, DarknetServer, RED, RESET } from "@repo/tasks/actionator/core/darknet/types";
 
 export interface CodebreakerResult {
-  // retry = missing some info. disconnected = server moved
-  result: "ok" | "retry" | "disconnected" | "impossible";
+  // Transient re-spawns back into a main hydra to potentially re-try.
+  // Impossible gets added to the hydra brain's blocklist.
+  result: "ok" | "transient" | "impossible";
 
   password?: string;
 };
@@ -18,6 +19,19 @@ export abstract class Codebreaker {
   }
 
   abstract tryAuthenticate(): Promise<CodebreakerResult>;
+
+  // Returns null if the status code indicates further authentications are pointless
+  protected async authenticate(target: string, password: string): Promise<null | DarknetResult & { data?: any; } > {
+    const result = await this.ns.dnet.authenticate(target, password);
+
+    if (!result.success) {
+      this.ns.tprint(`Failed authenticating to ${this.target.hostname} with statusCode: ${result.code}`);
+    }
+
+    if (result.code === 351) return null;
+
+    return result;
+  }
 
   protected printCoreInfo(): void {
     this.ns.tprint(`model: ${RED}${this.target.modelId}${RESET} host: ${CYAN}${this.target.hostname}${RESET}`);

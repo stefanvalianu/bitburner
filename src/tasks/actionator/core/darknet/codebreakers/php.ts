@@ -8,11 +8,10 @@ export class PhpCodebreaker extends Codebreaker {
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.target.passwordFormat === "numeric") {
       for (const password of this.getPermutations(this.target.data)) {
-        const result = await this.ns.dnet.authenticate(this.target.hostname, password);
+        const result = await this.authenticate(this.target.hostname, password);
+        if (result === null) return { result: "transient" };
         if (result.success) {
           return { result: "ok", password };
-        } else if (result.code === 351) {
-          return { result: "disconnected" };
         }
       }
     }

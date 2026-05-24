@@ -9,40 +9,36 @@ export class LaikaCodebreaker extends Codebreaker {
     if (this.target.passwordFormat === "alphabetic") {
       if (this.target.passwordLength === 3) {
         const password = "max";
-        const result = await this.ns.dnet.authenticate(this.target.hostname, password);
+        const result = await this.authenticate(this.target.hostname, password);
+        if (result === null) return { result: "transient" };
         
         if (result.success) {
           return { result: "ok", password };
-        } else if (result.code === 351) {
-        return { result: "disconnected" };
-      }
+        } 
       } else if (this.target.passwordLength === 5) {
         const password = "rover";
-        const result = await this.ns.dnet.authenticate(this.target.hostname, password);
+        const result = await this.authenticate(this.target.hostname, password);
+        if (result === null) return { result: "transient" };
         
         if (result.success) {
           return { result: "ok", password };
-        } else if (result.code === 351) {
-        return { result: "disconnected" };
-      }
+        }
       } else if (this.target.passwordLength === 4) {
         let password = "fido";
-        let result = await this.ns.dnet.authenticate(this.target.hostname, password);
+        let result = await this.authenticate(this.target.hostname, password);
+        if (result === null) return { result: "transient" };
         
         if (result.success) {
           return { result: "ok", password };
-        } else if (result.code === 351) {
-        return { result: "disconnected" };
-      }
+        }
 
         password = "spot";
-        result = await this.ns.dnet.authenticate(this.target.hostname, password);
+        result = await this.authenticate(this.target.hostname, password);
+        if (result === null) return { result: "transient" };
         
         if (result.success) {
           return { result: "ok", password };
-        } else if (result.code === 351) {
-        return { result: "disconnected" };
-      }
+        }
       }
     }
 

@@ -65,13 +65,10 @@ export function assignOptimalGangTasks(ns: NS, members: GangMember[]): void {
   for (const member of latestMembers) {
     const bestProductive = pickBestProductiveTask(ns, gangInfo, member, productiveTasks, stage);
 
-    // if we're in the recruiting stage, only terrorism-doers are relevant
-    // if we're past recruiting, bring members to r3
-    // in the money stage, bring members to r4
     const shouldTrain =
       !bestProductive ||
       (bestProductive.respect <= 0 && bestProductive.money <= 0) ||
-      (stage === "recruiting" && bestProductive.task.name !== "Terrorism");
+      (stage !== "money" && bestProductive.task.name !== "Terrorism");
 
     if (shouldTrain) {
       assignments.push({

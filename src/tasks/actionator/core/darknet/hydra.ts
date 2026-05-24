@@ -44,6 +44,9 @@ class Hydra extends HydraCore {
       }
     }
 
+    // P0.5: we should also check for coding contracts and do them!
+    // TODO
+
     // P1: if we have spare files sitting around, identify them and send them to the controller
     // TODO
 

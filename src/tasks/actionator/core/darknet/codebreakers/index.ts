@@ -10,6 +10,7 @@ import { OctantVoxelCodebreaker } from "./octantVoxel";
 import { Codebreaker } from "./codebreaker";
 import { UnknownCodebreaker } from "./unknown";
 import { AccountsManagerCodebreaker } from "./accountsManager";
+import { DeepGreenCodebreaker } from "./deepGreen";
 
 export function getCodebreaker(target: DarknetServer, ns: NS): Codebreaker {
   switch (target.modelId) {
@@ -21,8 +22,8 @@ export function getCodebreaker(target: DarknetServer, ns: NS): Codebreaker {
     case "BellaCuore": return new BellaCuoreCodebreaker(target, ns);
     case "OctantVoxel": return new OctantVoxelCodebreaker(target, ns);
     case "AccountsManager_4.2": return new AccountsManagerCodebreaker(target, ns);
+    case "DeepGreen": return new DeepGreenCodebreaker(target, ns);
     case "Laika4":
-    case "DeepGreen":
     case "Factori-Os":
     case "Pr0verFl0":
     case "NIL":

@@ -40,7 +40,11 @@ export class AccountsManagerCodebreaker extends Codebreaker {
           const info = await this.ns.dnet.heartbleed(this.target.hostname);
 
           if (info.success && info.logs.length > 0) {
-            const logResult = JSON.parse(info.logs[0]) as PasswordAttemptLog;
+            let logResult: PasswordAttemptLog | undefined;
+            
+            try {
+              logResult = JSON.parse(info.logs[0]) as PasswordAttemptLog;
+            } catch {}
 
             if (logResult && logResult.passwordAttempted) {
               const logGuess = Number(logResult.passwordAttempted);

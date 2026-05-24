@@ -24,12 +24,15 @@ export abstract class Codebreaker {
   protected async authenticate(target: string, password: string): Promise<null | DarknetResult & { data?: any; } > {
     const result = await this.ns.dnet.authenticate(target, password);
 
-    if (!result.success) {
-      this.ns.tprint(`Failed authenticating to ${this.target.hostname} with statusCode: ${result.code}`);
-    }
+    if (result.code === 401 ||
+        result.code === 200
+    ) return result;
 
-    if (result.code === 351) return null;
+    if (result.code === 351 ||
+        result.code === 503
+    ) return null;
 
+    this.ns.tprint(`Failed authenticating to ${this.target.hostname} with statusCode: ${result.code}`);
     return result;
   }
 

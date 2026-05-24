@@ -50,7 +50,8 @@ export async function main(ns: NS): Promise<void> {
                 action: "none",
                 healthy: true,
                 password: "",
-                identity: identity
+                identity: identity,
+                hostname: host,
               } satisfies HydraServer]
             ])
         });
@@ -59,7 +60,7 @@ export async function main(ns: NS): Promise<void> {
         const files = ns.ls("home", ".js");
         ns.scp(files, host, "home");
               
-        if (0 === ns.exec(HYDRA_SCRIPT, host, { temporary: true })) {
+        if (0 === ns.exec(HYDRA_SCRIPT, host, { temporary: false, preventDuplicates: true })) {
           ns.tprint(`Error starting hydra script.`);
         }
       } else {
@@ -74,7 +75,14 @@ export async function main(ns: NS): Promise<void> {
 
   // remove offline servers from our current state. Offline servers are essentially deleted
   for (const server of data.servers.values()) {
-    if (ns.dnet.getServerDetails(server.identity).isOnline === false) {
+    let remove: boolean = false;
+    try {
+      if (ns.dnet.getServerDetails(server.hostname).isOnline === false) {
+        remove = true;
+      }
+    } catch { 
+      remove = true;
+    } finally {
       data.servers.delete(server.identity);
       data.uninfectableServers.delete(server.identity);
     }
@@ -93,6 +101,7 @@ export async function main(ns: NS): Promise<void> {
             depth: update.depth!,
             healthy: true,
             identity: update.identity,
+            hostname: update.hostname,
             lastUpdate: update.lastUpdate,
             password: update.password
           } satisfies HydraServer;

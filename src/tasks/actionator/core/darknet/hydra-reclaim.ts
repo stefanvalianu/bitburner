@@ -19,6 +19,7 @@ class ReclaimHydra extends HydraCore {
       action: "reclaiming",
       depth: this.host.depth,
       identity: this.host.identity,
+      hostname: this.host.hostname,
       lastUpdate: Date.now(),
     });
 

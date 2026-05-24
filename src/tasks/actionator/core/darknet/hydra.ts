@@ -1,8 +1,7 @@
 import { DarknetServerDetails, NS, Server } from "@ns";
 import { getIdentifier, HydraStatus } from "@repo/common/info/hydra";
 import { getPortData, HYDRA_STATE_PORT } from "@repo/common/ports";
-import { HYDRA_TO_SCRIPT, HydraCore } from "./hydra-core";
-import { solve } from "../contractSolvers";
+import { HydraCore } from "./hydra-core";
 
 export const HYDRA_SCRIPT = "tasks/actionator/core/darknet/hydra.js";
 
@@ -49,8 +48,8 @@ class Hydra extends HydraCore {
     const contracts = this.ns.ls(this.host.hostname, ".cct");
 
     for (const cct of contracts) {
-      const contract = this.ns.codingcontract.getContract(cct, this.host.hostname);
-      solve(this.ns, contract);
+      // TODO - publish host+cct file to state so central solver can solve it.
+      // coding contract RAM is too expensive to include
     }
 
     // Use the storm seed for chaos warping if available
@@ -92,7 +91,7 @@ class Hydra extends HydraCore {
         server: normal,
         identity: getIdentifier(normal.hostname, normal.ip, darknet.modelId),
       } satisfies Neighbor
-    }).filter(n => n.darknetServer.isOnline);
+    }).filter(n => n.darknetServer.isOnline && !n.darknetServer.hasSession && n.darknetServer.isConnectedToCurrentServer);
 
     const playerCharisma = this.ns.getPlayer().skills.charisma;
 
@@ -121,10 +120,8 @@ class Hydra extends HydraCore {
         // this is something we should be able to solve (unless somehow password expired?)
         const result = this.ns.dnet.connectToSession(neighbor.server.hostname, hydraServer.password);
         if (result.success) {
-          if (!this.getIsRunningHydraScript(neighbor.server.hostname)) {
-            // server isn't running a hydra script, let's fix that
-            this.ns.exec(HYDRA_SCRIPT, neighbor.server.hostname, { preventDuplicates: true, temporary: false });
-          }
+          // we just connected, try execing a hydra. This will self-repair if a hydra and a spawned hydra are both running
+          this.ns.exec(HYDRA_SCRIPT, neighbor.server.hostname, { preventDuplicates: true, temporary: false });
         } else {
           this.ns.tprint(`Unexpected; tried to connect to known identity ${hydraServer.identity} with password ${hydraServer.password} but failed.`);
         }
@@ -132,10 +129,6 @@ class Hydra extends HydraCore {
     }
     
     return infectable;
-  }
-
-  private getIsRunningHydraScript(target: string): boolean {
-    return Object.values(HYDRA_TO_SCRIPT).find(script => this.ns.scriptRunning(script, target)) !== undefined;
   }
 }
 

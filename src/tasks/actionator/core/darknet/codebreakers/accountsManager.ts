@@ -31,6 +31,8 @@ export class AccountsManagerCodebreaker extends Codebreaker {
       while (low !== high) {
         if (result.success) {
           return { result: "ok", password };
+        } else if (result.code === 351) {
+          return { result: "disconnected" };
         } else {
           /*
             This is tricky since we are choosing to consume the log, but many different servers could be 
@@ -70,7 +72,7 @@ export class AccountsManagerCodebreaker extends Codebreaker {
           } 
           else {
             // some other hydra instance is competing with us for logs, let them get it
-            return { result: "insufficient_data" };
+            return { result: "retry" };
           }
         }
       }

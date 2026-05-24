@@ -11,6 +11,8 @@ export class FreshInstallCodebreaker extends Codebreaker {
       const result = await this.ns.dnet.authenticate(this.target.hostname, password);
       if (result.success) {
         return { result: "ok", password };
+      } else if (result.code === 351) {
+        return { result: "disconnected" };
       }
     }
     else if (this.target.passwordFormat === "numeric") {
@@ -19,12 +21,16 @@ export class FreshInstallCodebreaker extends Codebreaker {
       let result = await this.ns.dnet.authenticate(this.target.hostname, password);
       if (result.success) {
         return { result: "ok", password };
+      } else if (result.code === 351) {
+        return { result: "disconnected" };
       }
 
       password = Array.from({ length: this.target.passwordLength }, (_, i) => i + 1).join("");
       result = await this.ns.dnet.authenticate(this.target.hostname, password);
       if (result.success) {
         return { result: "ok", password };
+      } else if (result.code === 351) {
+        return { result: "disconnected" };
       }
     }
 

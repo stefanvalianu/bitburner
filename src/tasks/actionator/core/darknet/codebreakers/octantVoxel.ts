@@ -30,6 +30,8 @@ export class OctantVoxelCodebreaker extends Codebreaker {
 
       if (result.success) {
         return { result: "ok", password };
+      } else if (result.code === 351) {
+        return { result: "disconnected" };
       }
     }
 

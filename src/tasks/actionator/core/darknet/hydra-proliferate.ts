@@ -1,6 +1,5 @@
 import { NS } from "@ns";
-import { getIdentifier, HydraStatus } from "@repo/common/info/hydra";
-import { getPortData, HYDRA_STATE_PORT } from "@repo/common/ports";
+import { getIdentifier } from "@repo/common/info/hydra";
 import { HydraCore } from "./hydra-core";
 import { getCodebreaker } from "./codebreakers";
 import { DarknetServer } from "./types";
@@ -29,16 +28,19 @@ class ProliferateHydra extends HydraCore {
   }
 
   async run(): Promise<void> {
+    if (this.target.hasSession) {
+      this.ns.tprint(`${this.host.hostname} trying to proliferate ${this.target.hostname} but is already connected.`);
+      this.respawn("main");
+    }
+    
     this.sendUpdate({
       type: "action",
       action: "proliferating",
       depth: this.host.depth,
       identity: this.host.identity,
+      hostname: this.host.hostname,
       lastUpdate: Date.now(),
     });
-
-    // TODO - we will likely need the state to solve some passwords later on for fancier solvers
-    const _state = getPortData<HydraStatus>(this.ns, HYDRA_STATE_PORT);
 
     const codebreaker = getCodebreaker(this.target, this.ns);
     const result = await codebreaker.tryAuthenticate();
@@ -47,6 +49,7 @@ class ProliferateHydra extends HydraCore {
       this.sendUpdate({
         type: "action",
         identity: this.target.identity,
+        hostname: this.target.hostname,
         password: result.password,
         lastUpdate: Date.now(),
         action: "none",
@@ -59,6 +62,7 @@ class ProliferateHydra extends HydraCore {
       this.sendUpdate({
         type: "uninfectable",
         identity: this.target.identity,
+        hostname: this.target.hostname,
         lastUpdate: Date.now(),
       });
     }

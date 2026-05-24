@@ -15,6 +15,7 @@ class PhishHydra extends HydraCore {
       action: "phishing",
       depth: this.host.depth,
       identity: this.host.identity,
+      hostname: this.host.hostname,
       lastUpdate: Date.now(),
     });
 

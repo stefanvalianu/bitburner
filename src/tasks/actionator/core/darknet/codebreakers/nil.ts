@@ -169,6 +169,8 @@ export class NilCodebreaker extends Codebreaker {
     while (!solver.solved) {
       if (result.success) {
         return { result: "ok", password: password };
+      } else if (result.code === 351) {
+        return { result: "disconnected" };
       } else {
         /*
           Reminder that multiple different instances of this hydra (on different hosts) could
@@ -193,7 +195,7 @@ export class NilCodebreaker extends Codebreaker {
         } 
         else {
           // some other hydra instance is competing with us for logs, let them get it
-          return { result: "insufficient_data" };
+          return { result: "retry" };
         }
       }
     }

@@ -2,7 +2,8 @@ import { NS } from "@ns";
 import { CYAN, DarknetServer, RED, RESET } from "@repo/tasks/actionator/core/darknet/types";
 
 export interface CodebreakerResult {
-  result: "ok" | "insufficient_data" | "impossible";
+  // retry = missing some info. disconnected = server moved
+  result: "ok" | "retry" | "disconnected" | "impossible";
 
   password?: string;
 };

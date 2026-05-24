@@ -1,5 +1,6 @@
 export interface HydraServer {
   identity: string;
+  hostname: string;
   action: HydraAction;
   depth: number;
   password?: string;
@@ -40,6 +41,7 @@ export interface HydraInstanceUpdate {
   type: "action" | "noteFound" | "uninfectable";
 
   identity: string;
+  hostname: string;
   action?: HydraAction;
   depth?: number;
   password?: string;

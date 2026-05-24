@@ -11,6 +11,8 @@ export class DeskMemoCodebreaker extends Codebreaker {
       const result = await this.ns.dnet.authenticate(this.target.hostname, password);
       if (result.success) {
         return { result: "ok", password };
+      } else if (result.code === 351) {
+        return { result: "disconnected" };
       }
     }
 

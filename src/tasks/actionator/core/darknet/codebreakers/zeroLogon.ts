@@ -8,11 +8,13 @@ export class ZeroLogonCodebreaker extends Codebreaker {
   async tryAuthenticate(): Promise<CodebreakerResult> {
     const result = await this.ns.dnet.authenticate(this.target.hostname, "");
 
-    if (!result.success) {
-      this.printCoreInfo();
-      return { result: "impossible" };
+    if (result.success) {
+      return { result: "ok", password: "" };
+    } else if (result.code === 351) {
+      return { result: "disconnected" };
     }
 
-    return { result: "ok", password: "" };
+    this.printCoreInfo();
+    return { result: "impossible" };
   }
 }

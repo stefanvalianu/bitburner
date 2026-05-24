@@ -44,7 +44,8 @@ class Hydra extends HydraCore {
       }
     }
 
-    // Use mysterious executables
+    // Use the storm seed for chaos warping if available
+    this.ns.dnet.unleashStormSeed();
 
     // we should also check for coding contracts and do them!
     // TODO

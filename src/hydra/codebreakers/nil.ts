@@ -1,17 +1,30 @@
 import { DarknetServerDetails, NS } from "@ns";
-import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
+import { Codebreaker, CodebreakerResult } from "./codebreaker";
 
 const DIGITS = "0123456789";
 const LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
+const UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const LETTERS = LOWERCASE + UPPERCASE;
+const ALPHANUMERIC = DIGITS + LETTERS;
+
+type NilFeedbackLog = {
+  passwordAttempted: string;
+  data: string;
+};
 
 function alphabetForPasswordFormat(format: string): string {
   switch (format) {
     case "numeric":
       return DIGITS;
+
     case "alphabetic":
-      return LOWERCASE;
+      return LETTERS;
+
+    case "alphanumeric":
+      return ALPHANUMERIC;
+
     default:
-      return DIGITS + LOWERCASE;
+      return ALPHANUMERIC;
   }
 }
 
@@ -24,7 +37,13 @@ function parseYesntFeedback(response: string): boolean[] {
 }
 
 function parseYesntToken(token: string): boolean {
-  switch (token.toLowerCase()) {
+  const normalized = token
+    .trim()
+    .toLowerCase()
+    .replaceAll("’", "'")
+    .replace(/^["']|["']$/g, "");
+
+  switch (normalized) {
     case "yes":
       return true;
 
@@ -44,9 +63,6 @@ class NilSolver {
   constructor(
     private readonly length: number,
     alphabet: string,
-    options?: {
-      allowLeadingZero?: boolean;
-    }
   ) {
     const uniqueAlphabet = [...new Set(alphabet.split(""))];
 
@@ -54,17 +70,10 @@ class NilSolver {
       throw new Error("Alphabet must not be empty");
     }
 
-    const allowLeadingZero = options?.allowLeadingZero ?? true;
-
-    this.possibleByPosition = Array.from({ length }, (_, index) => {
-      let chars = [...uniqueAlphabet];
-
-      if (index === 0 && length > 1 && !allowLeadingZero) {
-        chars = chars.filter(char => char !== "0");
-      }
-
-      return chars;
-    });
+    this.possibleByPosition = Array.from(
+      { length },
+      () => [...uniqueAlphabet],
+    );
 
     this.fixed = Array.from({ length }, () => null);
   }
@@ -75,10 +84,6 @@ class NilSolver {
 
   get password(): string | null {
     return this.solved ? this.fixed.join("") : null;
-  }
-
-  get knownPattern(): string {
-    return this.fixed.map(char => char ?? "?").join("");
   }
 
   nextGuess(): string {
@@ -136,7 +141,7 @@ class NilSolver {
       }
 
       this.possibleByPosition[i] = this.possibleByPosition[i].filter(
-        char => char !== guessedChar
+        char => char !== guessedChar,
       );
 
       if (this.possibleByPosition[i].length === 1) {
@@ -150,50 +155,116 @@ export class NilCodebreaker extends Codebreaker {
   constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    const solver = new NilSolver(
-      this.target.passwordLength,
-     alphabetForPasswordFormat(this.target.passwordFormat), {
-      allowLeadingZero: this.target.passwordFormat !== "numeric",
-     });
-    
-    let password = solver.nextGuess();
-    let result = await this.authenticate(password!);
+    if (this.target.passwordLength <= 0) {
+      this.printCoreInfo();
+      return { result: "impossible" };
+    }
 
-    // time to play some wordle
-    while (!solver.solved) {
+    const alphabet = alphabetForPasswordFormat(this.target.passwordFormat);
+    const solver = new NilSolver(this.target.passwordLength, alphabet);
+
+    const maxAttempts = this.target.passwordLength * alphabet.length + 2;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      const password = solver.nextGuess();
+      const result = await this.authenticate(password);
+
       if (result === null) return { result: "transient" };
-      if (result.success) {
-        return { result: "ok", password: password };
-      } else {
-        /*
-          Reminder that multiple different instances of this hydra (on different hosts) could
-          be consuming the log.
-        */
-        const info = await this.ns.dnet.heartbleed(this.targetIp);
+      if (result.success) return { result: "ok", password };
 
-        if (info.success && info.logs.length > 0) {
-          let logResult: PasswordAttemptLog | undefined;
-          
-          try {
-            logResult = JSON.parse(info.logs[0]) as PasswordAttemptLog;
-          } catch {}
+      const feedback = await this.readFeedbackForPassword(password);
 
-          if (logResult && logResult.passwordAttempted && logResult.data) {
-            solver.applyFeedback(logResult.passwordAttempted, logResult.data);
+      if (feedback === undefined) {
+        return { result: "transient" };
+      }
 
-            password = solver.nextGuess();
-            result = await this.authenticate(password!);
-          }
-          // we probably read some other crappy log, keep trying (stay in the loop)
-        } 
-        else {
-          // some other hydra instance is competing with us for logs, let them get it
-          return { result: "transient" };
-        }
+      solver.applyFeedback(feedback.passwordAttempted, feedback.data);
+
+      const solvedPassword = solver.password;
+      if (solvedPassword !== null) {
+        const finalResult = await this.authenticate(solvedPassword);
+
+        if (finalResult === null) return { result: "transient" };
+        if (finalResult.success) return { result: "ok", password: solvedPassword };
+
+        this.printCoreInfo();
+        return { result: "impossible" };
       }
     }
 
     this.printCoreInfo();
     return { result: "impossible" };
+  }
+
+  private async readFeedbackForPassword(password: string): Promise<NilFeedbackLog | undefined> {
+    const info = await this.ns.dnet.heartbleed(this.targetIp, {
+      logsToCapture: 20,
+      peek: true,
+    });
+
+    if (!info.success) {
+      return undefined;
+    }
+
+    for (const log of info.logs) {
+      const parsed = this.parseFeedbackLog(log);
+
+      if (
+        parsed !== undefined &&
+        parsed.passwordAttempted === password &&
+        parsed.data.length > 0
+      ) {
+        return parsed;
+      }
+    }
+
+    return undefined;
+  }
+
+  private parseFeedbackLog(log: string): NilFeedbackLog | undefined {
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(log);
+    } catch {
+      return undefined;
+    }
+
+    const message = this.getMessageObject(parsed);
+
+    if (!this.isRecord(message)) {
+      return undefined;
+    }
+
+    const passwordAttempted = message.passwordAttempted;
+    const data = message.data;
+
+    if (typeof passwordAttempted !== "string" || typeof data !== "string") {
+      return undefined;
+    }
+
+    return { passwordAttempted, data };
+  }
+
+  private getMessageObject(value: unknown): unknown {
+    if (!this.isRecord(value)) {
+      return value;
+    }
+
+    const message = value.message;
+
+    if (typeof message === "string") {
+      try {
+        return JSON.parse(message);
+      } catch {
+        return message;
+      }
+    }
+
+    return message ?? value;
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
   }
 }

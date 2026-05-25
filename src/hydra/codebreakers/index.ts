@@ -17,6 +17,7 @@ import { FactoriOsCodebreaker } from "./factoriOs";
 import { RateMyPixCodebreaker } from "./rateMyPix";
 import { EurozoneFreeCodebreaker } from "./eurozoneFree";
 import { KingOfTheHillCodebreaker } from "./kingOfTheHill";
+import { BinaryCodebreaker } from "./binary";
 
 export function getCodebreaker(target: DarknetServerDetails, ip: string, ns: NS): Codebreaker {
   switch (target.modelId) {
@@ -36,12 +37,12 @@ export function getCodebreaker(target: DarknetServerDetails, ip: string, ns: NS)
     case "RateMyPix.Auth": return new RateMyPixCodebreaker(target, ip, ns);
     case "EuroZone Free": return new EurozoneFreeCodebreaker(target, ip, ns);
     case "KingOfTheHill": return new KingOfTheHillCodebreaker(target, ip, ns);
+    case "110100100": return new BinaryCodebreaker(target, ip, ns);
     case "Pr0verFl0":
     case "BigMo%od":
     case "OrdoXenos":
     case "PrimeTime 2":
     case "TopPass":
-    case "110100100":
     case "2G_cellular":
     case "MathML":
     case "(The Labyrinth)":

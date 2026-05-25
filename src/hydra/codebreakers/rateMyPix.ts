@@ -204,7 +204,8 @@ class RateMyPixAuthCracker {
 
   private parseFeedback(feedback: string): { score: number; length: number } {
     const cleaned = feedback
-      .replace(/\u001B\[[0-9;]*m/g, "")
+      // eslint-disable-next-line no-control-regex -- Intentionally stripping ANSI SGR escape sequences from Bitburner logs.
+      .replace(/\u{001B}\[[0-9;]*m/gu, "")
       .trim();
 
     const match = cleaned.match(/^(.+)\/(\d+)$/);
@@ -228,7 +229,7 @@ class RateMyPixAuthCracker {
 
     // Source returns one emoji marker per exact character.
     // Strip variation selectors so emojis like 🌶️ count as one code point.
-    return [...value.replace(/\uFE0F/g, "")].length;
+    return Array.from(value.replace(/\uFE0F/gu, "")).length;
   }
 }
 

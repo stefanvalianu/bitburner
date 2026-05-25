@@ -16,6 +16,7 @@ import { OpenWebAccessPointCodebreaker } from "./openWebAccessPoint";
 import { FactoriOsCodebreaker } from "./factoriOs";
 import { RateMyPixCodebreaker } from "./rateMyPix";
 import { EurozoneFreeCodebreaker } from "./eurozoneFree";
+import { KingOfTheHillCodebreaker } from "./kingOfTheHill";
 
 export function getCodebreaker(target: DarknetServerDetails, ip: string, ns: NS): Codebreaker {
   switch (target.modelId) {
@@ -34,8 +35,8 @@ export function getCodebreaker(target: DarknetServerDetails, ip: string, ns: NS)
     case "Factori-Os": return new FactoriOsCodebreaker(target, ip, ns);
     case "RateMyPix.Auth": return new RateMyPixCodebreaker(target, ip, ns);
     case "EuroZone Free": return new EurozoneFreeCodebreaker(target, ip, ns);
+    case "KingOfTheHill": return new KingOfTheHillCodebreaker(target, ip, ns);
     case "Pr0verFl0":
-    case "KingOfTheHill":
     case "BigMo%od":
     case "OrdoXenos":
     case "PrimeTime 2":

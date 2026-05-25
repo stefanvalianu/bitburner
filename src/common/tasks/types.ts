@@ -45,6 +45,9 @@ export interface TaskDemand {
 
   // Prefer hosts with more CPU cores when placing this task.
   prioritizeCores?: boolean;
+
+  // Whether this task prioritizes placement on 'home'
+  prioritizeHome?: boolean;
 }
 
 // What a TaskDefinition declares - the resource ask without entrypointRam,

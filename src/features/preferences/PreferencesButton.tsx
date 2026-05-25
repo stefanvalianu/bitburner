@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { usePreferences } from "@repo/features/preferences/PreferencesProvider";
-import { Button } from "./Button";
-import { Col } from "./Col";
-import { Hint } from "./Hint";
-import { WrenchIcon } from "./Icons";
-import { Modal } from "./Modal";
-import { NumberInput } from "./NumberInput";
-import { Row } from "./Row";
-import { SectionHeading } from "./SectionHeading";
+import { Button } from "../components/Button";
+import { Col } from "../components/Col";
+import { Hint } from "../components/Hint";
+import { WrenchIcon } from "../components/Icons";
+import { Modal } from "../components/Modal";
+import { NumberInput } from "../components/NumberInput";
+import { Row } from "../components/Row";
+import { SectionHeading } from "../components/SectionHeading";
 import { useNs } from "@repo/features/ns/NsProvider";
 import { useTheme } from "@repo/features/theme/ThemeProvider";
 

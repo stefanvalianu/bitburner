@@ -1,4 +1,4 @@
-import { SolverMap } from "./types";
+import { ContractType, SolverMap, UntypedSolver } from "./types";
 
 import {
   arrayJumpingGame,
@@ -44,8 +44,9 @@ import {
   generateIPAddresses,
   sanitizeParenthesesInExpression,
 } from "./strings";
+import { CodingContractObject, NS } from "@ns";
 
-export const solvers = {
+const solvers = {
   "Find Largest Prime Factor": findLargestPrimeFactor,
   "Subarray with Maximum Sum": subarrayWithMaximumSum,
   "Total Ways to Sum": totalWaysToSum,
@@ -77,3 +78,24 @@ export const solvers = {
   "Total Number of Primes": totalNumberOfPrimes,
   "Largest Rectangle in a Matrix": largestRectangleInMatrix,
 } satisfies SolverMap;
+
+const cyan = "\u001b[36m";
+const red = "\u001b[31m";
+const reset = "\u001b[0m";
+
+export function solve(ns: NS, contract: CodingContractObject): void {
+  try {
+    const answerFunction = getSolutionFunction(contract.type);
+    const answer = answerFunction(contract.data);
+
+    const submit = contract.submit as (answer: unknown) => string;
+    const reward = submit(answer);
+    ns.tprint(`Solved ${contract.type} and ${cyan}${reward}${reset}`);
+  } catch (error) {
+    ns.tprint(`${red}Failed to solve coding contract "${contract.type}": ${error instanceof Error ? error.message : String(error)}${reset}`);
+  }
+}
+
+function getSolutionFunction(type: ContractType): UntypedSolver {
+  return solvers[type] as UntypedSolver;
+}

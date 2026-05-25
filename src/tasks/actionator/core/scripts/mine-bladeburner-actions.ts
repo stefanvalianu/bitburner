@@ -15,6 +15,10 @@ export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
   ns.atExit(() => invokeNextScript(ns));
   
+  if (!ns.bladeburner.inBladeburner()) {
+    return;
+  }
+  
   const state = getPortData<BladeburnerState>(ns, BLADEBURNER_STATE_PORT);
   if (!state) return;
 
@@ -44,7 +48,7 @@ function readActions(ns: NS): ActionInfo[] {
       actions.push({
         type,
         name,
-        count: ns.bladeburner.getActionCountRemaining(type, name),
+        count: Math.floor(ns.bladeburner.getActionCountRemaining(type, name)),
         level,
         chanceMin,
         chanceMax,

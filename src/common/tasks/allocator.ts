@@ -68,7 +68,7 @@ export class Allocator {
     // even if the cap is smaller, so a starved task either runs or fails cleanly.
     target = Math.max(target, demand.entrypointRam);
 
-    const sorted = this.sortedHosts(demand.prioritizeCores ?? false);
+    const sorted = this.sortedHosts(demand.prioritizeCores ?? false, demand.prioritizeHome ?? false);
 
     // The biggest host must be able to host the controller; otherwise
     // there's no point reserving fragments — the task can't start.
@@ -91,7 +91,7 @@ export class Allocator {
   // mutating the pool. Useful when the caller wants to size its lease
   // request based on the host's cores (e.g. weaken/grow efficiency).
   peekTopHost(): { hostname: string; ram: number; cores: number } | null {
-    const sorted = this.sortedHosts(false);
+    const sorted = this.sortedHosts(false, false);
     if (sorted.length === 0 || sorted[0].ram <= RAM_EPS) return null;
     return { hostname: sorted[0].hostname, ram: sorted[0].ram, cores: sorted[0].cores };
   }
@@ -102,7 +102,7 @@ export class Allocator {
   // slot.
   leaseUpTo(ram?: number): Lease | null {
     // let's always prefer highCPU nodes, we already own them, might as well use em
-    const sorted = this.sortedHosts(false);
+    const sorted = this.sortedHosts(false, false);
     if (sorted.length === 0 || sorted[0].ram <= RAM_EPS) return null;
 
     const leaseRam = ram ? Math.min(sorted[0].ram, ram) : sorted[0].ram;
@@ -115,7 +115,7 @@ export class Allocator {
   // important for callers to understand that whatever they are running
   // on their lease is finished, so they can properly `return` the space.
   lease(ram: number): Lease | null {
-    const sorted = this.sortedHosts(false);
+    const sorted = this.sortedHosts(false, false);
 
     // Epsilon-tolerant comparison: FP residue from prior lease/return cycles
     // can leave the pool entry a hair below the request when they're really
@@ -167,13 +167,26 @@ export class Allocator {
     return sum;
   }
 
-  private sortedHosts(prioritizeCores: boolean): PoolEntry[] {
+  private sortedHosts(prioritizeCores: boolean, prioritizeHome: boolean): PoolEntry[] {
     const entries = [...this.pool.values()];
-    if (prioritizeCores) {
-      entries.sort((a, b) => b.cores - a.cores || b.ram - a.ram);
-    } else {
-      entries.sort((a, b) => b.ram - a.ram);
-    }
+
+    entries.sort((a, b) => {
+      if (prioritizeHome) {
+        const aIsHome = a.hostname === "home";
+        const bIsHome = b.hostname === "home";
+
+        if (aIsHome !== bIsHome) {
+          return aIsHome ? -1 : 1;
+        }
+      }
+
+      if (prioritizeCores) {
+        return b.cores - a.cores || b.ram - a.ram;
+      }
+
+      return b.ram - a.ram;
+    });
+
     return entries;
   }
 }

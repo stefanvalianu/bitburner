@@ -107,6 +107,7 @@ function ascendEligibleMembers(ns: NS, gangInfo: GangInfo): void {
 
     const ascensionScore = optimizeHumanTrafficking ? getHumanTraffickingAscScore(ascResult) : getTerrorismAscScore(ascResult);
     const currentScore = optimizeHumanTrafficking ? getHumanTraffickingScore(memberInfo) : getTerrorismScore(memberInfo);
+    
     const threshold = getAscThreshold(currentScore);
 
     if (ascensionScore >= threshold) {
@@ -116,11 +117,11 @@ function ascendEligibleMembers(ns: NS, gangInfo: GangInfo): void {
 }
 
 function getAscThreshold(currentScore: number): number {
-  if (currentScore < 10) return 1.2;
-  if (currentScore < 100) return 1.3;
-  if (currentScore < 1_000) return 1.4;
-  if (currentScore < 10_000) return 1.5;
-  return 1.6;
+  if (currentScore < 10) return 1.3;
+  if (currentScore < 100) return 1.4;
+  if (currentScore < 1_000) return 1.5;
+  if (currentScore < 10_000) return 1.6;
+  return 1.7;
 }
 
 function getHumanTraffickingAscScore(ascensionResult: GangMemberAscension): number {

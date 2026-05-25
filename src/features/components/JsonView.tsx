@@ -163,9 +163,9 @@ function Node({ value, depth, path }: { value: unknown; depth: number; path: Pat
   if (typeof value === "string")
     return <Highlighted text={JSON.stringify(value)} color={theme.colors.success} query={query} />;
   if (typeof value === "number")
-    return <Highlighted text={String(value)} color={theme.colors.info} query={query} />;
+    return <Highlighted text={JSON.stringify(value)} color={theme.colors.info} query={query} />;
   if (typeof value === "boolean")
-    return <Highlighted text={String(value)} color={theme.colors.warning} query={query} />;
+    return <Highlighted text={JSON.stringify(value)} color={theme.colors.warning} query={query} />;
 
   if (Array.isArray(value)) {
     if (value.length === 0) return <span style={{ color: theme.colors.secondary }}>[]</span>;
@@ -238,7 +238,7 @@ function Node({ value, depth, path }: { value: unknown; depth: number; path: Pat
     );
   }
 
-  return <Highlighted text={String(value)} color={theme.colors.primary} query={query} />;
+  return <Highlighted text={JSON.stringify(value)} color={theme.colors.primary} query={query} />;
 }
 
 function ChildRow({

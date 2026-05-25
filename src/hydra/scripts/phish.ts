@@ -1,0 +1,12 @@
+import { NS } from "@ns";
+
+export async function main(ns: NS): Promise<void> {
+  ns.disableLog("ALL");
+
+  while (true) {
+    const result = await ns.dnet.phishingAttack();
+    if (!result.success) {
+      return;
+    }
+  }
+}

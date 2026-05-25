@@ -10,6 +10,7 @@ export const actionatorTask: TaskDefinition = {
   autostart: true,
   demand: {
     priority: "critical",
+    prioritizeHome: true,
     additionalHeadroomSubscripts: ACTIONATOR_SUBSCRIPTS.map(s => s.scriptPath)
   },
 };

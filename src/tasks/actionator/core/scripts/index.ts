@@ -43,10 +43,6 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
     }
   },
   {
-    scriptPath: "tasks/actionator/core/scripts/mine-hydra.js",
-    repeat: "fast",
-  },
-  {
     scriptPath: "tasks/actionator/core/scripts/mine-bladeburner-info.js",
     repeat: "fast",
   },
@@ -100,6 +96,10 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
   {
     scriptPath: "tasks/actionator/core/scripts/direct-coding-contracts.js",
     repeat: "slow"
+  },
+  {
+    scriptPath: "tasks/actionator/core/scripts/direct-hydra.js",
+    repeat: "slow",
   },
   /*{
     // This script uses a minimum of 32GB of ram from the w0rld d3mon destruction.

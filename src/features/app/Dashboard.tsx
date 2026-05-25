@@ -1,5 +1,5 @@
 import { DashboardPanel } from "@repo/features/components/DashboardPanel";
-import { PreferencesButton } from "@repo/features/components/PreferencesButton";
+import { PreferencesButton } from "@repo/features/preferences/PreferencesButton";
 import { Row } from "@repo/features/components/Row";
 import { LogButton } from "@repo/features/logging/LogButton";
 import { useTheme } from "@repo/features/theme/ThemeProvider";

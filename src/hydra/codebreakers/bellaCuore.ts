@@ -6,16 +6,43 @@ export class BellaCuoreCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.target.passwordFormat === "numeric") {
-      const password = this.romanNumeralToNumber(this.target.data).toString();
-      const result = await this.authenticate(password);
-      if (result === null) return { result: "transient" };
-      if (result.success) {
-        return { result: "ok", password };
+      for (const password of this.passwordCandidates(this.target.data)) {
+        const result = await this.authenticate(password);
+        if (result === null) return { result: "transient" };
+        if (result.success) {
+          return { result: "ok", password };
+        }
       }
     }
 
     this.printCoreInfo();
     return { result: "impossible" };
+  }
+
+  private *passwordCandidates(data: string): Generator<string> {
+    const parts = data
+      .split(",")
+      .map(part => part.trim())
+      .filter(part => part.length > 0);
+
+    if (parts.length === 1) {
+      yield this.romanNumeralToNumber(parts[0]).toString();
+      return;
+    }
+
+    if (parts.length !== 2) {
+      return;
+    }
+
+    const start = this.romanNumeralToNumber(parts[0]);
+    const end = this.romanNumeralToNumber(parts[1]);
+
+    const min = Math.min(start, end);
+    const max = Math.max(start, end);
+
+    for (let value = min; value <= max; value++) {
+      yield value.toString();
+    }
   }
 
   private romanNumeralToNumber(roman: string): number {

@@ -1,7 +1,7 @@
 import { DarknetServerDetails, NS } from "@ns";
 import { HydraControllerState } from "@repo/common/info/hydra";
 import { getPortData, HYDRA_STATE_PORT } from "@repo/common/ports";
-import { DarknetServer, HYDRA_SCRIPT, HydraIpPortState, PHISH_SCRIPT, RECLAIM_SCRIPT } from "./types";
+import { CYAN, DarknetServer, HYDRA_SCRIPT, HydraIpPortState, PHISH_SCRIPT, RECLAIM_SCRIPT, RESET, STASIS_SCRIPT } from "./types";
 import { ipv4ToUint32Fast } from "./helpers";
 import { loot } from "./loot-helpers";
 import { getCodebreaker } from "./codebreakers";
@@ -36,7 +36,7 @@ class Hydra {
       loot(this.ns, this.host.ip);
 
       // Infect our neighbors (and build our neighbor map)
-      await this.infectNeighbors();
+      await this.infectNeighbors(!state.haveLabyrinthStasis);
 
       if (this.host.blockedRam > 0) {
         // kick off the reallocator script. it will eventually spawn into the phisher
@@ -58,13 +58,23 @@ class Hydra {
     Build our map of neighbors, infect ones that need infecting, and update our neighbor map at the end.
     Note that this is running once per darknet cycle.
   */
-  private async infectNeighbors(): Promise<void> {
+  private async infectNeighbors(needStasais: boolean): Promise<void> {
     const neighborsIps = this.ns.dnet.probe(true);
     const playerCharisma = this.ns.getPlayer().skills.charisma;
 
-    for (const neighborIp of neighborsIps) {
-      const neighbor = this.ns.dnet.getServerDetails(neighborIp);
+    const neighbors = neighborsIps.map(ip => ({
+      ip,
+      ...this.ns.dnet.getServerDetails(ip),
+    } satisfies DarknetServer));
 
+    // URGENT: if we identify a Labyrinth and stasis is still needed, do that right away
+    if (needStasais && undefined !== neighbors.find(s => s.modelId === "(The Labyrinth)")) {
+      this.ns.tprint(`${CYAN}Stasis Needed and Labyrinth Found!${RESET}`);
+      this.ns.atExit(() => this.ns.exec(STASIS_SCRIPT, this.host.ip));
+      this.ns.exit();
+    }
+
+    for (const neighbor of neighbors) {
       // we're not going to try, our rizz is lacking
       if (neighbor.requiredCharismaSkill > playerCharisma) continue;
 
@@ -74,18 +84,18 @@ class Hydra {
       // we're already connected.
       if (neighbor.hasSession) continue;
 
-      const neighborPort = ipv4ToUint32Fast(neighborIp);
+      const neighborPort = ipv4ToUint32Fast(neighbor.ip);
       const neighborPortState = getPortData<HydraIpPortState>(this.ns, neighborPort);
 
       // If nobody has seen this IP before, stake a claim so others leave it alone
       if (neighborPortState === undefined) {
         this.ns.writePort(neighborPort, {
-          ip: neighborIp,
+          ip: neighbor.ip,
           state: "infecting",
           infectingStart: Date.now(),
         } satisfies HydraIpPortState);
 
-        await this.tryInfectNeighbor(neighborIp, neighbor);
+        await this.tryInfectNeighbor(neighbor.ip, neighbor);
         continue;
       }
 
@@ -101,16 +111,16 @@ class Hydra {
       // Another hydra instance is attacking them, unless it died
       if (neighborPortState.state === "infecting") {
         if (neighborPortState.infectingStart && Date.now() > (neighborPortState.infectingStart + INFECTING_STALENESS_LIMIT_MS)) {
-          this.ns.tprint(`Target ${neighborIp} is in 'infecting' state, but it seems to be stale. Taking over.`);
+          this.ns.tprint(`Target ${neighbor.ip} is in 'infecting' state, but it seems to be stale. Taking over.`);
 
           this.ns.clearPort(neighborPort);
           this.ns.writePort(neighborPort, {
-            ip: neighborIp,
+            ip: neighbor.ip,
             state: "infecting",
             infectingStart: Date.now(),
           } satisfies HydraIpPortState);
 
-          await this.tryInfectNeighbor(neighborIp, neighbor);
+          await this.tryInfectNeighbor(neighbor.ip, neighbor);
           continue;
         } else {
           // someone is on it
@@ -119,28 +129,28 @@ class Hydra {
       }
 
       if (neighborPortState.password === undefined) {
-        this.ns.tprint(`Hydra neighbor ${neighborIp} in infected state, but no password stored.`);
+        this.ns.tprint(`Hydra neighbor ${neighbor.ip} in infected state, but no password stored.`);
         continue;
       }
 
       // Cool, in theory this server is known and connectable
-      const connectionResult = this.ns.dnet.connectToSession(neighborIp, neighborPortState.password);
+      const connectionResult = this.ns.dnet.connectToSession(neighbor.ip, neighborPortState.password);
 
       if (connectionResult.success) {
         // kickstart the hydra script in case it's not already running
-        this.spawnHydra(neighborIp);
+        this.spawnHydra(neighbor.ip);
       } else {
         // connection failed, this could be because the server is NEW but reusing an old IP. either way, the state is wrong
-        this.ns.tprint(`Connecting to expected server ${neighborIp} with password ${neighborPortState.password} failed. Re-attacking.`);
+        this.ns.tprint(`Connecting to expected server ${neighbor.ip} with password ${neighborPortState.password} failed. Re-attacking.`);
 
         this.ns.clearPort(neighborPort);
         this.ns.writePort(neighborPort, {
-          ip: neighborIp,
+          ip: neighbor.ip,
           state: "infecting",
           infectingStart: Date.now(),
         } satisfies HydraIpPortState);
 
-        await this.tryInfectNeighbor(neighborIp, neighbor);
+        await this.tryInfectNeighbor(neighbor.ip, neighbor);
       }
     }
   }

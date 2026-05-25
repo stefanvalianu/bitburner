@@ -41,4 +41,5 @@ export const RESET = "\u001b[0m";
 export const LOOT_SCRIPT = "hydra/scripts/loot.js";
 export const RECLAIM_SCRIPT = "hydra/scripts/reclaim.js";
 export const PHISH_SCRIPT = "hydra/scripts/phish.js";
+export const STASIS_SCRIPT = "hydra/scripts/enter-stasis.js";
 export const HYDRA_SCRIPT = "hydra/hydra.js";

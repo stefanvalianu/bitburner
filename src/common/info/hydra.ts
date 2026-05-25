@@ -1,10 +1,12 @@
 export interface HydraControllerState {
   up: boolean;
+  haveLabyrinthStasis: boolean;
 }
 
 // Sent by the hydra script to update the main controller
 export interface HydraInstanceUpdate {
-  /* NOTE not currently used */
+  type: "stasis-linking";
+  ip: string;
 }
 
 export interface HydraPlayerPassword {

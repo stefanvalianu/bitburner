@@ -1,6 +1,4 @@
 import { NS } from "@ns";
-import { HydraControllerState } from "@repo/common/info/hydra";
-import { HYDRA_STATE_PORT } from "@repo/common/ports";
 import { HYDRA_SCRIPT, HydraIpPortState } from "./types";
 import { ipv4ToUint32Fast } from "./helpers";
 
@@ -14,11 +12,6 @@ export async function bootstrapHydra(ns: NS): Promise<void> {
 
     // note the 'darkweb' server is actually not being inserted by its identity, which is OK since we explicitly disallow traversing to it in the proliferfator.
     if (result.success) {
-      ns.clearPort(HYDRA_STATE_PORT);
-      ns.writePort(HYDRA_STATE_PORT, {
-        up: true,
-      } satisfies HydraControllerState);
-
       const port = ipv4ToUint32Fast(host);
       ns.writePort(port, {
         ip: host,
@@ -26,16 +19,19 @@ export async function bootstrapHydra(ns: NS): Promise<void> {
         password: ""
       } satisfies HydraIpPortState);
 
-      // scp all files
-      const files = ns.ls("home", ".js");
-      ns.scp(files, host, "home");
-      if (0 === ns.exec(HYDRA_SCRIPT, host, { temporary: false, preventDuplicates: true })) {
-        ns.tprint(`Failed to start ${HYDRA_SCRIPT} on ${host}`);
-      }
+      copyFilesAndStart(ns, host);
     } else {
       ns.tprint(`Failed to authenticate to first server: ${JSON.stringify(result)}`);
     }
   } else {
     ns.tprint(`Unexpected results from ns.dnet.probe: ${targets.join(",")}`);
+  }
+}
+
+export function copyFilesAndStart(ns: NS, host: string): void {
+  const files = ns.ls("home", ".js");
+  ns.scp(files, host, "home");
+  if (0 === ns.exec(HYDRA_SCRIPT, host, { temporary: false, preventDuplicates: true })) {
+    ns.tprint(`Failed to start ${HYDRA_SCRIPT} on ${host}`);
   }
 }

@@ -17,7 +17,8 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
     let password = passwordNum.toString();
     let result = await this.authenticate(password);
 
-    while (true /* yikes */) {
+    let maxTries = 1_000_000;
+    while (maxTries-- > 0) {
       if (result === null) return { result: "transient" };
       if (result.success) {
         return { result: "ok", password: password! };
@@ -48,6 +49,13 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
         }
       }
     }
+
+    if (maxTries === 0) {
+      this.ns.tprint(`Ran out of tries solving kingOfTheHill`);
+    }
+
+    this.printCoreInfo();
+    return { result: "impossible" };
   }
 }
 

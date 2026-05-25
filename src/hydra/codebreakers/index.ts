@@ -40,6 +40,7 @@ export function getCodebreaker(target: DarknetServerDetails, ip: string, ns: NS)
     case "EuroZone Free":
     case "TopPass":
     case "110100100":
+    case "2G_cellular":
     case "(The Labyrinth)":
     default: return new UnknownCodebreaker(target, ip, ns);
   }

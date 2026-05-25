@@ -42,6 +42,10 @@ export class RateMyPixCodebreaker extends Codebreaker {
       }
     }
 
+    if (maxAttempts === 0) {
+      this.ns.tprint(`Ran out of attempts solving factoriOs`);
+    }
+
     this.printCoreInfo();
     return { result: "impossible" };
   }
@@ -59,7 +63,7 @@ type RateMyPixPhase =
   | "done";
 
 class RateMyPixAuthCracker {
-  private readonly baseChar = "0";
+  private readonly baseChar = "_";
   private readonly alphabet: string[];
   private readonly candidates: string[];
 
@@ -74,7 +78,7 @@ class RateMyPixAuthCracker {
   private knownPassword: string[] = [];
 
   constructor(alphabet = ALPHANUMERIC) {
-    this.alphabet = [...new Set(alphabet)];
+    this.alphabet = [this.baseChar, ...new Set(alphabet)];
 
     if (!this.alphabet.includes(this.baseChar)) {
       throw new Error(`Alphabet must include '${this.baseChar}'.`);
@@ -200,7 +204,7 @@ class RateMyPixAuthCracker {
 
   private parseFeedback(feedback: string): { score: number; length: number } {
     const cleaned = feedback
-      .replace(/\x1b\[[0-9;]*m/g, "")
+      .replace(/\u001B\[[0-9;]*m/g, "")
       .trim();
 
     const match = cleaned.match(/^(.+)\/(\d+)$/);

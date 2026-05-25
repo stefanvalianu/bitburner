@@ -50,6 +50,10 @@ export class FactoriOsCodebreaker extends Codebreaker {
       }
     }
 
+    if (maxAttempts === 0) {
+      this.ns.tprint(`Ran out of attempts solving factoriOs`);
+    }
+
     this.printCoreInfo();
     return { result: "impossible" };
   }
@@ -76,7 +80,7 @@ export class DivisiblePasswordSolver {
     this.sparseThreshold = 20_000;
     this.remaining = total;
 
-    this.candidates = new Array<number>(total);
+    this.candidates = Array(total);
     this.alive = new Uint8Array(total);
 
     for (let i = 0; i < total; i++) {

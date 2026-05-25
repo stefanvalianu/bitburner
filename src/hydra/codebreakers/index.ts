@@ -18,6 +18,8 @@ import { RateMyPixCodebreaker } from "./rateMyPix";
 import { EurozoneFreeCodebreaker } from "./eurozoneFree";
 import { KingOfTheHillCodebreaker } from "./kingOfTheHill";
 import { BinaryCodebreaker } from "./binary";
+import { PrimeTimeCodebreaker } from "./primeTime";
+import { OrdoXenosCodebreaker } from "./ordoXenos";
 
 export function getCodebreaker(target: DarknetServerDetails, ip: string, ns: NS): Codebreaker {
   switch (target.modelId) {
@@ -38,10 +40,10 @@ export function getCodebreaker(target: DarknetServerDetails, ip: string, ns: NS)
     case "EuroZone Free": return new EurozoneFreeCodebreaker(target, ip, ns);
     case "KingOfTheHill": return new KingOfTheHillCodebreaker(target, ip, ns);
     case "110100100": return new BinaryCodebreaker(target, ip, ns);
+    case "PrimeTime 2": return new PrimeTimeCodebreaker(target, ip, ns);
+    case "OrdoXenos": return new OrdoXenosCodebreaker(target, ip, ns);
     case "Pr0verFl0":
     case "BigMo%od":
-    case "OrdoXenos":
-    case "PrimeTime 2":
     case "TopPass":
     case "2G_cellular":
     case "MathML":

@@ -1,7 +1,7 @@
 import { DarknetServerDetails, NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
 
-type TripleModuloAttemptResult =
+type TripleModuloTrySolveResult =
   | { kind: "success"; password: string }
   | { kind: "modulo"; value: bigint }
   | { kind: "transient" }
@@ -41,23 +41,23 @@ export class BigMoodCodebreaker extends Codebreaker {
 
     for (const modulus of moduli) {
       const probe = this.firstProbeAboveWithModulo(max, modulus);
-      const attempt = await this.tryPasswordAndReadModulo(probe.toString());
+      const trysolve = await this.tryPasswordAndReadModulo(probe.toString());
 
-      if (attempt.kind === "transient") {
+      if (trysolve.kind === "transient") {
         return { result: "transient" };
       }
 
-      if (attempt.kind === "success") {
-        return { result: "ok", password: attempt.password };
+      if (trysolve.kind === "success") {
+        return { result: "ok", password: trysolve.password };
       }
 
-      if (attempt.kind !== "modulo") {
+      if (trysolve.kind !== "modulo") {
         this.printCoreInfo();
         return { result: "impossible" };
       }
 
       const combined = this.combineCongruences(congruence, {
-        remainder: attempt.value,
+        remainder: trysolve.value,
         modulus,
       });
 
@@ -80,19 +80,19 @@ export class BigMoodCodebreaker extends Codebreaker {
       const probe = this.findDisambiguatingProbe(candidates);
 
       if (probe !== undefined) {
-        const attempt = await this.tryPasswordAndReadModulo(probe.toString());
+        const trysolve = await this.tryPasswordAndReadModulo(probe.toString());
 
-        if (attempt.kind === "transient") {
+        if (trysolve.kind === "transient") {
           return { result: "transient" };
         }
 
-        if (attempt.kind === "success") {
-          return { result: "ok", password: attempt.password };
+        if (trysolve.kind === "success") {
+          return { result: "ok", password: trysolve.password };
         }
 
-        if (attempt.kind === "modulo") {
+        if (trysolve.kind === "modulo") {
           candidates = candidates.filter(candidate =>
-            this.tripleModuloResult(candidate, probe) === attempt.value
+            this.tripleModuloResult(candidate, probe) === trysolve.value
           );
         }
       }
@@ -118,7 +118,7 @@ export class BigMoodCodebreaker extends Codebreaker {
     return { result: "impossible" };
   }
 
-  private async tryPasswordAndReadModulo(password: string): Promise<TripleModuloAttemptResult> {
+  private async tryPasswordAndReadModulo(password: string): Promise<TripleModuloTrySolveResult> {
     const result = await this.authenticate(password);
     if (result === null) {
       return { kind: "transient" };

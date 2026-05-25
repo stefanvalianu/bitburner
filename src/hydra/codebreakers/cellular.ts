@@ -1,7 +1,7 @@
 import { DarknetServerDetails, NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
 
-type TimingAttemptResult =
+type TimingTrySolveResult =
   | { kind: "success"; password: string }
   | { kind: "mismatch"; index: number }
   | { kind: "transient" }
@@ -32,17 +32,17 @@ export class TwoGCellularCodebreaker extends Codebreaker {
 
       for (const char of characters) {
         const password = prefix + char + filler.repeat(length - index - 1);
-        const attempt = await this.tryPasswordAndReadMismatch(password);
+        const trysolve = await this.tryPasswordAndReadMismatch(password);
 
-        if (attempt.kind === "transient") {
+        if (trysolve.kind === "transient") {
           return { result: "transient" };
         }
 
-        if (attempt.kind === "success") {
-          return { result: "ok", password: attempt.password };
+        if (trysolve.kind === "success") {
+          return { result: "ok", password: trysolve.password };
         }
 
-        if (attempt.kind === "mismatch" && attempt.index > index) {
+        if (trysolve.kind === "mismatch" && trysolve.index > index) {
           prefix += char;
           found = true;
           break;
@@ -56,7 +56,7 @@ export class TwoGCellularCodebreaker extends Codebreaker {
     }
 
     // Usually the final correct character already returns success inside the loop.
-    // This is just a defensive final exact attempt.
+    // This is just a defensive final exact trysolve.
     const result = await this.authenticate(prefix);
     if (result === null) return { result: "transient" };
     if (result.success) return { result: "ok", password: prefix };
@@ -65,7 +65,7 @@ export class TwoGCellularCodebreaker extends Codebreaker {
     return { result: "impossible" };
   }
 
-  private async tryPasswordAndReadMismatch(password: string): Promise<TimingAttemptResult> {
+  private async tryPasswordAndReadMismatch(password: string): Promise<TimingTrySolveResult> {
     const result = await this.authenticate(password);
     if (result === null) {
       return { kind: "transient" };

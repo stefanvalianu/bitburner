@@ -6,3 +6,12 @@ export interface HydraControllerState {
 export interface HydraInstanceUpdate {
   /* NOTE not currently used */
 }
+
+export interface HydraPlayerPassword {
+  ip: string;
+  password: string;
+}
+
+export interface HydraPlayerPasswordFile {
+  passwords: HydraPlayerPassword[];
+}

@@ -24,14 +24,6 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
     }
   },
   /*
-    Eventually we'll want this controller to direct the hydra virus more, for now 
-    it just starts it.
-  */
-  {
-    scriptPath: "tasks/actionator/core/scripts/direct-hydra.js",
-    repeat: "none",
-  },
-  /*
     Fast subscripts (info gathering)
   */
   {
@@ -104,6 +96,10 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
   {
     scriptPath: "tasks/actionator/core/scripts/direct-coding-contracts.js",
     repeat: "slow"
+  },
+  {
+    scriptPath: "tasks/actionator/core/scripts/direct-hydra.js",
+    repeat: "slow",
   },
   /*{
     // This script uses a minimum of 32GB of ram from the w0rld d3mon destruction.

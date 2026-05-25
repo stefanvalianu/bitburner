@@ -1,7 +1,9 @@
 import { NS } from "@ns";
-import { HydraControllerState } from "@repo/common/info/hydra";
+import { HydraControllerState, HydraPlayerPasswordFile } from "@repo/common/info/hydra";
 import { getPortData, HYDRA_STATE_PORT } from "@repo/common/ports";
 import { bootstrapHydra } from "@repo/hydra/bootstrap";
+import { ipv4ToUint32Fast } from "@repo/hydra/helpers";
+import { HydraIpPortState } from "@repo/hydra/types";
 import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 
 /*
@@ -16,6 +18,32 @@ export async function main(ns: NS): Promise<void> {
   if (!ns.fileExists(ns.enums.ProgramName.darkscape, "home")) {
     return;
   }
+
+  /*
+    Check for player-written passwords. Players can drop a file like the below in:
+
+    {
+      "passwords": [
+        { "ip": "123", "password": "123" },
+        { "ip": "123", "password": "123" },
+      ]
+    }
+  */
+  // will only work on home, which should be OK. TODO improve this
+  try {
+    const player_passwords = JSON.parse(ns.read(".state/hydra_passwords.json")) as HydraPlayerPasswordFile;
+
+    for (const password of player_passwords.passwords) {
+      const port = ipv4ToUint32Fast(password.ip);
+      if ("NULL PORT DATA" === ns.peek(port)) {
+        ns.writePort(port, {
+          ip: password.ip,
+          state: "infected",
+          password: password.password
+        } satisfies HydraIpPortState);
+      }
+    }
+  } catch {}
 
   const data = getPortData<HydraControllerState>(ns, HYDRA_STATE_PORT);
 

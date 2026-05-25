@@ -2,6 +2,11 @@ import { DarknetResult, DarknetServerDetails, NS } from "@ns";
 import { RED, CYAN, RESET, HydraIpPortState } from "@repo/hydra/types";
 import { ipv4ToUint32Fast } from "../helpers";
 
+export interface PasswordAttemptLog {
+  data: string;
+  passwordAttempted: string;
+}
+
 export interface CodebreakerResult {
   // Transient re-spawns back into a main hydra to potentially re-try.
   // Impossible gets added to the hydra brain's blocklist.

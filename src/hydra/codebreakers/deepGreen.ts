@@ -1,10 +1,5 @@
 import { DarknetServerDetails, NS } from "@ns";
-import { Codebreaker, CodebreakerResult } from "./codebreaker";
-
-interface PasswordAttemptLog {
-  data: string;
-  passwordAttempted: string;
-}
+import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
 
 class DigitSolver {
   private readonly max: number;

@@ -1,13 +1,8 @@
 import { DarknetServerDetails, NS } from "@ns";
-import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
 
 const DIGITS = "0123456789";
 const LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
-
-interface PasswordAttemptLog {
-  data: string;
-  passwordAttempted: string;
-}
 
 function alphabetForPasswordFormat(format: string): string {
   switch (format) {

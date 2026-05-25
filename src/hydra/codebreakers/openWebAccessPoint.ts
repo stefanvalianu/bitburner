@@ -1,10 +1,5 @@
 import { DarknetServerDetails, NS } from "@ns";
-import { Codebreaker, CodebreakerResult } from "./codebreaker";
-
-interface PasswordAttemptLog {
-  data: string;
-  passwordAttempted: string;
-}
+import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
 
 export class OpenWebAccessPointCodebreaker extends Codebreaker {
   constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }

@@ -36,4 +36,12 @@ Scripts/features to be used within the game [Bitburner](https://github.com/bitbu
       - `/task.ts` will contain the task entrypoint, invoked when the allocator creates and runs the task.
     - `/ux` for tasks that want to display custom UX, components should be placed underneath this sub-folder.
       - `/panel.tsx` the task panel (high-level component) should always be located here.
+  - `/hydra` the darknet hydra virus, works fairly differently from other scripts/tasks. (in an attempt to improve perf)
   - `/main.tsx` the script entrypoint. All in-game script interaction is marshaled through the main application started by this script.
+
+## Hydra Structure
+
+- Hydra is a self-replicating virus that self-propagates to neighbors. Each hydra instance is responsible for acting
+  on its host, morphing into a phisher, stock pumper, or a proliferator onto other nodes. 
+- A central state object is maintained by the core actionator task, but we use this sparingly, mostly for controls/information
+- The initial version of the hydra had literally 0 coordination between individual hydras; this led to challenges like overutilization of CPU for hacking operations, contention for logs when multiple hydras were heartbleeding() the same target, etc

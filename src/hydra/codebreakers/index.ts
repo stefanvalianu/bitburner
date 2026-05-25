@@ -20,6 +20,11 @@ import { KingOfTheHillCodebreaker } from "./kingOfTheHill";
 import { BinaryCodebreaker } from "./binary";
 import { PrimeTimeCodebreaker } from "./primeTime";
 import { OrdoXenosCodebreaker } from "./ordoXenos";
+import { MathMlCodebreaker } from "./mathMl";
+import { ProverFloCodebreaker } from "./proverFlo";
+import { TopPassCodebreaker } from "./topPass";
+import { TwoGCellularCodebreaker } from "./cellular";
+import { BigMoodCodebreaker } from "./bigMood";
 
 export function getCodebreaker(target: DarknetServerDetails, ip: string, ns: NS): Codebreaker {
   switch (target.modelId) {
@@ -42,11 +47,11 @@ export function getCodebreaker(target: DarknetServerDetails, ip: string, ns: NS)
     case "110100100": return new BinaryCodebreaker(target, ip, ns);
     case "PrimeTime 2": return new PrimeTimeCodebreaker(target, ip, ns);
     case "OrdoXenos": return new OrdoXenosCodebreaker(target, ip, ns);
-    case "Pr0verFl0":
-    case "BigMo%od":
-    case "TopPass":
-    case "2G_cellular":
-    case "MathML":
+    case "MathML": return new MathMlCodebreaker(target, ip, ns);
+    case "Pr0verFl0": return new ProverFloCodebreaker(target, ip, ns);
+    case "TopPass": return new TopPassCodebreaker(target, ip, ns);
+    case "2G_cellular": return new TwoGCellularCodebreaker(target, ip, ns);
+    case "BigMo%od": return new BigMoodCodebreaker(target, ip, ns);
     case "(The Labyrinth)":
     default: return new UnknownCodebreaker(target, ip, ns);
   }

@@ -15,11 +15,11 @@ class Hydra {
 
   constructor(ns: NS) {
     this.ns = ns;
-    const ip = ns.getIP();
 
     this.host = {
       ...ns.dnet.getServerDetails(),
-      ip,
+      ip: ns.getIP(),
+      hostname: this.ns.getHostname(),
     };
   }
 
@@ -69,7 +69,7 @@ class Hydra {
 
     // URGENT: if we identify a Labyrinth and stasis is still needed, do that right away
     if (needStasais && undefined !== neighbors.find(s => s.modelId === "(The Labyrinth)")) {
-      this.ns.tprint(`${CYAN}Stasis Needed and Labyrinth Found!${RESET}`);
+      this.ns.tprint(`${CYAN}Stasis Needed and Labyrinth Found!${RESET} at ${this.host.hostname}`);
       this.ns.atExit(() => this.ns.exec(STASIS_SCRIPT, this.host.ip));
       this.ns.exit();
     }
@@ -111,7 +111,7 @@ class Hydra {
       // Another hydra instance is attacking them, unless it died
       if (neighborPortState.state === "infecting") {
         if (neighborPortState.infectingStart && Date.now() > (neighborPortState.infectingStart + INFECTING_STALENESS_LIMIT_MS)) {
-          this.ns.tprint(`Target ${neighbor.ip} is in 'infecting' state, but it seems to be stale. Taking over.`);
+          this.ns.tprint(`Target ${neighbor.ip} from ${this.host.hostname} is in 'infecting' state, but it seems to be stale. Taking over.`);
 
           this.ns.clearPort(neighborPort);
           this.ns.writePort(neighborPort, {
@@ -129,7 +129,7 @@ class Hydra {
       }
 
       if (neighborPortState.password === undefined) {
-        this.ns.tprint(`Hydra neighbor ${neighbor.ip} in infected state, but no password stored.`);
+        this.ns.tprint(`Hydra neighbor ${neighbor.ip} from ${this.host.hostname} in infected state, but no password stored.`);
         continue;
       }
 
@@ -141,7 +141,7 @@ class Hydra {
         this.spawnHydra(neighbor.ip);
       } else {
         // connection failed, this could be because the server is NEW but reusing an old IP. either way, the state is wrong
-        this.ns.tprint(`Connecting to expected server ${neighbor.ip} with password ${neighborPortState.password} failed. Re-attacking.`);
+        this.ns.tprint(`Connecting to expected server ${neighbor.ip} from ${this.host.hostname} with password ${neighborPortState.password} failed. Re-attacking.`);
 
         this.ns.clearPort(neighborPort);
         this.ns.writePort(neighborPort, {
@@ -163,12 +163,12 @@ class Hydra {
       this.spawnHydra(targetIp);
     } else if (result.result === "impossible") {
       // Can't be solved. No point in poisoning the ip since we'll implement a solver soon
-      this.ns.tprint(`Cannot solve ${targetServer.modelId}`);
+      this.ns.tprint(`Cannot solve ${targetServer.modelId} from ${this.host.hostname}`);
       return;
     }
     else if (result.result === "transient") {
       // this should happen significantly less often
-      this.ns.tprint(`Transient error trying to authenticate to ${targetServer.modelId}`);
+      this.ns.tprint(`Transient error trying to authenticate to ${targetServer.modelId} from ${this.host.hostname}`);
     }
   }
 

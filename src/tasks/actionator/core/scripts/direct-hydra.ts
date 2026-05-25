@@ -48,9 +48,7 @@ export async function main(ns: NS): Promise<void> {
   const data = getPortData<HydraControllerState>(ns, HYDRA_STATE_PORT);
 
   // first run - spread hydra to darkweb
-  if (data === undefined) {
-    await bootstrapHydra(ns);
-   
+  if (data === undefined) {   
     let needsLink = true;
     /*
       Check for a stasis-link data file. Test it. If test fails, it's likely stale from a previous augmentation install.
@@ -78,6 +76,8 @@ export async function main(ns: NS): Promise<void> {
       haveLabyrinthStasis: !needsLink
     } satisfies HydraControllerState);
 
+    await bootstrapHydra(ns);
+    
     return;
   }
 

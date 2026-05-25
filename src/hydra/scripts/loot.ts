@@ -14,6 +14,6 @@ export async function main(ns: NS): Promise<void> {
   const threads = getMaxPossibleThreads(ns, ip, 0, PHISH_SCRIPT);
 
   if (threads > 0) {
-    ns.spawn(PHISH_SCRIPT, { preventDuplicates: true, temporary: true, threads: threads });
+    ns.spawn(PHISH_SCRIPT, { preventDuplicates: true, temporary: true, threads: threads, spawnDelay: 0 });
   }
 }

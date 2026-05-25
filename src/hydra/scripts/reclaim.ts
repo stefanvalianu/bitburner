@@ -18,5 +18,5 @@ export async function main(ns: NS): Promise<void> {
     advantage to looting after this is in case we get taken offline next darknet
     cycle, since the hydra only acts at darknet cycle boundaries.
   */
-  ns.spawn(LOOT_SCRIPT, { preventDuplicates: true, temporary: true, threads: 1 });
+  ns.spawn(LOOT_SCRIPT, { preventDuplicates: true, temporary: true, threads: 1, spawnDelay: 0 });
 }

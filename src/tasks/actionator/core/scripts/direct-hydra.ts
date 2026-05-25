@@ -35,13 +35,11 @@ export async function main(ns: NS): Promise<void> {
 
     for (const password of player_passwords.passwords) {
       const port = ipv4ToUint32Fast(password.ip);
-      if ("NULL PORT DATA" === ns.peek(port)) {
-        ns.writePort(port, {
-          ip: password.ip,
-          state: "infected",
-          password: password.password
-        } satisfies HydraIpPortState);
-      }
+      ns.writePort(port, {
+        ip: password.ip,
+        state: "infected",
+        password: password.password
+      } satisfies HydraIpPortState);
     }
   } catch {}
 

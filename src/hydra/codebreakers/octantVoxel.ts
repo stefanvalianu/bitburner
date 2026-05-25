@@ -36,40 +36,90 @@ export class OctantVoxelCodebreaker extends Codebreaker {
   }
 
   private convertToBase10String(value: string, base: number): string | undefined {
-    if (!Number.isInteger(base) || base < 2 || base > 36) {
+    if (!Number.isFinite(base) || base < 2 || base > 36) {
       return undefined;
     }
 
-    if (value.length === 0) {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
       return undefined;
     }
 
-    let sign = 1n;
+    let sign = 1;
     let start = 0;
 
-    if (value[0] === "-") {
-      sign = -1n;
+    if (trimmed[0] === "-") {
+      sign = -1;
+      start = 1;
+    } else if (trimmed[0] === "+") {
       start = 1;
     }
 
-    if (start >= value.length) {
+    if (start >= trimmed.length) {
       return undefined;
     }
 
-    let result = 0n;
-    const bigBase = BigInt(base);
+    const unsignedValue = trimmed.slice(start);
+    const split = unsignedValue.split(".");
 
-    for (let i = start; i < value.length; i++) {
-      const digit = this.getDigitValue(value[i]);
+    if (split.length > 2) {
+      return undefined;
+    }
+
+    const integerPart = split[0] ?? "";
+    const fractionalPart = split[1] ?? "";
+
+    if (integerPart.length === 0 && fractionalPart.length === 0) {
+      return undefined;
+    }
+
+    let result = 0;
+
+    for (let i = 0; i < integerPart.length; i++) {
+      const digit = this.getDigitValue(integerPart[i]);
 
       if (digit === undefined || digit >= base) {
         return undefined;
       }
 
-      result = result * bigBase + BigInt(digit);
+      result = result * base + digit;
     }
 
-    return (result * sign).toString();
+    let placeValue = 1 / base;
+
+    for (let i = 0; i < fractionalPart.length; i++) {
+      const digit = this.getDigitValue(fractionalPart[i]);
+
+      if (digit === undefined || digit >= base) {
+        return undefined;
+      }
+
+      result += digit * placeValue;
+      placeValue /= base;
+    }
+
+    result *= sign;
+
+    if (!Number.isFinite(result)) {
+      return undefined;
+    }
+
+    return this.formatPasswordNumber(result);
+  }
+
+  private formatPasswordNumber(value: number): string {
+    if (Object.is(value, -0)) {
+      return "0";
+    }
+
+    const rounded = Math.round(value);
+    const tolerance = Number.EPSILON * Math.max(1, Math.abs(value)) * 16;
+
+    if (Math.abs(value - rounded) <= tolerance) {
+      return rounded.toString();
+    }
+
+    return value.toString();
   }
 
   private getDigitValue(char: string): number | undefined {

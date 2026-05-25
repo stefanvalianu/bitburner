@@ -1,6 +1,5 @@
-import { NS } from "@ns";
+import { DarknetServerDetails, NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
-import { DarknetServer } from "@repo/tasks/actionator/core/darknet/types";
 
 const DIGITS = "0123456789";
 const LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
@@ -153,7 +152,7 @@ class NilSolver {
 }
 
 export class NilCodebreaker extends Codebreaker {
-  constructor(target: DarknetServer, ns: NS) { super(target, ns); }
+  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     const solver = new NilSolver(
@@ -163,7 +162,7 @@ export class NilCodebreaker extends Codebreaker {
      });
     
     let password = solver.nextGuess();
-    let result = await this.authenticate(this.target.hostname, password!);
+    let result = await this.authenticate(password!);
 
     // time to play some wordle
     while (!solver.solved) {
@@ -175,7 +174,7 @@ export class NilCodebreaker extends Codebreaker {
           Reminder that multiple different instances of this hydra (on different hosts) could
           be consuming the log.
         */
-        const info = await this.ns.dnet.heartbleed(this.target.hostname);
+        const info = await this.ns.dnet.heartbleed(this.targetIp);
 
         if (info.success && info.logs.length > 0) {
           let logResult: PasswordAttemptLog | undefined;
@@ -188,7 +187,7 @@ export class NilCodebreaker extends Codebreaker {
             solver.applyFeedback(logResult.passwordAttempted, logResult.data);
 
             password = solver.nextGuess();
-            result = await this.ns.dnet.authenticate(this.target.hostname, password!);
+            result = await this.authenticate(password!);
           }
           // we probably read some other crappy log, keep trying (stay in the loop)
         } 

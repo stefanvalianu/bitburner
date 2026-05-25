@@ -1,11 +1,8 @@
-import { NS } from "@ns";
+import { DarknetServerDetails, NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
-import { DarknetServer } from "@repo/tasks/actionator/core/darknet/types";
 
 export class OctantVoxelCodebreaker extends Codebreaker {
-  constructor(target: DarknetServer, ns: NS) {
-    super(target, ns);
-  }
+  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.target.passwordFormat !== "numeric") {
@@ -26,7 +23,7 @@ export class OctantVoxelCodebreaker extends Codebreaker {
 
     // Important: "0" is a valid password, so do not use `if (password)`
     if (password !== undefined) {
-      const result = await this.authenticate(this.target.hostname, password);
+      const result = await this.authenticate(password);
       if (result === null) return { result: "transient" };
 
       if (result.success) {

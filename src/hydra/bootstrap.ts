@@ -1,37 +1,30 @@
 import { NS } from "@ns";
-import { getIdentifier, HydraServer } from "@repo/common/info/hydra";
-import { HYDRA_SCRIPT } from "./hydra";
+import { HydraControllerState } from "@repo/common/info/hydra";
 import { HYDRA_STATE_PORT } from "@repo/common/ports";
+import { HYDRA_SCRIPT, HydraIpPortState } from "./types";
+import { ipv4ToUint32Fast } from "./helpers";
 
 export async function bootstrapHydra(ns: NS): Promise<void> {
   // we need to crack the first server and deploy hydra to it
-  const targets = ns.dnet.probe();
+  const targets = ns.dnet.probe(true);
 
   if (targets.length === 1) {
     const host = targets[0];
     const result = await ns.dnet.authenticate(host, "");
 
-    const identity = getIdentifier(host, ns.getServer(host).ip, ns.dnet.getServerDetails(host).modelId);
-
     // note the 'darkweb' server is actually not being inserted by its identity, which is OK since we explicitly disallow traversing to it in the proliferfator.
     if (result.success) {
       ns.clearPort(HYDRA_STATE_PORT);
       ns.writePort(HYDRA_STATE_PORT, {
-        notesFound: new Map(),
-        uninfectableServers: new Set(),
-        servers: new Map(
-          [
-            [identity, {
-              depth: -1,
-              lastUpdate: Date.now(),
-              action: "none",
-              healthy: true,
-              password: "",
-              identity: identity,
-              hostname: host,
-            } satisfies HydraServer]
-          ])
-      });
+        up: true,
+      } satisfies HydraControllerState);
+
+      const port = ipv4ToUint32Fast(host);
+      ns.writePort(port, {
+        ip: host,
+        state: "infected",
+        password: ""
+      } satisfies HydraIpPortState);
 
       // scp all files
       const files = ns.ls("home", ".js");

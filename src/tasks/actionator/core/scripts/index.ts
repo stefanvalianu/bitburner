@@ -24,6 +24,14 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
     }
   },
   /*
+    Eventually we'll want this controller to direct the hydra virus more, for now 
+    it just starts it.
+  */
+  {
+    scriptPath: "tasks/actionator/core/scripts/direct-hydra.js",
+    repeat: "none",
+  },
+  /*
     Fast subscripts (info gathering)
   */
   {
@@ -41,10 +49,6 @@ export const ACTIONATOR_SUBSCRIPTS: Subscript[] = [
       sourceFile: 10,
       level: 1
     }
-  },
-  {
-    scriptPath: "tasks/actionator/core/scripts/mine-hydra.js",
-    repeat: "fast",
   },
   {
     scriptPath: "tasks/actionator/core/scripts/mine-bladeburner-info.js",

@@ -1,9 +1,8 @@
-import { NS } from "@ns";
+import { DarknetServerDetails, NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
-import { DarknetServer } from "@repo/tasks/actionator/core/darknet/types";
 
 export class UnknownCodebreaker extends Codebreaker {
-  constructor(target: DarknetServer, ns: NS) { super(target, ns); }
+  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     this.printCoreInfo();

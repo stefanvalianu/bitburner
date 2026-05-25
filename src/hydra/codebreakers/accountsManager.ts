@@ -1,5 +1,4 @@
-import { NS } from "@ns";
-import { DarknetServer } from "@repo/tasks/actionator/core/darknet/types";
+import { DarknetServerDetails, NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
 
 interface PasswordAttemptLog {
@@ -8,7 +7,7 @@ interface PasswordAttemptLog {
 }
 
 export class AccountsManagerCodebreaker extends Codebreaker {
-  constructor(target: DarknetServer, ns: NS) { super(target, ns); }
+  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
   
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.target.passwordFormat === "numeric") {
@@ -25,7 +24,7 @@ export class AccountsManagerCodebreaker extends Codebreaker {
       let guess = Math.floor((low + high) / 2);
       let password = guess.toString();
 
-      let result = await this.authenticate(this.target.hostname, password);
+      let result = await this.authenticate(password);
 
       // binary search our way to the number
       while (low !== high) {
@@ -38,7 +37,7 @@ export class AccountsManagerCodebreaker extends Codebreaker {
             running this operation (attacks from different sides). This means we really need to use the 
             log as a general re-calibration and update our bounds accordingly. 
           */
-          const info = await this.ns.dnet.heartbleed(this.target.hostname);
+          const info = await this.ns.dnet.heartbleed(this.targetIp);
 
           if (info.success && info.logs.length > 0) {
             let logResult: PasswordAttemptLog | undefined;
@@ -51,7 +50,7 @@ export class AccountsManagerCodebreaker extends Codebreaker {
               const logGuess = Number(logResult.passwordAttempted);
               if (logGuess >= high || logGuess <= low) {
                 // This log seems stale, we're already closer to the target. re-generate a log
-                result = await this.ns.dnet.authenticate(this.target.hostname, password);
+                result = await this.authenticate(password);
                 continue;
               }
 
@@ -65,7 +64,7 @@ export class AccountsManagerCodebreaker extends Codebreaker {
 
               guess = Math.floor((low + high) / 2);
               password = guess.toString();
-              result = await this.ns.dnet.authenticate(this.target.hostname, password);
+              result = await this.authenticate(password);
             }
             // we probably read some other crappy log, keep trying (stay in the loop)
           } 

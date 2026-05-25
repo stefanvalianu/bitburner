@@ -41,7 +41,30 @@ Scripts/features to be used within the game [Bitburner](https://github.com/bitbu
 
 ## Hydra Structure
 
+### V1
+
 - Hydra is a self-replicating virus that self-propagates to neighbors. Each hydra instance is responsible for acting
-  on its host, morphing into a phisher, stock pumper, or a proliferator onto other nodes. 
+  on its host, morphing into a phisher, stock pumper, or a proliferator onto other nodes.
 - A central state object is maintained by the core actionator task, but we use this sparingly, mostly for controls/information
-- The initial version of the hydra had literally 0 coordination between individual hydras; this led to challenges like overutilization of CPU for hacking operations, contention for logs when multiple hydras were heartbleeding() the same target, etc
+- The initial version of the hydra had literally 0 coordination between individual hydras; this led to challenges like overutilization of CPU for hacking operations, contention for logs when multiple hydras were heartbleeding() the same target, etc.
+
+### V2
+
+- This version of the hydra attempts to be less chaotic with the following changes:
+  - Heavily utilizing IP as a unique identifier. We convert the IP to a numeral and utilize ports to directly store information against that numeral. We treat the port as a sort of 'lease'.
+  - IPs only change once a server is taken offline; that is, once a server is killed. Before then, IP is a reliable identity.
+  - A hydra controller will run (and remain active) on each host. This controller is minimally responsible for:
+    - Opening caches / consuming stormseeds
+    - Communicating its startup to a centralized controller
+    - Execing other tasks at max threads (reclaim, phish, stock) and shut them down if needed
+    - Proliferating to neighbors
+    - Waiting to re-assess actions (either until darknet mutation, or a longer period like 6s)
+  - The proliferation strategy has also changed. Instead of allowing every server to hack its neighbors, the strategy for a controller to decide to proliferate is:
+    - Each hydra remembers its peers (these will obviously change on darknet mutation)
+    - A hydra must establish connections to all its peers; it checks the port of that peer's IP for state. The state is one of:
+      - Healthy, with listed password
+      - Obsolete (port re-used for a new server), password doesn't work when tried
+      - NULL PORT DATA
+      - Under attack
+    - If the port is healthy, we connect, scp, and exec hydra. If it's obsolete (we fail to connect), we'll claim the port by updating it to be "Under attack". Same with NULL PORT DATA, we'll claim it and attack it. If the port is under attack, we ignore it.
+    - For now, nothing will clean the ports. We'll see if this leads to memory issues, but it seems less CPU intensive than communicating updates with a centralized controller and having it watch for offline status/changes. We DO still publish when a hydra spawns to an event port, so a centralized controller can decide which hydras to keep around with statics.

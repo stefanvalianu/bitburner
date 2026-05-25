@@ -1,6 +1,5 @@
-import { NS } from "@ns";
+import { DarknetServerDetails, NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
-import { DarknetServer } from "@repo/tasks/actionator/core/darknet/types";
 
 interface PasswordAttemptLog {
   data: string;
@@ -8,12 +7,12 @@ interface PasswordAttemptLog {
 }
 
 export class OpenWebAccessPointCodebreaker extends Codebreaker {
-  constructor(target: DarknetServer, ns: NS) { super(target, ns); }
+  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.target.passwordFormat === "numeric") {      
       let password = "123";
-      let result = await this.authenticate(this.target.hostname, password!);
+      let result = await this.authenticate(password!);
       let maxAttempts = 5;
 
       // scan the logs for a number matching the required length. if there is more than 1, guess all of them
@@ -26,7 +25,7 @@ export class OpenWebAccessPointCodebreaker extends Codebreaker {
             Reminder that multiple different instances of this hydra (on different hosts) could
             be consuming the log.
           */
-          const info = await this.ns.dnet.heartbleed(this.target.hostname);
+          const info = await this.ns.dnet.heartbleed(this.targetIp);
 
           if (info.success && info.logs.length > 0) {
             let logResult: PasswordAttemptLog | undefined;
@@ -39,7 +38,7 @@ export class OpenWebAccessPointCodebreaker extends Codebreaker {
               const candidates = this.findNumbersOfLength(logResult.data, this.target.passwordLength);
 
               for (const candidate of candidates) {
-                result = await this.authenticate(this.target.hostname, candidate);
+                result = await this.authenticate(candidate);
                 if (result === null) return { result: "transient" };
                 if (result.success) {
                   return { result: "ok", password: candidate };

@@ -7,7 +7,7 @@ import { loot } from "./loot-helpers";
 import { getCodebreaker } from "./codebreakers";
 import { getMaxPossibleThreads } from "./thread-helper";
 
-const INFECTING_STALENESS_LIMIT_MS = 1000 * 60 * 3; // 3 minutes
+const INFECTING_STALENESS_LIMIT_MS = 1000 * 60 * 2; // 2 minutes
 
 class Hydra {
   private readonly ns: NS;
@@ -70,8 +70,9 @@ class Hydra {
     // URGENT: if we identify a Labyrinth and stasis is still needed, do that right away
     if (needStasais && undefined !== neighbors.find(s => s.modelId === "(The Labyrinth)")) {
       this.ns.tprint(`${CYAN}Stasis Needed and Labyrinth Found!${RESET} at ${this.host.hostname}`);
-      this.ns.atExit(() => this.ns.exec(STASIS_SCRIPT, this.host.ip));
-      this.ns.exit();
+      // we don't want to add the RAM cost for spawn(), and we can't atExit(() => exec()) as it's too unreliable.
+      killPossibleSubscripts(this.ns);
+      this.ns.exec(STASIS_SCRIPT, this.host.ip);
     }
 
     for (const neighbor of neighbors) {

@@ -12,6 +12,8 @@ type Congruence = {
   modulus: bigint;
 };
 
+type UnknownRecord = Record<string, unknown>;
+
 export class BigMoodCodebreaker extends Codebreaker {
   private readonly ip: string;
 
@@ -35,8 +37,9 @@ export class BigMoodCodebreaker extends Codebreaker {
     const { min, max } = range;
     let congruence: Congruence = { remainder: 0n, modulus: 1n };
 
-    // Pairwise-coprime moduli whose product is lcm(1..32).
-    // Ordered to grow information quickly.
+    // Pairwise-coprime prime powers whose product is lcm(1..32).
+    // For probes above max password, password % probe === password,
+    // so feedback becomes password % modulus.
     const moduli = [32n, 27n, 25n, 7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n];
 
     for (const modulus of moduli) {
@@ -51,7 +54,7 @@ export class BigMoodCodebreaker extends Codebreaker {
         return { result: "ok", password: trysolve.password };
       }
 
-      if (trysolve.kind !== "modulo") {
+      if (trysolve.kind !== "modulo" || trysolve.value < 0n || trysolve.value >= modulus) {
         this.printCoreInfo();
         return { result: "impossible" };
       }
@@ -114,7 +117,6 @@ export class BigMoodCodebreaker extends Codebreaker {
     if (result === null) return { result: "transient" };
     if (result.success) return { result: "ok", password };
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 
@@ -128,7 +130,8 @@ export class BigMoodCodebreaker extends Codebreaker {
       return { kind: "success", password };
     }
 
-    const direct = this.parseModuloFeedback(JSON.stringify(result));
+    // Some wrappers expose the password response directly. Use it if present.
+    const direct = this.parseModuloFeedback(result, password, false);
     if (direct !== undefined) {
       return { kind: "modulo", value: direct };
     }
@@ -141,12 +144,10 @@ export class BigMoodCodebreaker extends Codebreaker {
       return { kind: "unknown" };
     }
 
-    for (let i = bleed.logs.length - 1; i >= 0; i--) {
-      const log = typeof bleed.logs[i] === "string"
-        ? bleed.logs[i]
-        : JSON.stringify(bleed.logs[i]);
-
-      const feedback = this.parseModuloFeedback(log);
+    // Bitburner stores newest logs first. Require the log to belong to the exact
+    // password/probe just attempted, so stale auth logs cannot corrupt CRT state.
+    for (let i = 0; i < bleed.logs.length; i++) {
+      const feedback = this.parseModuloFeedback(bleed.logs[i], password, true);
       if (feedback !== undefined) {
         return { kind: "modulo", value: feedback };
       }
@@ -155,18 +156,172 @@ export class BigMoodCodebreaker extends Codebreaker {
     return { kind: "unknown" };
   }
 
-  private parseModuloFeedback(value: string): bigint | undefined {
-    const dataMatch = value.match(/["']?data["']?\s*[:=]\s*["']?(-?\d+)/i);
+  private parseModuloFeedback(
+    value: unknown,
+    attemptedPassword: string,
+    requireAttemptMatch: boolean,
+  ): bigint | undefined {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+
+    if (typeof value === "object") {
+      const record = value as UnknownRecord;
+
+      const fromRecord = this.parseModuloFeedbackRecord(record, attemptedPassword, requireAttemptMatch);
+      if (fromRecord !== undefined) {
+        return fromRecord;
+      }
+
+      const fromResponse = this.parseModuloFeedback(record.response, attemptedPassword, requireAttemptMatch);
+      if (fromResponse !== undefined) {
+        return fromResponse;
+      }
+
+      const fromMessage = this.parseModuloFeedback(record.message, attemptedPassword, requireAttemptMatch);
+      if (fromMessage !== undefined) {
+        return fromMessage;
+      }
+
+      const fromResult = this.parseModuloFeedback(record.result, attemptedPassword, requireAttemptMatch);
+      if (fromResult !== undefined) {
+        return fromResult;
+      }
+    }
+
+    if (typeof value === "string") {
+      return this.parseModuloFeedbackString(value, attemptedPassword, requireAttemptMatch);
+    }
+
+    return undefined;
+  }
+
+  private parseModuloFeedbackRecord(
+    record: UnknownRecord,
+    attemptedPassword: string,
+    requireAttemptMatch: boolean,
+  ): bigint | undefined {
+    const passwordAttempted = this.stringValue(record.passwordAttempted);
+
+    if (requireAttemptMatch && passwordAttempted !== attemptedPassword) {
+      return undefined;
+    }
+
+    if (passwordAttempted !== undefined || !requireAttemptMatch) {
+      const dataValue = this.parseInteger(record.data);
+      if (dataValue !== undefined) {
+        return dataValue;
+      }
+
+      const messageValue = this.stringValue(record.message);
+      if (messageValue !== undefined) {
+        return this.parseModuloMessage(messageValue, attemptedPassword, requireAttemptMatch);
+      }
+    }
+
+    return undefined;
+  }
+
+  private parseModuloFeedbackString(
+    value: string,
+    attemptedPassword: string,
+    requireAttemptMatch: boolean,
+  ): bigint | undefined {
+    const parsed = this.tryParseJson(value);
+    if (parsed !== undefined) {
+      const fromParsed = this.parseModuloFeedback(parsed, attemptedPassword, requireAttemptMatch);
+      if (fromParsed !== undefined) {
+        return fromParsed;
+      }
+    }
+
+    const normalized = value.replaceAll('\\"', '"');
+
+    if (requireAttemptMatch && !this.stringContainsAttempt(normalized, attemptedPassword)) {
+      return undefined;
+    }
+
+    const dataMatch = normalized.match(/["']?data["']?\s*[:=]\s*["']?(-?\d+)["']?/i);
     if (dataMatch) {
       return BigInt(dataMatch[1]);
     }
 
-    const messageMatch = value.match(/=\s*(-?\d+)\b/);
-    if (messageMatch) {
-      return BigInt(messageMatch[1]);
+    return this.parseModuloMessage(normalized, attemptedPassword, requireAttemptMatch);
+  }
+
+  private parseModuloMessage(
+    value: string,
+    attemptedPassword: string,
+    requireAttemptMatch: boolean,
+  ): bigint | undefined {
+    const escapedAttempt = this.escapeRegex(attemptedPassword);
+
+    const match = value.match(
+      new RegExp(
+        String.raw`\(\s*Password\s*%\s*${escapedAttempt}\s*\)\s*%\s*(?:32|\(\s*${escapedAttempt}\s*%\s*32\s*\))\s*=\s*(-?\d+)`,
+        "i",
+      ),
+    );
+
+    if (match) {
+      return BigInt(match[1]);
+    }
+
+    if (!requireAttemptMatch) {
+      const looseMatch = value.match(/["']?data["']?\s*[:=]\s*["']?(-?\d+)["']?/i);
+      if (looseMatch) {
+        return BigInt(looseMatch[1]);
+      }
     }
 
     return undefined;
+  }
+
+  private stringContainsAttempt(value: string, attemptedPassword: string): boolean {
+    const escapedAttempt = this.escapeRegex(attemptedPassword);
+
+    return (
+      new RegExp(String.raw`["']?passwordAttempted["']?\s*[:=]\s*["']${escapedAttempt}["']`, "i").test(value) ||
+      new RegExp(String.raw`\(\s*Password\s*%\s*${escapedAttempt}\s*\)`, "i").test(value)
+    );
+  }
+
+  private tryParseJson(value: string): unknown {
+    const trimmed = value.trim();
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+      return undefined;
+    }
+
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private parseInteger(value: unknown): bigint | undefined {
+    if (typeof value === "bigint") {
+      return value;
+    }
+
+    if (typeof value === "number" && Number.isInteger(value)) {
+      return BigInt(value);
+    }
+
+    if (typeof value !== "string") {
+      return undefined;
+    }
+
+    const trimmed = value.trim();
+    if (!/^-?\d+$/.test(trimmed)) {
+      return undefined;
+    }
+
+    return BigInt(trimmed);
+  }
+
+  private stringValue(value: unknown): string | undefined {
+    return typeof value === "string" ? value : undefined;
   }
 
   private passwordRange(length: number): { min: bigint; max: bigint } | undefined {
@@ -343,5 +498,9 @@ export class BigMoodCodebreaker extends Codebreaker {
   private mod(value: bigint, modulus: bigint): bigint {
     const result = value % modulus;
     return result < 0n ? result + modulus : result;
+  }
+
+  private escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 }

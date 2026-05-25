@@ -51,7 +51,7 @@ export class BellaCuoreCodebreaker extends Codebreaker {
 
     const maxAttempts = Math.ceil(Math.log2(max - min + 1)) + 3;
 
-    for (let attempt = 0; attempt < maxAttempts && low <= high; attempt++) {
+    for (let i = 0; i < maxAttempts && low <= high; i++) {
       const guess = Math.floor((low + high) / 2);
       const password = guess.toString();
 

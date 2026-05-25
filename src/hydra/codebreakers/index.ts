@@ -25,6 +25,7 @@ import { ProverFloCodebreaker } from "./proverFlo";
 import { TopPassCodebreaker } from "./topPass";
 import { TwoGCellularCodebreaker } from "./cellular";
 import { BigMoodCodebreaker } from "./bigMood";
+import { LabyrinthCodebreaker } from "./labyrinth";
 
 export function getCodebreaker(target: DarknetServerDetails, ip: string, ns: NS): Codebreaker {
   switch (target.modelId) {
@@ -52,7 +53,7 @@ export function getCodebreaker(target: DarknetServerDetails, ip: string, ns: NS)
     case "TopPass": return new TopPassCodebreaker(target, ip, ns);
     case "2G_cellular": return new TwoGCellularCodebreaker(target, ip, ns);
     case "BigMo%od": return new BigMoodCodebreaker(target, ip, ns);
-    case "(The Labyrinth)":
+    case "(The Labyrinth)": return new LabyrinthCodebreaker(target, ip, ns);
     default: return new UnknownCodebreaker(target, ip, ns);
   }
 }

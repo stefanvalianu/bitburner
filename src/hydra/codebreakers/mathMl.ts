@@ -5,18 +5,16 @@ export class MathMlCodebreaker extends Codebreaker {
   constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.target.passwordFormat === "numeric") {
-      const password = this.evaluatePassword(this.target.data);
-      if (password === undefined) {
-        this.printCoreInfo();
-        return { result: "impossible" };
-      }
+    const password = this.evaluatePassword(this.target.data);
+    if (password === undefined) {
+      this.printCoreInfo();
+      return { result: "impossible" };
+    }
 
-      const result = await this.authenticate(password);
-      if (result === null) return { result: "transient" };
-      if (result.success) {
-        return { result: "ok", password };
-      }
+    const result = await this.authenticate(password);
+    if (result === null) return { result: "transient" };
+    if (result.success) {
+      return { result: "ok", password };
     }
 
     this.printCoreInfo();
@@ -24,178 +22,87 @@ export class MathMlCodebreaker extends Codebreaker {
   }
 
   private evaluatePassword(data: string): string | undefined {
-    const expression = this.cleanArithmeticExpression(data);
-    if (expression === undefined) {
+    const result = this.parseSimpleArithmeticExpression(data);
+
+    if (Number.isNaN(result)) {
       return undefined;
     }
 
-    try {
-      const result = new ArithmeticExpressionParser(expression).parse();
-
-      if (!Number.isFinite(result)) {
-        return undefined;
-      }
-
-      return result.toString();
-    } catch {
-      return undefined;
-    }
+    return result.toString();
   }
 
-  private cleanArithmeticExpression(data: string): string | undefined {
-    let expression = data
-      // Source may inject this inside a parenthesized expression at high difficulty.
-      // Remove before split(",") or we can accidentally truncate a valid expression.
+  private cleanArithmeticExpression(expression: string): string {
+    return expression
+      .replaceAll("\u04B3", "*") // ҳ
+      .replaceAll("\u00F7", "/") // ÷
+      .replaceAll("\u2795", "+") // ➕
+      .replaceAll("\u2796", "-") // ➖
       .replaceAll("ns.exit(),", "")
       .split(",")[0];
-
-    // Source symbols:
-    // \u04B3 = ҳ  -> *
-    // \u00F7 = ÷  -> /
-    // \u2795 = ➕ -> +
-    // \u2796 = ➖ -> -
-    expression = expression
-      .replaceAll("\u04B3", "*")
-      .replaceAll("\u00F7", "/")
-      .replaceAll("\u2795", "+")
-      .replaceAll("\u2796", "-")
-
-      // Optional defensive normalization for common lookalikes.
-      // These are not currently source-generated, but make copied/debug data safer.
-      .replaceAll("\u00D7", "*") // ×
-      .replaceAll("\u2715", "*") // ✕
-      .replaceAll("\u2716", "*") // ✖
-      .replaceAll("\u2215", "/") // ∕
-      .replaceAll("\u2044", "/") // ⁄
-      .replaceAll("\u2212", "-") // −
-      .trim();
-
-    if (expression.length === 0) {
-      return undefined;
-    }
-
-    // Do not silently accept unknown Unicode/operator characters.
-    if (/[^0-9+\-*/().\s]/.test(expression)) {
-      return undefined;
-    }
-
-    return expression;
-  }
-}
-
-class ArithmeticExpressionParser {
-  private index = 0;
-
-  constructor(private readonly expression: string) {}
-
-  parse(): number {
-    const result = this.parseExpression();
-    this.skipWhitespace();
-
-    if (this.index !== this.expression.length) {
-      throw new Error(`Unexpected token '${this.expression[this.index]}' at index ${this.index}`);
-    }
-
-    return result;
   }
 
-  private parseExpression(): number {
-    let value = this.parseTerm();
+  private parseSimpleArithmeticExpression(expression: string): number {
+    const tokens = this.cleanArithmeticExpression(expression).split("");
 
-    while (true) {
-      this.skipWhitespace();
-
-      if (this.consume("+")) {
-        value += this.parseTerm();
-      } else if (this.consume("-")) {
-        value -= this.parseTerm();
-      } else {
-        return value;
-      }
-    }
-  }
-
-  private parseTerm(): number {
-    let value = this.parseFactor();
-
-    while (true) {
-      this.skipWhitespace();
-
-      if (this.consume("*")) {
-        value *= this.parseFactor();
-      } else if (this.consume("/")) {
-        value /= this.parseFactor();
-      } else {
-        return value;
-      }
-    }
-  }
-
-  private parseFactor(): number {
-    this.skipWhitespace();
-
-    if (this.consume("+")) {
-      return this.parseFactor();
-    }
-
-    if (this.consume("-")) {
-      return -this.parseFactor();
-    }
-
-    if (this.consume("(")) {
-      const value = this.parseExpression();
-      this.skipWhitespace();
-
-      if (!this.consume(")")) {
-        throw new Error(`Expected ')' at index ${this.index}`);
+    let currentDepth = 0;
+    const depth = tokens.map(token => {
+      if (token === "(") {
+        currentDepth += 1;
+      } else if (token === ")") {
+        currentDepth -= 1;
+        return currentDepth + 1;
       }
 
-      return value;
+      return currentDepth;
+    });
+
+    const depth1Start = depth.indexOf(1);
+    const firstZeroAfterDepth1Start = depth.indexOf(0, depth1Start);
+    const depth1End = firstZeroAfterDepth1Start === -1
+      ? depth.length - 1
+      : firstZeroAfterDepth1Start - 1;
+
+    if (depth1Start !== -1) {
+      const subExpression = tokens.slice(depth1Start + 1, depth1End).join("");
+      const result = this.parseSimpleArithmeticExpression(subExpression);
+
+      tokens.splice(depth1Start, depth1End - depth1Start + 1, result.toString());
+      return this.parseSimpleArithmeticExpression(tokens.join(""));
     }
 
-    return this.parseNumber();
-  }
+    let remainingExpression = tokens.join("");
 
-  private parseNumber(): number {
-    this.skipWhitespace();
+    const multiplicationDivisionRegex = /(-?\d*\.?\d+) *([*/]) *(-?\d*\.?\d+)/;
+    let match = remainingExpression.match(multiplicationDivisionRegex);
 
-    const start = this.index;
+    while (match) {
+      const [fullMatch, left, operator, right] = match;
+      const result = operator === "*"
+        ? parseFloat(left) * parseFloat(right)
+        : parseFloat(left) / parseFloat(right);
 
-    while (
-      this.index < this.expression.length &&
-      /[0-9.]/.test(this.expression[this.index])
-    ) {
-      this.index += 1;
+      const resultString = Math.abs(result) < 0.000001
+        ? result.toFixed(20)
+        : result.toString();
+
+      remainingExpression = remainingExpression.replace(fullMatch, resultString);
+      match = remainingExpression.match(multiplicationDivisionRegex);
     }
 
-    if (start === this.index) {
-      throw new Error(`Expected number at index ${this.index}`);
+    const additionSubtractionRegex = /(-?\d*\.?\d+) *([+-]) *(-?\d*\.?\d+)/;
+    match = remainingExpression.match(additionSubtractionRegex);
+
+    while (match) {
+      const [fullMatch, left, operator, right] = match;
+      const result = operator === "+"
+        ? parseFloat(left) + parseFloat(right)
+        : parseFloat(left) - parseFloat(right);
+
+      remainingExpression = remainingExpression.replace(fullMatch, result.toString());
+      match = remainingExpression.match(additionSubtractionRegex);
     }
 
-    const raw = this.expression.slice(start, this.index);
-
-    if (!/^\d+(?:\.\d+)?$|^\.\d+$/.test(raw)) {
-      throw new Error(`Invalid number '${raw}'`);
-    }
-
-    return Number(raw);
-  }
-
-  private consume(token: string): boolean {
-    if (this.expression[this.index] !== token) {
-      return false;
-    }
-
-    this.index += 1;
-    return true;
-  }
-
-  private skipWhitespace(): void {
-    while (
-      this.index < this.expression.length &&
-      /\s/.test(this.expression[this.index])
-    ) {
-      this.index += 1;
-    }
+    const [, leftover] = remainingExpression.match(/(-?\d*\.?\d+)/) ?? [];
+    return parseFloat(leftover);
   }
 }

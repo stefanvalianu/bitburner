@@ -1,6 +1,7 @@
 import { NS } from "@ns";
 import { HydraAuthInfo, HYDRA_LOCKFILE } from "../types";
 import { getCodebreaker } from "../codebreakers";
+import { spawnHydra } from "../infect-helper";
 
 /*
   This script is called from the hydra controller to break authentication on a set of targets.
@@ -19,7 +20,7 @@ export async function main(ns: NS): Promise<void> {
     const result = await codebreaker.tryAuthenticate();
 
     if (result.result === "ok") {
-      // write success port, scp, exec
+      spawnHydra(ns, target.targetIp);
     } else if (result.result === "impossible") {
       ns.tprint(`Cannot solve ${target.targetModel}`);
     } else if (result.result === "transient") {

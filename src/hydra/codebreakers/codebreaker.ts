@@ -31,9 +31,8 @@ export abstract class Codebreaker {
     const result = await this.ns.dnet.authenticate(this.info.targetIp, password);
 
     if (result.success) {
-      const port = ipv4ToUint32Fast(this.info.targetIp);
-      this.ns.clearPort(port);
-      this.ns.writePort(port, {
+      this.ns.clearPort(this.info.targetPort);
+      this.ns.writePort(this.info.targetPort, {
         ip: this.info.targetIp,
         state: "infected",
         password: password,

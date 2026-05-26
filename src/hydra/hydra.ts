@@ -1,6 +1,6 @@
 import { NS } from "@ns";
 import { HydraControllerState } from "@repo/common/info/hydra";
-import { getPortData, HYDRA_STATE_PORT } from "@repo/common/ports";
+import { getPortData, HYDRA_STASIS_CLAIM_PORT, HYDRA_STATE_PORT } from "@repo/common/ports";
 import { AUTH_SCRIPT, CYAN, DarknetServer, HydraAuthInfo, HydraIpPortState, LOOT_SCRIPT, PHISH_SCRIPT, RECLAIM_SCRIPT, RESET, STASIS_SCRIPT } from "./types";
 import { ipv4ToUint32Fast } from "./helpers";
 import { getMaxPossibleThreads } from "./thread-helper";
@@ -15,8 +15,8 @@ interface NeighborInfo {
 
 class Hydra {
   private readonly ns: NS;
-  private readonly host: DarknetServer;
 
+  private host: DarknetServer;
   private authenticatorPid?: number;
 
   constructor(ns: NS) {
@@ -32,6 +32,10 @@ class Hydra {
   }
 
   async start(): Promise<void> {
+    
+    // wait a bit for the loot script to do its thing, we don't want to kill it from authentication.
+    await this.ns.asleep(500);
+
     // every mutation: broadcast our location/position to the home controller
     // TODO - we should keep some behavior state and compare it against HydraState to change our actions at the behest of the central controller. We'll have to scriptkill everything when changing
     let state = getPortData<HydraControllerState>(this.ns, HYDRA_STATE_PORT);
@@ -39,6 +43,11 @@ class Hydra {
     // state being undefined is our kill-switch.;
     while (undefined !== state) {
       // at this point, we are in a new (to us) darknet cycle
+      this.host = {
+        ...this.host,
+        ...this.ns.dnet.getServerDetails(),
+      }
+
       if (this.authenticatorPid && !this.ns.isRunning(this.authenticatorPid, this.host.ip)) {
         // auhenticator finished, sweet
         this.authenticatorPid = undefined;
@@ -79,11 +88,28 @@ class Hydra {
     } satisfies DarknetServer));
 
     // URGENT: if we identify a Labyrinth and stasis is still needed, do that right away
-    if (!state.haveLabyrinthStasis && undefined !== neighbors.find(s => s.modelId === "(The Labyrinth)")) {
+    if (!state.haveLabyrinthStasis &&
+        undefined !== neighbors.find(s => s.modelId === "(The Labyrinth)") &&
+        getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, STASIS_SCRIPT) > 0) {
       this.ns.tprint(`${CYAN}Stasis Needed and Labyrinth Found!${RESET}`);
       // we don't want to add the RAM cost for spawn(), and we can't atExit(() => exec()) as it's too unreliable.
       this.ns.killall(undefined, true);
-      this.ns.exec(STASIS_SCRIPT, this.host.ip);
+      this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, true);
+      return;
+    }
+
+    // ALSO URGENT: if we reached a depth that needs a link, let's link
+    if (this.host.depth >= state.nextStasisMinDepth &&
+        this.ns.getScriptRam(STASIS_SCRIPT) &&
+        getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, STASIS_SCRIPT) > 0) {
+      const lock = getPortData<boolean>(this.ns, HYDRA_STASIS_CLAIM_PORT);
+      if (!lock) {
+        this.ns.tprint(`${CYAN}Stasis Link Needed and Depth Reached!${RESET}`);
+        this.ns.writePort(HYDRA_STASIS_CLAIM_PORT, true);
+        this.ns.killall(undefined, true);
+        this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, false);
+        return;
+      }
     }
 
     let targetsNeedingAuthentication: NeighborInfo[] = [];
@@ -154,7 +180,7 @@ class Hydra {
       migration. One strategy could be to write our target payloads to a file and have the auth
       script be more responsive to it, but for now let's acknowledge the inefficiency and continue.
     */
-    if (!this.authenticatorPid) {
+    if (!this.authenticatorPid && targetsNeedingAuthentication.length > 0) {
       let data = targetsNeedingAuthentication.map(t => ({
         sourceIp: this.host.ip,
         targetIp: t.server.ip,

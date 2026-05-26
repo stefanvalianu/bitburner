@@ -10,8 +10,18 @@ export interface HydraControllerState {
 
 // Sent by the hydra script to update the main controller
 export interface HydraInstanceUpdate {
-  type: "stasis-linking";
-  ip: string;
+  type: "stasis-linking" | "lab-stasis-linking";
+  info: StasisInfo;
 }
 
-export const STASIS_LINK_FILE = ".state/hydra_stasis_link.txt";
+export interface StasisInfo {
+  ip: string;
+  password: string;
+}
+
+export const STASIS_LINK_FILE = ".state/hydra_stasis_link.json";
+
+export interface StasisLinkFile {
+  labLink?: StasisInfo;
+  regularLinks: StasisInfo[];
+}

@@ -4,7 +4,8 @@ import { HydraAuthInfo } from "../types";
 
 type KingOfTheHillAttemptLog = {
   passwordAttempted: string;
-  data: string;
+  data?: string | number;
+  message?: string;
 };
 
 type KingOfTheHillPhase = "coarse" | "probe" | "final" | "zoom" | "done";
@@ -35,13 +36,20 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
       const password = guess.toString();
       const result = await this.authenticate(password);
 
-      if (result === null) return { result: "transient" };
-      if (result.success) return { result: "ok", password };
+      if (result === null) {
+        this.ns.print(`KingOfTheHill transient: authenticate returned null for password ${password}`);
+        return { result: "transient" };
+      }
+
+      if (result.success) {
+        return { result: "ok", password };
+      }
 
       const score = await this.readScoreForPassword(password);
 
       if (score === undefined) {
         // Do not continue. Missing the current datapoint would corrupt the hill model.
+        this.ns.print(`KingOfTheHill transient: could not read score for password ${password}`);
         return { result: "transient" };
       }
 
@@ -54,17 +62,19 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
 
   private async readScoreForPassword(password: string): Promise<number | undefined> {
     const info = await this.ns.dnet.heartbleed(this.info.targetIp, {
-      logsToCapture: 50,
+      logsToCapture: 100,
       peek: true,
     });
 
     if (!info.success) {
+      this.ns.print(`KingOfTheHill heartbleed failed for ${this.info.targetIp}`);
       return undefined;
     }
 
-    // Important: auth logs are newest-first. Ignore noise, but only trust the
-    // first actual PasswordResponse. If it is not for our exact attempted
-    // password, another auth attempt beat us or we are looking at stale data.
+    let sawPasswordResponse = false;
+
+    // Logs are expected newest-first. Ignore non-auth logs and auth logs for
+    // other passwords. The attempted password itself is our correlation key.
     for (const log of info.logs) {
       const parsed = this.parseAttemptLog(log);
 
@@ -72,12 +82,29 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
         continue;
       }
 
+      sawPasswordResponse = true;
+
       if (parsed.passwordAttempted !== password) {
+        continue;
+      }
+
+      const score = this.parseScore(parsed);
+
+      if (score === undefined) {
+        this.ns.print(
+          `KingOfTheHill matched password ${password}, but log did not contain a numeric altitude score`,
+        );
+
         return undefined;
       }
 
-      const score = Number(parsed.data);
-      return Number.isFinite(score) ? score : undefined;
+      return score;
+    }
+
+    if (sawPasswordResponse) {
+      this.ns.print(`KingOfTheHill found auth logs, but none for password ${password}`);
+    } else {
+      this.ns.print(`KingOfTheHill found no PasswordResponse logs for password ${password}`);
     }
 
     return undefined;
@@ -98,19 +125,82 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
     }
 
     for (const candidate of candidates) {
-      if (!this.isRecord(candidate)) continue;
+      if (!this.isRecord(candidate)) {
+        continue;
+      }
 
       const passwordAttempted = candidate.passwordAttempted;
+
+      if (typeof passwordAttempted !== "string") {
+        continue;
+      }
+
       const data = candidate.data;
+      const message = candidate.message;
 
-      if (typeof passwordAttempted !== "string") continue;
-      if (typeof data !== "string") continue;
-      if (data.length === 0) continue;
-
-      return { passwordAttempted, data };
+      return {
+        passwordAttempted,
+        data: typeof data === "string" || typeof data === "number" ? data : undefined,
+        message: typeof message === "string" ? message : undefined,
+      };
     }
 
     return undefined;
+  }
+
+  private parseScore(log: KingOfTheHillAttemptLog): number | undefined {
+    if (typeof log.data === "number") {
+      return Number.isFinite(log.data) ? log.data : undefined;
+    }
+
+    if (typeof log.data === "string") {
+      const score = Number(log.data.trim());
+
+      if (Number.isFinite(score)) {
+        return score;
+      }
+    }
+
+    if (log.message !== undefined) {
+      return this.parseScoreFromMessage(log.message);
+    }
+
+    return undefined;
+  }
+
+  private parseScoreFromMessage(message: string): number | undefined {
+    const prefix = "current altitude:";
+    const start = message.toLowerCase().indexOf(prefix);
+
+    if (start < 0) {
+      return undefined;
+    }
+
+    const rest = message.slice(start + prefix.length).trim();
+    let end = 0;
+
+    while (end < rest.length && this.isNumberCharacter(rest[end])) {
+      end++;
+    }
+
+    if (end === 0) {
+      return undefined;
+    }
+
+    const score = Number(rest.slice(0, end));
+
+    return Number.isFinite(score) ? score : undefined;
+  }
+
+  private isNumberCharacter(value: string): boolean {
+    return (
+      value === "-" ||
+      value === "+" ||
+      value === "." ||
+      value === "e" ||
+      value === "E" ||
+      (value >= "0" && value <= "9")
+    );
   }
 
   private tryParseJson(value: string): unknown {

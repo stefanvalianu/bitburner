@@ -48,7 +48,7 @@ class Hydra {
         ...this.ns.dnet.getServerDetails(),
       }
 
-      if (this.authenticatorPid && !this.ns.isRunning(this.authenticatorPid, this.host.ip)) {
+      if (this.authenticatorPid && !this.ns.isRunning(this.authenticatorPid)) {
         // auhenticator finished, sweet
         this.authenticatorPid = undefined;
       }
@@ -65,6 +65,10 @@ class Hydra {
             this.ns.exec(RECLAIM_SCRIPT, this.host.ip, { temporary: false, preventDuplicates: true, threads: threads }, this.host.ip, true);
           }
         } else if (neighborsNeedingHelp.length > 0) {
+          if (this.ns.isRunning(PHISH_SCRIPT, this.host.ip)) {
+            // if we were phishing, we need to help instead
+            this.ns.killall(undefined, true);
+          }
           // help a neighbor reclaim
           const threads = getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, RECLAIM_SCRIPT);
           if (threads > 0) {

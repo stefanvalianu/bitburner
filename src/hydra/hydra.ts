@@ -1,7 +1,7 @@
 import { NS } from "@ns";
 import { HydraControllerState } from "@repo/common/info/hydra";
 import { getPortData, HYDRA_STATE_PORT } from "@repo/common/ports";
-import { AUTH_SCRIPT, CYAN, DarknetServer, HYDRA_LOCKFILE, HydraIpPortState, LOOT_SCRIPT, PHISH_SCRIPT, RECLAIM_SCRIPT, RESET, STASIS_SCRIPT } from "./types";
+import { AUTH_SCRIPT, CYAN, DarknetServer, HYDRA_LOCKFILE, HydraAuthInfo, HydraIpPortState, LOOT_SCRIPT, PHISH_SCRIPT, RECLAIM_SCRIPT, RESET, STASIS_SCRIPT } from "./types";
 import { ipv4ToUint32Fast } from "./helpers";
 import { getMaxPossibleThreads } from "./thread-helper";
 import { spawnHydra } from "./infect-helper";
@@ -151,18 +151,19 @@ class Hydra {
     */
     if (!isAuthenticating) {
       // We've solved the low hanging fruits (propagated to known servers), now authenticate.
-      for (const neighbor of targetsNeedingAuthentication) {
-        this.ns.clearPort(neighbor.port);
-        this.ns.writePort(neighbor.port, {
-          ip: neighbor.server.ip,
-          state: "infecting",
-          infectingStart: Date.now(),
-        } satisfies HydraIpPortState);
+      let data = targetsNeedingAuthentication.map(t => ({
+        sourceIp: this.host.ip,
+        targetIp: t.server.ip,
+        targetPort: t.port,
+        targetModel: t.server.modelId,
+        targetPasswordHint: t.server.passwordHint,
+        targetPasswordData: t.server.data,
+        targetPasswordLength: t.server.passwordLength,
+        targetPasswordDifficulty: t.server.difficulty,
+        targetPasswordFormat: t.server.passwordFormat,
+      } satisfies HydraAuthInfo));
 
-        // build the obj and pass it below
-      }
-
-      this.runScript(AUTH_SCRIPT, this.host.ip, JSON.stringify([]));
+      this.runScript(AUTH_SCRIPT, this.host.ip, JSON.stringify(data));
     }
   }
 

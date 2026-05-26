@@ -1,5 +1,6 @@
 export interface HydraControllerState {
   up: boolean;
+  playerCharisma: number;
   haveLabyrinthStasis: boolean;
 }
 

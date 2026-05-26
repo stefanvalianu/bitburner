@@ -27,6 +27,7 @@ import { TwoGCellularCodebreaker } from "./cellular";
 import { BigMoodCodebreaker } from "./bigMood";
 import { LabyrinthCodebreaker } from "./labyrinth";
 
+// List of solvers
 export function getCodebreaker(target: DarknetServerDetails, ip: string, ns: NS): Codebreaker {
   switch (target.modelId) {
     case "ZeroLogon": return new ZeroLogonCodebreaker(target, ip, ns);

@@ -49,13 +49,16 @@ export async function main(ns: NS): Promise<void> {
 
     ns.writePort(HYDRA_STATE_PORT, {
       up: true,
-      haveLabyrinthStasis: !needsLink
+      haveLabyrinthStasis: !needsLink,
+      playerCharisma: ns.getPlayer().skills.charisma
     } satisfies HydraControllerState);
 
     await bootstrapHydra(ns);
 
     return;
   }
+
+  let haveLabStasis = data.haveLabyrinthStasis;
 
   // Drain update port
   const updates = drainPortData<HydraInstanceUpdate>(ns, HYDRA_UPDATE_PORT);
@@ -64,13 +67,17 @@ export async function main(ns: NS): Promise<void> {
       switch (update.type) {
         case "stasis-linking": {
           ns.write(STASIS_LINK_FILE, update.ip, "w");
-          ns.clearPort(HYDRA_STATE_PORT);
-          ns.writePort(HYDRA_STATE_PORT, {
-            up: true,
-            haveLabyrinthStasis: true
-          } satisfies HydraControllerState);
+          haveLabStasis = true;
         }
       }
     }
   }
+
+  // Publish new state
+  ns.clearPort(HYDRA_STATE_PORT);
+  ns.writePort(HYDRA_STATE_PORT, {
+    up: true,
+    haveLabyrinthStasis: haveLabStasis,
+    playerCharisma: ns.getPlayer().skills.charisma
+  } satisfies HydraControllerState);
 }

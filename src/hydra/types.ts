@@ -2,7 +2,6 @@ import { DarknetServerDetails } from "@ns";
 
 export interface DarknetServer extends DarknetServerDetails {
   ip: string;
-  hostname?: string;
 }
 
 /*

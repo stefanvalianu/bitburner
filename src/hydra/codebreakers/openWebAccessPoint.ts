@@ -121,10 +121,10 @@ export class OpenWebAccessPointCodebreaker extends Codebreaker {
     */
     const runRegex = new RegExp(`[${characters}]{${length},}`, "g");
     for (const match of input.matchAll(runRegex)) {
-      const run = match[0];
+      const runMatch = match[0];
 
-      for (let i = 0; i <= run.length - length; i++) {
-        candidates.add(run.slice(i, i + length));
+      for (let i = 0; i <= runMatch.length - length; i++) {
+        candidates.add(runMatch.slice(i, i + length));
       }
     }
 

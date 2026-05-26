@@ -38,13 +38,13 @@ export class BigMoodCodebreaker extends Codebreaker {
     let congruence: Congruence = { remainder: 0n, modulus: 1n };
 
     // Pairwise-coprime prime powers whose product is lcm(1..32).
-    // For probes above max password, password % probe === password,
+    // For probers above max password, password % prober === password,
     // so feedback becomes password % modulus.
     const moduli = [32n, 27n, 25n, 7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n];
 
     for (const modulus of moduli) {
-      const probe = this.firstProbeAboveWithModulo(max, modulus);
-      const trysolve = await this.tryPasswordAndReadModulo(probe.toString());
+      const prober = this.firstproberAboveWithModulo(max, modulus);
+      const trysolve = await this.tryPasswordAndReadModulo(prober.toString());
 
       if (trysolve.kind === "transient") {
         return { result: "transient" };
@@ -80,10 +80,10 @@ export class BigMoodCodebreaker extends Codebreaker {
     let candidates = this.candidatesInRange(congruence, min, max, 32);
 
     if (candidates.length > 1) {
-      const probe = this.findDisambiguatingProbe(candidates);
+      const prober = this.findDisambiguatingprober(candidates);
 
-      if (probe !== undefined) {
-        const trysolve = await this.tryPasswordAndReadModulo(probe.toString());
+      if (prober !== undefined) {
+        const trysolve = await this.tryPasswordAndReadModulo(prober.toString());
 
         if (trysolve.kind === "transient") {
           return { result: "transient" };
@@ -95,7 +95,7 @@ export class BigMoodCodebreaker extends Codebreaker {
 
         if (trysolve.kind === "modulo") {
           candidates = candidates.filter(candidate =>
-            this.tripleModuloResult(candidate, probe) === trysolve.value
+            this.tripleModuloResult(candidate, prober) === trysolve.value
           );
         }
       }
@@ -145,7 +145,7 @@ export class BigMoodCodebreaker extends Codebreaker {
     }
 
     // Bitburner stores newest logs first. Require the log to belong to the exact
-    // password/probe just attempted, so stale auth logs cannot corrupt CRT state.
+    // password/prober just attempted, so stale auth logs cannot corrupt CRT state.
     for (let i = 0; i < bleed.logs.length; i++) {
       const feedback = this.parseModuloFeedback(bleed.logs[i], password, true);
       if (feedback !== undefined) {
@@ -336,7 +336,7 @@ export class BigMoodCodebreaker extends Codebreaker {
     return { min, max };
   }
 
-  private firstProbeAboveWithModulo(maxPassword: bigint, desiredModulo: bigint): bigint {
+  private firstproberAboveWithModulo(maxPassword: bigint, desiredModulo: bigint): bigint {
     const desiredResidue = desiredModulo === 32n ? 0n : desiredModulo;
     const firstAboveMax = maxPassword + 1n;
     const delta = this.mod(desiredResidue - (firstAboveMax % 32n), 32n);
@@ -388,15 +388,15 @@ export class BigMoodCodebreaker extends Codebreaker {
     return candidates;
   }
 
-  private findDisambiguatingProbe(candidates: bigint[]): bigint | undefined {
+  private findDisambiguatingprober(candidates: bigint[]): bigint | undefined {
     const seen = new Set<string>();
 
-    const tryProbe = (probe: bigint): bigint | undefined => {
-      if (probe <= 1n || candidates.includes(probe)) {
+    const tryprober = (prober: bigint): bigint | undefined => {
+      if (prober <= 1n || candidates.includes(prober)) {
         return undefined;
       }
 
-      const key = probe.toString();
+      const key = prober.toString();
       if (seen.has(key)) {
         return undefined;
       }
@@ -404,19 +404,19 @@ export class BigMoodCodebreaker extends Codebreaker {
       seen.add(key);
 
       const results = new Set(
-        candidates.map(candidate => this.tripleModuloResult(candidate, probe).toString())
+        candidates.map(candidate => this.tripleModuloResult(candidate, prober).toString())
       );
 
-      return results.size === candidates.length ? probe : undefined;
+      return results.size === candidates.length ? prober : undefined;
     };
 
     for (let i = 0; i < candidates.length - 1; i++) {
       const midpoint = (candidates[i] + candidates[i + 1]) / 2n;
 
       for (let delta = -256; delta <= 256; delta++) {
-        const probe = tryProbe(midpoint + BigInt(delta));
-        if (probe !== undefined) {
-          return probe;
+        const prober = tryprober(midpoint + BigInt(delta));
+        if (prober !== undefined) {
+          return prober;
         }
       }
     }
@@ -426,9 +426,9 @@ export class BigMoodCodebreaker extends Codebreaker {
       const base = spacing * multiple;
 
       for (let delta = -256; delta <= 256; delta++) {
-        const probe = tryProbe(base + BigInt(delta));
-        if (probe !== undefined) {
-          return probe;
+        const prober = tryprober(base + BigInt(delta));
+        if (prober !== undefined) {
+          return prober;
         }
       }
     }
@@ -438,9 +438,9 @@ export class BigMoodCodebreaker extends Codebreaker {
       const base = maxCandidate / divisor;
 
       for (let delta = -32; delta <= 32; delta++) {
-        const probe = tryProbe(base + BigInt(delta));
-        if (probe !== undefined) {
-          return probe;
+        const prober = tryprober(base + BigInt(delta));
+        if (prober !== undefined) {
+          return prober;
         }
       }
     }

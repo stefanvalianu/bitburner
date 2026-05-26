@@ -1,19 +1,25 @@
 import { NS } from "@ns";
-import { loot } from "@repo/hydra/loot-helpers";
-import { PHISH_SCRIPT } from "@repo/hydra/types";
-import { getMaxPossibleThreads } from "../thread-helper";
+import { CYAN, RESET } from "../types";
 
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
 
-  const ip = ns.getIP();
-
-  // loot the server - we chain to this from reclaim, since reclaiming can create loot pretty consistently
-  loot(ns, ip);
-
-  const threads = getMaxPossibleThreads(ns, ip, 0, PHISH_SCRIPT);
-
-  if (threads > 0) {
-    ns.spawn(PHISH_SCRIPT, { preventDuplicates: true, temporary: true, threads: threads, spawnDelay: 0 });
+  const ip = ns.args[0] as string;
+  const listFiles = ns.args[1] as boolean;
+  
+  const caches = ns.ls(ip, ".cache");
+  for (const cache of caches) {
+    ns.dnet.openCache(cache);
   }
+
+  if (listFiles) {
+    let files = [...ns.ls(ip, ".txt"), ...ns.ls(ip, ".lit")];
+    for (const file of files) {
+      // todo probably send useful stuff to the central brain or updating ip port state ourselves if possible
+      ns.tprint(`${CYAN}FILE${RESET}: ${ns.read(file)}`);
+    }
+  }
+
+  // Use the storm seed for chaos warping if available
+  ns.dnet.unleashStormSeed();
 }

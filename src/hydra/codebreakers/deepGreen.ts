@@ -8,7 +8,6 @@ const LETTERS = LOWERCASE + UPPERCASE;
 const ALPHANUMERIC = DIGITS + LETTERS;
 
 type MastermindFeedback = {
-  passwordAttempted: string;
   exact: number;
   misplaced: number;
 };
@@ -25,80 +24,68 @@ export class DeepGreenCodebreaker extends Codebreaker {
   async tryAuthenticate(): Promise<CodebreakerResult> {
     const length = this.target.passwordLength;
     const alphabet = this.alphabetForPasswordFormat(this.target.passwordFormat);
-    const filler = this.fillerForAlphabet(alphabet);
 
-    if (length <= 0 || alphabet.length === 0 || filler === undefined) {
+    if (length <= 0 || alphabet.length === 0) {
       this.printCoreInfo();
       return { result: "impossible" };
     }
 
-    const charCounts = new Map<string, number>();
+    const counts = new Map<string, number>();
 
-    // Phase 1: discover the password multiset.
+    // Phase 1: discover the password's character multiset.
+    // For "AAAA", exact + misplaced == count of "A" in the real password.
     for (const char of alphabet) {
       const password = char.repeat(length);
       const attempted = await this.tryPasswordAndReadFeedback(password);
 
       if (attempted.kind === "transient") return { result: "transient" };
-      if (attempted.kind === "success") return { result: "ok", password };
+      if (attempted.kind === "success") return { result: "ok", password: attempted.password };
+
       if (attempted.kind !== "feedback") {
         this.printCoreInfo();
         return { result: "impossible" };
       }
 
       const count = attempted.feedback.exact + attempted.feedback.misplaced;
-      if (count > 0) {
-        charCounts.set(char, count);
-      }
+      if (count > 0) counts.set(char, count);
     }
 
-    const totalKnownChars = [...charCounts.values()].reduce((sum, count) => sum + count, 0);
-    if (totalKnownChars !== length) {
+    const chars: string[] = [];
+    for (const [char, count] of counts) {
+      for (let i = 0; i < count; i++) chars.push(char);
+    }
+
+    if (chars.length !== length) {
       this.printCoreInfo();
       return { result: "impossible" };
     }
 
-    const passwordChars: Array<string | null> = Array.from({ length }, () => null);
+    // Phase 2: all remaining guesses are valid permutations of the known multiset.
+    // Therefore misplaced is redundant: misplaced == length - exact for every candidate.
+    let candidates = this.uniquePermutations(chars, this.target.passwordFormat);
 
-    // Phase 2: discover positions.
-    for (const [char, count] of charCounts) {
-      let found = 0;
+    while (candidates.length > 0) {
+      const password = this.chooseGuess(candidates);
+      const attempted = await this.tryPasswordAndReadFeedback(password);
 
-      for (let index = 0; index < length && found < count; index++) {
-        if (passwordChars[index] !== null) continue;
+      if (attempted.kind === "transient") return { result: "transient" };
+      if (attempted.kind === "success") return { result: "ok", password };
 
-        const password = this.singlePositionGuess(length, index, char, filler);
-        const attempted = await this.tryPasswordAndReadFeedback(password);
-
-        if (attempted.kind === "transient") return { result: "transient" };
-        if (attempted.kind === "success") return { result: "ok", password };
-        if (attempted.kind !== "feedback") {
-          this.printCoreInfo();
-          return { result: "impossible" };
-        }
-
-        if (attempted.feedback.exact === 1) {
-          passwordChars[index] = char;
-          found++;
-        }
-      }
-
-      if (found !== count) {
+      if (attempted.kind !== "feedback") {
         this.printCoreInfo();
         return { result: "impossible" };
       }
+
+      if (attempted.feedback.exact === length) {
+        // Failed auth + perfect exact feedback is internally inconsistent.
+        this.printCoreInfo();
+        return { result: "impossible" };
+      }
+
+      candidates = candidates.filter(candidate =>
+        this.exactMatches(candidate, password) === attempted.feedback.exact
+      );
     }
-
-    if (passwordChars.some(char => char === null)) {
-      this.printCoreInfo();
-      return { result: "impossible" };
-    }
-
-    const password = passwordChars.join("");
-    const result = await this.authenticate(password);
-
-    if (result === null) return { result: "transient" };
-    if (result.success) return { result: "ok", password };
 
     this.printCoreInfo();
     return { result: "impossible" };
@@ -116,16 +103,16 @@ export class DeepGreenCodebreaker extends Codebreaker {
     }
 
     const feedback = await this.readFeedbackForPassword(password);
-    if (feedback !== undefined) {
-      return { kind: "feedback", feedback };
+    if (feedback === undefined) {
+      return { kind: "unknown" };
     }
 
-    return { kind: "unknown" };
+    return { kind: "feedback", feedback };
   }
 
   private async readFeedbackForPassword(password: string): Promise<MastermindFeedback | undefined> {
     const info = await this.ns.dnet.heartbleed(this.targetIp, {
-      logsToCapture: 20,
+      logsToCapture: 50,
       peek: true,
     });
 
@@ -134,9 +121,8 @@ export class DeepGreenCodebreaker extends Codebreaker {
     }
 
     for (const log of info.logs) {
-      const feedback = this.parseFeedbackLog(log);
-
-      if (feedback !== undefined && feedback.passwordAttempted === password) {
+      const feedback = this.parseFeedbackLog(log, password);
+      if (feedback !== undefined) {
         return feedback;
       }
     }
@@ -144,67 +130,136 @@ export class DeepGreenCodebreaker extends Codebreaker {
     return undefined;
   }
 
-  private parseFeedbackLog(log: string): MastermindFeedback | undefined {
-    let parsed: unknown;
+  private parseFeedbackLog(log: string, expectedPassword: string): MastermindFeedback | undefined {
+    const parsed = this.tryParseJson(log);
+    const candidates: unknown[] = [parsed];
 
-    try {
-      parsed = JSON.parse(log);
-    } catch {
-      return undefined;
-    }
+    // Support both shapes:
+    // 1. { data: "1,2", passwordAttempted: "..." }
+    // 2. { message: "{\"data\":\"1,2\",\"passwordAttempted\":\"...\"}" }
+    if (this.isRecord(parsed)) {
+      const message = parsed.message;
 
-    const message = this.unwrapLogMessage(parsed);
-    if (!this.isRecord(message)) {
-      return undefined;
-    }
-
-    const passwordAttempted = message.passwordAttempted;
-    const data = message.data;
-
-    if (typeof passwordAttempted !== "string" || typeof data !== "string") {
-      return undefined;
-    }
-
-    const feedback = this.parseFeedbackData(data);
-    if (feedback === undefined) {
-      return undefined;
-    }
-
-    return {
-      passwordAttempted,
-      exact: feedback.exact,
-      misplaced: feedback.misplaced,
-    };
-  }
-
-  private unwrapLogMessage(value: unknown): unknown {
-    if (!this.isRecord(value)) {
-      return value;
-    }
-
-    const message = value.message;
-
-    if (typeof message === "string") {
-      try {
-        return JSON.parse(message);
-      } catch {
-        return message;
+      if (typeof message === "string") {
+        candidates.push(this.tryParseJson(message));
+      } else if (message !== undefined) {
+        candidates.push(message);
       }
     }
 
-    return message ?? value;
-  }
+    for (const candidate of candidates) {
+      if (!this.isRecord(candidate)) continue;
+      if (candidate.passwordAttempted !== expectedPassword) continue;
+      if (typeof candidate.data !== "string") continue;
 
-  private parseFeedbackData(data: string): { exact: number; misplaced: number } | undefined {
-    const match = data.match(/^\s*(\d+)\s*,\s*(\d+)\s*$/);
-    if (!match) {
-      return undefined;
+      const match = candidate.data.match(/^\s*(\d+)\s*,\s*(\d+)\s*$/);
+      if (!match) continue;
+
+      return {
+        exact: Number(match[1]),
+        misplaced: Number(match[2]),
+      };
     }
 
-    return {
-      exact: Number(match[1]),
-      misplaced: Number(match[2]),
+    return undefined;
+  }
+
+  private uniquePermutations(chars: string[], format: string): string[] {
+    const counts = new Map<string, number>();
+    for (const char of chars) {
+      counts.set(char, (counts.get(char) ?? 0) + 1);
+    }
+
+    const uniqueChars = [...counts.keys()];
+    const current = Array.from({ length: chars.length }, () => "");
+    const result: string[] = [];
+    const isNumeric = format === "numeric";
+
+    const visit = (index: number): void => {
+      if (index === current.length) {
+        result.push(current.join(""));
+        return;
+      }
+
+      for (const char of uniqueChars) {
+        const remaining = counts.get(char) ?? 0;
+        if (remaining === 0) continue;
+
+        // Official numeric password generation strips leading zeroes.
+        if (isNumeric && current.length > 1 && index === 0 && char === "0") {
+          continue;
+        }
+
+        counts.set(char, remaining - 1);
+        current[index] = char;
+        visit(index + 1);
+        counts.set(char, remaining);
+      }
     };
+
+    visit(0);
+    return result;
+  }
+
+  private chooseGuess(candidates: string[]): string {
+    if (candidates.length <= 2) {
+      return candidates[0];
+    }
+
+    const guesses = this.evenSample(candidates, Math.min(32, candidates.length));
+    const population = this.evenSample(candidates, Math.min(5_000, candidates.length));
+
+    let bestGuess = guesses[0];
+    let bestWorstBucket = Number.POSITIVE_INFINITY;
+
+    for (const guess of guesses) {
+      const buckets = Array.from({ length: guess.length + 1 }, () => 0);
+
+      for (const candidate of population) {
+        buckets[this.exactMatches(candidate, guess)]++;
+      }
+
+      let worstBucket = 0;
+      for (const bucket of buckets) {
+        if (bucket > worstBucket) worstBucket = bucket;
+      }
+
+      if (worstBucket < bestWorstBucket) {
+        bestWorstBucket = worstBucket;
+        bestGuess = guess;
+      }
+    }
+
+    return bestGuess;
+  }
+
+  private evenSample<T>(items: T[], size: number): T[] {
+    if (items.length <= size) {
+      return items;
+    }
+
+    if (size <= 1) {
+      return [items[0]];
+    }
+
+    const result: T[] = [];
+    const lastIndex = items.length - 1;
+
+    for (let i = 0; i < size; i++) {
+      result.push(items[Math.floor((i * lastIndex) / (size - 1))]);
+    }
+
+    return result;
+  }
+
+  private exactMatches(a: string, b: string): number {
+    let result = 0;
+
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] === b[i]) result++;
+    }
+
+    return result;
   }
 
   private alphabetForPasswordFormat(format: string): string {
@@ -223,20 +278,12 @@ export class DeepGreenCodebreaker extends Codebreaker {
     }
   }
 
-  private fillerForAlphabet(alphabet: string): string | undefined {
-    for (const char of "~!@#$%^&*()_+-=[]{}|;:,.<>?") {
-      if (!alphabet.includes(char)) {
-        return char;
-      }
+  private tryParseJson(value: string): unknown {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
     }
-
-    return undefined;
-  }
-
-  private singlePositionGuess(length: number, index: number, char: string, filler: string): string {
-    const guess = Array.from({ length }, () => filler);
-    guess[index] = char;
-    return guess.join("");
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {

@@ -52,13 +52,6 @@ export const CYAN = "\u001b[36m";
 export const RED = "\u001b[31m";
 export const RESET = "\u001b[0m";
 
-/*
-  Created by the authenticate script (and cleared by it) so the parent
-  hydra understands that additional RAM on the machine is in use for high-pri 
-  work (authenticating to other servers)
-*/
-export const HYDRA_LOCKFILE = ".state/hydra_lock.txt";
-
 export const LOOT_SCRIPT = "hydra/scripts/loot.js";
 export const RECLAIM_SCRIPT = "hydra/scripts/reclaim.js";
 export const PHISH_SCRIPT = "hydra/scripts/phish.js";

@@ -1,5 +1,6 @@
 import { NS } from "@ns";
 import { TASK_STATE_STORED_FILE } from "./common/tasks/constants";
+import { STASIS_LINK_FILE } from "./common/info/hydra";
 
 /*
   This script is only called at the beginning of a new run. It's mainly responsible for
@@ -10,6 +11,7 @@ import { TASK_STATE_STORED_FILE } from "./common/tasks/constants";
 export async function main(ns: NS): Promise<void> {
   // clear existing task prefs
   ns.rm(TASK_STATE_STORED_FILE, "home");
+  ns.rm(STASIS_LINK_FILE, "home");
 
   ns.spawn("main.js", { spawnDelay: 0, temporary: true });
 }

@@ -1,6 +1,5 @@
 import { DarknetResult, NS } from "@ns";
 import { RED, CYAN, RESET, HydraIpPortState, HydraAuthInfo } from "@repo/hydra/types";
-import { ipv4ToUint32Fast } from "../helpers";
 
 export interface PasswordAttemptLog {
   data: string;

@@ -15,7 +15,7 @@ export class TwoGCellularCodebreaker extends Codebreaker {
     const length = this.info.targetPasswordLength;
     const characters = this.charactersForPasswordFormat();
 
-    if (length <= 0 || characters === undefined) {
+    if (length <= 0 || characters === undefined || characters.length === 0) {
       this.printCoreInfo();
       return { result: "impossible" };
     }
@@ -38,10 +38,22 @@ export class TwoGCellularCodebreaker extends Codebreaker {
           return { result: "ok", password: trysolve.password };
         }
 
-        if (trysolve.kind === "mismatch" && trysolve.index > index) {
+        if (trysolve.kind === "unknown") {
+          // Do not continue to the next character. Missing feedback for the
+          // current guess would corrupt the prefix search.
+          return { result: "transient" };
+        }
+
+        if (trysolve.index > index) {
           prefix += char;
           found = true;
           break;
+        }
+
+        if (trysolve.index < index) {
+          // Our supposedly-known prefix is contradicted. This normally means
+          // stale feedback was read or the server changed underneath us.
+          return { result: "transient" };
         }
       }
 
@@ -51,8 +63,6 @@ export class TwoGCellularCodebreaker extends Codebreaker {
       }
     }
 
-    // Usually the final correct character already returns success inside the loop.
-    // This is just a defensive final exact trysolve.
     const result = await this.authenticate(prefix);
     if (result === null) return { result: "transient" };
     if (result.success) return { result: "ok", password: prefix };
@@ -63,6 +73,7 @@ export class TwoGCellularCodebreaker extends Codebreaker {
 
   private async tryPasswordAndReadMismatch(password: string): Promise<TimingTrySolveResult> {
     const result = await this.authenticate(password);
+
     if (result === null) {
       return { kind: "transient" };
     }
@@ -71,22 +82,18 @@ export class TwoGCellularCodebreaker extends Codebreaker {
       return { kind: "success", password };
     }
 
-    // Some wrappers may expose useful auth response details directly.
-    const directMismatch = this.parseMismatchIndex(JSON.stringify(result));
-    if (directMismatch !== undefined) {
-      return { kind: "mismatch", index: directMismatch };
-    }
-
     const bleed = await this.ns.dnet.heartbleed(this.info.targetIp, {
-      logsToCapture: 5,
+      logsToCapture: 50,
+      peek: true,
     });
 
     if (!bleed.success) {
       return { kind: "unknown" };
     }
 
-    for (let i = bleed.logs.length - 1; i >= 0; i--) {
-      const mismatch = this.parseMismatchIndex(bleed.logs[i]);
+    for (const log of bleed.logs) {
+      const mismatch = this.parseMismatchLog(log, password);
+
       if (mismatch !== undefined) {
         return { kind: "mismatch", index: mismatch };
       }
@@ -95,13 +102,73 @@ export class TwoGCellularCodebreaker extends Codebreaker {
     return { kind: "unknown" };
   }
 
+  private parseMismatchLog(log: string, expectedPassword: string): number | undefined {
+    const parsed = this.tryParseJson(log);
+    const candidates: unknown[] = [parsed];
+
+    if (this.isRecord(parsed)) {
+      const message = parsed.message;
+
+      if (typeof message === "string") {
+        candidates.push(this.tryParseJson(message));
+      } else if (message !== undefined) {
+        candidates.push(message);
+      }
+    }
+
+    for (const candidate of candidates) {
+      const mismatch = this.parsePasswordResponseMismatch(candidate, expectedPassword);
+
+      if (mismatch !== undefined) {
+        return mismatch;
+      }
+    }
+
+    return undefined;
+  }
+
+  private parsePasswordResponseMismatch(value: unknown, expectedPassword: string): number | undefined {
+    if (!this.isRecord(value)) {
+      return undefined;
+    }
+
+    if (value.passwordAttempted !== expectedPassword) {
+      return undefined;
+    }
+
+    if (typeof value.message !== "string") {
+      return undefined;
+    }
+
+    return this.parseMismatchIndex(value.message);
+  }
+
   private parseMismatchIndex(value: string): number | undefined {
     const match = value.match(/Found a mismatch while checking each character \((-?\d+)\)/);
+
     if (!match) {
       return undefined;
     }
 
-    return Number(match[1]);
+    const index = Number(match[1]);
+
+    if (!Number.isInteger(index)) {
+      return undefined;
+    }
+
+    return index;
+  }
+
+  private tryParseJson(value: string): unknown {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
   }
 
   private charactersForPasswordFormat(): string | undefined {

@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { HydraAuthInfo, HYDRA_LOCKFILE } from "../types";
+import { HydraAuthInfo } from "../types";
 import { getCodebreaker } from "../codebreakers";
 import { spawnHydra } from "../infect-helper";
 
@@ -10,9 +10,7 @@ import { spawnHydra } from "../infect-helper";
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
-  ns.atExit(() => ns.write(HYDRA_LOCKFILE, "", "w"));
-
-  ns.write(HYDRA_LOCKFILE, "locked", "w");
+  
   const targets = JSON.parse(ns.args[0] as string) as HydraAuthInfo[];
 
   for (const target of targets) {

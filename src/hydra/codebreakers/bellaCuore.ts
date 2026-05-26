@@ -39,6 +39,7 @@ export class BellaCuoreCodebreaker extends Codebreaker {
 
   private async tryExactPassword(password: string): Promise<CodebreakerResult> {
     const result = await this.authenticate(password);
+
     if (result === null) return { result: "transient" };
     if (result.success) return { result: "ok", password };
 
@@ -57,10 +58,12 @@ export class BellaCuoreCodebreaker extends Codebreaker {
       const password = guess.toString();
 
       const result = await this.authenticate(password);
+
       if (result === null) return { result: "transient" };
       if (result.success) return { result: "ok", password };
 
       const feedback = await this.readFeedbackForPassword(password);
+
       if (feedback === undefined) {
         return { result: "transient" };
       }
@@ -78,7 +81,7 @@ export class BellaCuoreCodebreaker extends Codebreaker {
 
   private async readFeedbackForPassword(password: string): Promise<BellaCuoreFeedback | undefined> {
     const info = await this.ns.dnet.heartbleed(this.info.targetIp, {
-      logsToCapture: 20,
+      logsToCapture: 50,
       peek: true,
     });
 
@@ -87,9 +90,9 @@ export class BellaCuoreCodebreaker extends Codebreaker {
     }
 
     for (const log of info.logs) {
-      const parsed = this.parseAttemptLog(log);
+      const parsed = this.parseAttemptLog(log, password);
 
-      if (parsed?.passwordAttempted !== password) {
+      if (parsed === undefined) {
         continue;
       }
 
@@ -99,47 +102,33 @@ export class BellaCuoreCodebreaker extends Codebreaker {
     return undefined;
   }
 
-  private parseAttemptLog(log: string): BellaCuoreAttemptLog | undefined {
-    let parsed: unknown;
+  private parseAttemptLog(log: string, expectedPassword: string): BellaCuoreAttemptLog | undefined {
+    const parsed = this.tryParseJson(log);
+    const candidates: unknown[] = [parsed];
 
-    try {
-      parsed = JSON.parse(log);
-    } catch {
-      return undefined;
-    }
+    if (this.isRecord(parsed)) {
+      const message = parsed.message;
 
-    const message = this.getMessageObject(parsed);
-
-    if (!this.isRecord(message)) {
-      return undefined;
-    }
-
-    const passwordAttempted = message.passwordAttempted;
-    const data = message.data;
-
-    if (typeof passwordAttempted !== "string" || typeof data !== "string") {
-      return undefined;
-    }
-
-    return { passwordAttempted, data };
-  }
-
-  private getMessageObject(value: unknown): unknown {
-    if (!this.isRecord(value)) {
-      return value;
-    }
-
-    const message = value.message;
-
-    if (typeof message === "string") {
-      try {
-        return JSON.parse(message);
-      } catch {
-        return message;
+      if (typeof message === "string") {
+        candidates.push(this.tryParseJson(message));
+      } else if (message !== undefined) {
+        candidates.push(message);
       }
     }
 
-    return message ?? value;
+    for (const candidate of candidates) {
+      if (!this.isRecord(candidate)) continue;
+      if (candidate.passwordAttempted !== expectedPassword) continue;
+      if (typeof candidate.data !== "string") continue;
+      if (candidate.data.length === 0) continue;
+
+      return {
+        passwordAttempted: expectedPassword,
+        data: candidate.data,
+      };
+    }
+
+    return undefined;
   }
 
   private parseFeedback(data: string): BellaCuoreFeedback | undefined {
@@ -159,7 +148,8 @@ export class BellaCuoreCodebreaker extends Codebreaker {
   private parsePuzzle(data: string): BellaCuorePuzzle | undefined {
     const parts = data
       .split(",")
-      .map(part => part.trim());
+      .map(part => part.trim())
+      .filter(part => part.length > 0);
 
     if (parts.length === 1) {
       const value = this.romanNumeralToNumber(parts[0]);
@@ -221,6 +211,14 @@ export class BellaCuoreCodebreaker extends Codebreaker {
     }
 
     return total;
+  }
+
+  private tryParseJson(value: string): unknown {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {

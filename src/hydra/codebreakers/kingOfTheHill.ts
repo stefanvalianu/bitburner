@@ -1,6 +1,18 @@
 import { NS } from "@ns";
-import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
+import { Codebreaker, CodebreakerResult } from "./codebreaker";
 import { HydraAuthInfo } from "../types";
+
+type KingOfTheHillAttemptLog = {
+  passwordAttempted: string;
+  data: string;
+};
+
+type KingOfTheHillPhase = "coarse" | "probe" | "final" | "zoom" | "done";
+
+type ScoredGuess = {
+  guess: number;
+  score: number;
+};
 
 export class KingOfTheHillCodebreaker extends Codebreaker {
   constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
@@ -12,60 +24,107 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
     }
 
     const solver = new KingOfTheHillSolver(this.info.targetPasswordLength);
-    
-    let passwordNum = solver.nextGuess();
-    if (passwordNum === null) return { result: "impossible" };
-    let password = passwordNum.toString();
-    let result = await this.authenticate(password);
 
-    let maxTries = 1_000_000;
-    while (maxTries-- > 0) {
-      if (result === null) return { result: "transient" };
-      if (result.success) {
-        return { result: "ok", password: password! };
-      } else {
-        const info = await this.ns.dnet.heartbleed(this.info.targetIp);
+    for (let attempts = 0; attempts < solver.maxAttempts; attempts++) {
+      const guess = solver.nextGuess();
 
-        if (info.success && info.logs.length > 0) {
-          let logResult: PasswordAttemptLog | undefined;
-          
-          try {
-            logResult = JSON.parse(info.logs[0]) as PasswordAttemptLog;
-          } catch {}
-
-          if (logResult && logResult.passwordAttempted && logResult.data) {
-            const feedback = Number(logResult.data);
-            solver.giveFeedback(Number(logResult.passwordAttempted), feedback);
-
-            passwordNum = solver.nextGuess();
-            if (passwordNum === null) return { result: "impossible" };
-            password = passwordNum.toString();
-            result = await this.authenticate(password!);
-          }
-          // we probably read some other crappy log, keep trying (stay in the loop)
-        } 
-        else {
-          // some other hydra instance is competing with us for logs, let them get it
-          return { result: "transient" };
-        }
+      if (guess === null) {
+        break;
       }
-    }
 
-    if (maxTries === 0) {
-      this.ns.tprint(`Ran out of tries solving kingOfTheHill`);
+      const password = guess.toString();
+      const result = await this.authenticate(password);
+
+      if (result === null) return { result: "transient" };
+      if (result.success) return { result: "ok", password };
+
+      const score = await this.readScoreForPassword(password);
+
+      if (score === undefined) {
+        // Do not continue. Missing the current datapoint would corrupt the hill model.
+        return { result: "transient" };
+      }
+
+      solver.giveFeedback(guess, score);
     }
 
     this.printCoreInfo();
     return { result: "impossible" };
   }
+
+  private async readScoreForPassword(password: string): Promise<number | undefined> {
+    const info = await this.ns.dnet.heartbleed(this.info.targetIp, {
+      logsToCapture: 50,
+      peek: true,
+    });
+
+    if (!info.success) {
+      return undefined;
+    }
+
+    // Important: auth logs are newest-first. Ignore noise, but only trust the
+    // first actual PasswordResponse. If it is not for our exact attempted
+    // password, another auth attempt beat us or we are looking at stale data.
+    for (const log of info.logs) {
+      const parsed = this.parseAttemptLog(log);
+
+      if (parsed === undefined) {
+        continue;
+      }
+
+      if (parsed.passwordAttempted !== password) {
+        return undefined;
+      }
+
+      const score = Number(parsed.data);
+      return Number.isFinite(score) ? score : undefined;
+    }
+
+    return undefined;
+  }
+
+  private parseAttemptLog(log: string): KingOfTheHillAttemptLog | undefined {
+    const parsed = this.tryParseJson(log);
+    const candidates: unknown[] = [parsed];
+
+    if (this.isRecord(parsed)) {
+      const message = parsed.message;
+
+      if (typeof message === "string") {
+        candidates.push(this.tryParseJson(message));
+      } else if (message !== undefined) {
+        candidates.push(message);
+      }
+    }
+
+    for (const candidate of candidates) {
+      if (!this.isRecord(candidate)) continue;
+
+      const passwordAttempted = candidate.passwordAttempted;
+      const data = candidate.data;
+
+      if (typeof passwordAttempted !== "string") continue;
+      if (typeof data !== "string") continue;
+      if (data.length === 0) continue;
+
+      return { passwordAttempted, data };
+    }
+
+    return undefined;
+  }
+
+  private tryParseJson(value: string): unknown {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
+  }
 }
-
-type KingOfTheHillPhase = "coarse" | "probe" | "final" | "zoom" | "done";
-
-type ScoredGuess = {
-  guess: number;
-  score: number;
-};
 
 export class KingOfTheHillSolver {
   private readonly min: number;
@@ -92,18 +151,22 @@ export class KingOfTheHillSolver {
     // Matches Bitburner's getKingOfTheHillAltitude width formula.
     this.width = 10 ** Math.max(length - 2, 0) + 1;
 
-    // Guarantees one coarse sample lands close enough to the real peak
-    // to beat the lower side-hills.
+    // A half-width grid gives at least one sample close to the true peak.
     this.coarseStep = Math.max(1, Math.floor(this.width / 2));
 
     this.setQueue(this.buildCoarseGuesses());
   }
 
-  nextGuess(): string | null {
+  public get maxAttempts(): number {
+    return 2_000;
+  }
+
+  public nextGuess(): number | null {
     for (;;) {
       const guess = this.dequeueGuess();
+
       if (guess !== null) {
-        return guess.toString();
+        return guess;
       }
 
       if (this.phase === "coarse") {
@@ -131,7 +194,7 @@ export class KingOfTheHillSolver {
           continue;
         }
 
-        this.zoomStep = Math.max(1, Math.floor(this.zoomStep / 10));
+        this.zoomStep = Math.max(1, Math.floor(this.zoomStep / 5));
         this.setQueue(this.buildZoomGuesses());
         continue;
       }
@@ -140,12 +203,12 @@ export class KingOfTheHillSolver {
     }
   }
 
-  giveFeedback(guess: number, score: number): void {
+  public giveFeedback(guess: number, score: number): void {
     if (!Number.isInteger(guess) || !this.isInRange(guess)) {
       throw new Error(`Invalid KingOfTheHill guess: ${guess}`);
     }
 
-    if (!Number.isFinite(score)) {
+    if (!Number.isFinite(score) || score < 0) {
       throw new Error(`Invalid KingOfTheHill score for guess ${guess}: ${score}`);
     }
 
@@ -169,25 +232,37 @@ export class KingOfTheHillSolver {
 
   private buildProbeGuesses(): number[] {
     const best = this.bestSample();
-    if (!best) {
-      return [];
-    }
+    if (!best) return [];
 
     const delta = Math.max(1, Math.floor(this.width / 32));
 
-    return [
+    return this.uniqueInRange([
       best.guess - delta,
       best.guess + delta,
       best.guess - 2 * delta,
       best.guess + 2 * delta,
       best.guess - 4 * delta,
       best.guess + 4 * delta,
-    ];
+      best.guess - 8 * delta,
+      best.guess + 8 * delta,
+    ]);
   }
 
   private buildFinalCandidates(): number[] {
     const candidates: number[] = [];
-    const samples = this.topSamples(8);
+    const best = this.bestSample();
+
+    if (!best) {
+      return [];
+    }
+
+    const localSamples = this.samples()
+      .filter(sample =>
+        sample.score > 0 &&
+        Math.abs(sample.guess - best.guess) <= this.width * 2,
+      )
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 12);
 
     const addAround = (center: number, radius: number): void => {
       const rounded = Math.round(center);
@@ -200,36 +275,34 @@ export class KingOfTheHillSolver {
       }
     };
 
-    for (let i = 0; i < samples.length; i++) {
-      for (let j = i + 1; j < samples.length; j++) {
-        const estimate = this.estimateCenterFromPair(samples[i], samples[j]);
+    for (const sample of localSamples) {
+      for (const estimate of this.estimateCentersFromSingleSample(sample)) {
+        addAround(estimate, 8);
+      }
+    }
+
+    for (let i = 0; i < localSamples.length; i++) {
+      for (let j = i + 1; j < localSamples.length; j++) {
+        const estimate = this.estimateCenterFromPair(localSamples[i], localSamples[j]);
+
         if (estimate !== null) {
-          addAround(estimate, 3);
+          addAround(estimate, 8);
         }
       }
     }
 
-    const best = samples[0];
-    if (best) {
-      for (const estimate of this.estimateCentersFromSingleSample(best)) {
-        addAround(estimate, 6);
-      }
-
-      addAround(best.guess, 20);
-    }
+    addAround(best.guess, 25);
 
     return this.uniqueInRange(candidates);
   }
 
   private buildZoomGuesses(): number[] {
     const best = this.bestSample();
-    if (!best) {
-      return [];
-    }
+    if (!best) return [];
 
-    const guesses: number[] = [best.guess];
+    const guesses: number[] = [];
 
-    for (let offset = this.zoomStep; offset <= this.zoomStep * 10; offset += this.zoomStep) {
+    for (let offset = 0; offset <= this.zoomStep * 10; offset += this.zoomStep) {
       guesses.push(best.guess - offset);
       guesses.push(best.guess + offset);
     }
@@ -242,26 +315,20 @@ export class KingOfTheHillSolver {
       return null;
     }
 
-    // From:
+    // Main-hill model:
     // score = 10000 * exp(-((x - password)^2 / width^2))
-    //
-    // Rearranged using two samples to solve for password.
     const x1 = a.guess;
     const x2 = b.guess;
-    const widthSquared = this.width * this.width;
     const denominator = 2 * (x2 - x1);
 
     if (denominator === 0) {
       return null;
     }
 
+    const widthSquared = this.width * this.width;
     const estimate = (x2 * x2 - x1 * x1 - widthSquared * Math.log(a.score / b.score)) / denominator;
 
-    if (!Number.isFinite(estimate)) {
-      return null;
-    }
-
-    return estimate;
+    return Number.isFinite(estimate) ? estimate : null;
   }
 
   private estimateCentersFromSingleSample(sample: ScoredGuess): number[] {
@@ -269,7 +336,7 @@ export class KingOfTheHillSolver {
       return [sample.guess];
     }
 
-    const ratio = Math.min(1, sample.score / 10_000);
+    const ratio = Math.max(0, Math.min(1, sample.score / 10_000));
     const distance = this.width * Math.sqrt(-Math.log(ratio));
 
     if (!Number.isFinite(distance)) {
@@ -303,17 +370,9 @@ export class KingOfTheHillSolver {
       }
     }
 
-    if (!left || !right) {
-      return 0;
-    }
-
-    if (left.score > right.score) {
-      return -1;
-    }
-
-    if (right.score > left.score) {
-      return 1;
-    }
+    if (!left || !right) return 0;
+    if (left.score > right.score) return -1;
+    if (right.score > left.score) return 1;
 
     return 0;
   }
@@ -328,12 +387,6 @@ export class KingOfTheHillSolver {
     }
 
     return best;
-  }
-
-  private topSamples(count: number): ScoredGuess[] {
-    return this.samples()
-      .sort((a, b) => b.score - a.score)
-      .slice(0, count);
   }
 
   private samples(): ScoredGuess[] {

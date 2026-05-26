@@ -1,7 +1,7 @@
 import { NS } from "@ns";
 import { HydraControllerState } from "@repo/common/info/hydra";
 import { getPortData, HYDRA_STATE_PORT } from "@repo/common/ports";
-import { AUTH_SCRIPT, CYAN, DarknetServer, HYDRA_LOCKFILE, HydraAuthInfo, HydraIpPortState, LOOT_SCRIPT, PHISH_SCRIPT, RECLAIM_SCRIPT, RESET, STASIS_SCRIPT } from "./types";
+import { AUTH_SCRIPT, CYAN, DarknetServer, HydraAuthInfo, HydraIpPortState, LOOT_SCRIPT, PHISH_SCRIPT, RECLAIM_SCRIPT, RESET, STASIS_SCRIPT } from "./types";
 import { ipv4ToUint32Fast } from "./helpers";
 import { getMaxPossibleThreads } from "./thread-helper";
 import { spawnHydra } from "./infect-helper";
@@ -16,6 +16,8 @@ interface NeighborInfo {
 class Hydra {
   private readonly ns: NS;
   private readonly host: DarknetServer;
+
+  private authenticatorPid?: number;
 
   constructor(ns: NS) {
     this.ns = ns;
@@ -37,13 +39,16 @@ class Hydra {
     // state being undefined is our kill-switch.;
     while (undefined !== state) {
       // at this point, we are in a new (to us) darknet cycle
-      const isAuthenticating = this.ns.read(HYDRA_LOCKFILE) !== "";
-
+      if (this.authenticatorPid && !this.ns.isRunning(this.authenticatorPid, this.host.ip)) {
+        // auhenticator finished, sweet
+        this.authenticatorPid = undefined;
+      }
+      
       // Infect our neighbors (and build our neighbor map)
-      await this.infectNeighbors(state, isAuthenticating);
+      await this.infectNeighbors(state);
 
       // all our RAM is in use
-      if (!isAuthenticating) {
+      if (!this.authenticatorPid) {
         if (this.host.blockedRam > 0) {
           // kick off the reallocator script. it will eventually spawn into the phisher
           this.runScript(RECLAIM_SCRIPT, this.host.ip);
@@ -65,7 +70,7 @@ class Hydra {
     Build our map of neighbors, infect ones that need infecting, and update our neighbor map at the end.
     Note that this is running once per darknet cycle. Also, since authenticating can take a while, do that last.
   */
-  private async infectNeighbors(state: HydraControllerState, isAuthenticating: boolean): Promise<void> {
+  private async infectNeighbors(state: HydraControllerState): Promise<void> {
     const neighborsIps = this.ns.dnet.probe(true);
 
     const neighbors = neighborsIps.map(ip => ({
@@ -149,8 +154,7 @@ class Hydra {
       migration. One strategy could be to write our target payloads to a file and have the auth
       script be more responsive to it, but for now let's acknowledge the inefficiency and continue.
     */
-    if (!isAuthenticating) {
-      // We've solved the low hanging fruits (propagated to known servers), now authenticate.
+    if (!this.authenticatorPid) {
       let data = targetsNeedingAuthentication.map(t => ({
         sourceIp: this.host.ip,
         targetIp: t.server.ip,
@@ -163,18 +167,23 @@ class Hydra {
         targetPasswordFormat: t.server.passwordFormat,
       } satisfies HydraAuthInfo));
 
-      this.runScript(AUTH_SCRIPT, this.host.ip, JSON.stringify(data));
+      // We've solved the low hanging fruits (propagated to known servers), now authenticate. This
+      // takes priorities over other scripts.
+      this.ns.killall(undefined, true);
+      this.authenticatorPid = this.runScript(AUTH_SCRIPT, this.host.ip, JSON.stringify(data));
     }
   }
 
 
 
-  private runScript(script: string, ip: string, arg?: string): void {
+  private runScript(script: string, ip: string, arg?: string): number {
     const threads = getMaxPossibleThreads(this.ns, ip, this.host.blockedRam, script);
 
     if (threads > 0) {
-      this.ns.exec(script, ip, { temporary: false, preventDuplicates: true, threads: threads }, arg ?? ip);
+      return this.ns.exec(script, ip, { temporary: false, preventDuplicates: true, threads: threads }, arg ?? ip);
     }
+
+    return 0;
   }
 }
 

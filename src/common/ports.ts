@@ -46,6 +46,7 @@ export const CLOUD_SERVER_REQUEST_PORT = 42;
 
 export const HYDRA_UPDATE_PORT = 45;
 export const HYDRA_STATE_PORT = 46;
+export const HYDRA_STASIS_CLAIM_PORT = 47;
 
 export const BLADEBURNER_STATE_PORT = 48;
 
@@ -57,6 +58,7 @@ export function clearPorts(ns: NS) {
   ns.clearPort(TASK_EVENTS_PORT);
   ns.clearPort(USER_PREFERENCES_PORT);
   ns.clearPort(KILLSWITCH_PORT);
+  ns.clearPort(SCP_FILES_PORT);
 
   ns.clearPort(INFILTRATOR_STATE_PORT);
   ns.clearPort(STOCK_TRADER_STATE_PORT);
@@ -79,6 +81,7 @@ export function clearPorts(ns: NS) {
 
   ns.clearPort(HYDRA_UPDATE_PORT);
   ns.clearPort(HYDRA_STATE_PORT);
+  ns.clearPort(HYDRA_STASIS_CLAIM_PORT);
 
   ns.clearPort(BLADEBURNER_STATE_PORT);
 }

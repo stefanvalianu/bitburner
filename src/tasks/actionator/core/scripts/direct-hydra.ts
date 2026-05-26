@@ -1,8 +1,9 @@
 import { NS } from "@ns";
 import { HydraControllerState, HydraInstanceUpdate } from "@repo/common/info/hydra";
 import { drainPortData, getPortData, HYDRA_STATE_PORT, HYDRA_UPDATE_PORT } from "@repo/common/ports";
-import { bootstrapHydra, copyFilesAndStart } from "@repo/hydra/bootstrap";
+import { bootstrapHydra } from "@repo/hydra/bootstrap";
 import { ipv4ToUint32Fast } from "@repo/hydra/helpers";
+import { spawnHydra } from "@repo/hydra/infect-helper";
 import { HydraIpPortState } from "@repo/hydra/types";
 import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 
@@ -38,7 +39,7 @@ export async function main(ns: NS): Promise<void> {
 
         if (portData && portData.password && ns.dnet.connectToSession(ip, portData.password)) {
           ns.tprint(`Kickstarting hydra on stasis-linked ip ${ip}`);
-          copyFilesAndStart(ns, ip);
+          spawnHydra(ns, ip);
           needsLink = false;
         } else {
           ns.tprint(`Stale stasis link info for ip ${ip}, deleting.`);

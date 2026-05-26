@@ -1,11 +1,12 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 export class TopPassCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    const passwords = TopPassCodebreaker.passwords.filter(p => p.length === this.target.passwordLength);
+    const passwords = TopPassCodebreaker.passwords.filter(p => p.length === this.info.targetPasswordLength);
 
     for (const password of passwords) {
       const result = await this.authenticate(password);

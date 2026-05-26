@@ -19,6 +19,9 @@ export const USER_PREFERENCES_PORT = 4;
 // Port to wait on for the main app. Should never be written to.
 export const KILLSWITCH_PORT = 5;
 
+// save a call to ns.ls by locking the files we care about
+export const SCP_FILES_PORT = 6;
+
 // Used by one of the various hacking system tasks.
 export const HACKING_SYSTEM_REQUEST_PORT = 10;
 export const HACKING_SYSTEM_STATE_PORT = 11;

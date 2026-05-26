@@ -1,16 +1,17 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 export class KingOfTheHillCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.target.passwordFormat !== "numeric") {
+    if (this.info.targetPasswordFormat !== "numeric") {
       this.printCoreInfo();
       return { result: "impossible" };
     }
 
-    const solver = new KingOfTheHillSolver(this.target.passwordLength);
+    const solver = new KingOfTheHillSolver(this.info.targetPasswordLength);
     
     let passwordNum = solver.nextGuess();
     if (passwordNum === null) return { result: "impossible" };
@@ -23,7 +24,7 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
       if (result.success) {
         return { result: "ok", password: password! };
       } else {
-        const info = await this.ns.dnet.heartbleed(this.targetIp);
+        const info = await this.ns.dnet.heartbleed(this.info.targetIp);
 
         if (info.success && info.logs.length > 0) {
           let logResult: PasswordAttemptLog | undefined;

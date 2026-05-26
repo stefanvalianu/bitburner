@@ -1,5 +1,5 @@
-import { DarknetResult, DarknetServerDetails, NS } from "@ns";
-import { RED, CYAN, RESET, HydraIpPortState } from "@repo/hydra/types";
+import { DarknetResult, NS } from "@ns";
+import { RED, CYAN, RESET, HydraIpPortState, HydraAuthInfo } from "@repo/hydra/types";
 import { ipv4ToUint32Fast } from "../helpers";
 
 export interface PasswordAttemptLog {
@@ -17,26 +17,24 @@ export interface CodebreakerResult {
 
 export abstract class Codebreaker {
   protected readonly ns: NS;
-  protected readonly target: DarknetServerDetails;
-  protected readonly targetIp: string;
+  protected readonly info: HydraAuthInfo
 
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) {
+  constructor(info: HydraAuthInfo, ns: NS) {
     this.ns = ns;
-    this.target = target;
-    this.targetIp = ip;
+    this.info = info;
   }
 
   abstract tryAuthenticate(): Promise<CodebreakerResult>;
 
   // Returns null if the status code indicates further authentications are pointless
   protected async authenticate(password: string): Promise<null | DarknetResult & { data?: any; } > {
-    const result = await this.ns.dnet.authenticate(this.targetIp, password);
+    const result = await this.ns.dnet.authenticate(this.info.targetIp, password);
 
     if (result.success) {
-      const port = ipv4ToUint32Fast(this.targetIp);
+      const port = ipv4ToUint32Fast(this.info.targetIp);
       this.ns.clearPort(port);
       this.ns.writePort(port, {
-        ip: this.targetIp,
+        ip: this.info.targetIp,
         state: "infected",
         password: password,
       } satisfies HydraIpPortState);
@@ -51,14 +49,14 @@ export abstract class Codebreaker {
         result.code === 503
     ) return null;
 
-    this.ns.tprint(`Failed authenticating to ${this.targetIp} with statusCode: ${result.code}`);
+    this.ns.tprint(`Failed authenticating to ${this.info.targetIp} with statusCode: ${result.code}`);
     return result;
   }
 
   protected printCoreInfo(): void {
-    this.ns.tprint(`model: ${RED}${this.target.modelId}${RESET} host: ${CYAN}${this.targetIp}${RESET}`);
-    this.ns.tprint(`hint: ${CYAN}${this.target.passwordHint}${RESET} data: ${CYAN}${this.target.data}${RESET}`);
-    this.ns.tprint(`format: ${CYAN}${this.target.passwordFormat}${RESET} len: ${CYAN}${this.target.passwordLength}${RESET}`);
+    this.ns.tprint(`model: ${RED}${this.info.targetModel}${RESET} host: ${CYAN}${this.info.targetIp}${RESET}`);
+    this.ns.tprint(`hint: ${CYAN}${this.info.targetPasswordHint}${RESET} data: ${CYAN}${this.info.targetPasswordData}${RESET}`);
+    this.ns.tprint(`format: ${CYAN}${this.info.targetPasswordFormat}${RESET} len: ${CYAN}${this.info.targetPasswordLength}${RESET}`);
     this.ns.tprint(`---------------------------------------------------`);
   }
 }

@@ -1,8 +1,9 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 export class ProverFloCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     const password = this.overflowPassword();
@@ -19,9 +20,9 @@ export class ProverFloCodebreaker extends Codebreaker {
   }
 
   private overflowPassword(): string | undefined {
-    const length = this.target.passwordLength > 0
-      ? this.target.passwordLength
-      : this.parseBufferLength(this.target.passwordHint);
+    const length = this.info.targetPasswordLength > 0
+      ? this.info.targetPasswordLength
+      : this.parseBufferLength(this.info.targetPasswordHint);
 
     if (length === undefined || length <= 0) {
       return undefined;

@@ -1,12 +1,13 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 export class LaikaCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.target.passwordFormat === "alphabetic") {
-      if (this.target.passwordLength === 3) {
+    if (this.info.targetPasswordFormat === "alphabetic") {
+      if (this.info.targetPasswordLength === 3) {
         const password = "max";
         const result = await this.authenticate(password);
         if (result === null) return { result: "transient" };
@@ -14,7 +15,7 @@ export class LaikaCodebreaker extends Codebreaker {
         if (result.success) {
           return { result: "ok", password };
         } 
-      } else if (this.target.passwordLength === 5) {
+      } else if (this.info.targetPasswordLength === 5) {
         const password = "rover";
         const result = await this.authenticate(password);
         if (result === null) return { result: "transient" };
@@ -22,7 +23,7 @@ export class LaikaCodebreaker extends Codebreaker {
         if (result.success) {
           return { result: "ok", password };
         }
-      } else if (this.target.passwordLength === 4) {
+      } else if (this.info.targetPasswordLength === 4) {
         let password = "fido";
         let result = await this.authenticate(password);
         if (result === null) return { result: "transient" };

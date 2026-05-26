@@ -1,16 +1,17 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 export class OctantVoxelCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.target.passwordFormat !== "numeric") {
+    if (this.info.targetPasswordFormat !== "numeric") {
       this.printCoreInfo();
       return { result: "impossible" };
     }
 
-    const parts = this.target.data.split(",");
+    const parts = this.info.targetPasswordData.split(",");
     if (parts.length !== 2) {
       this.printCoreInfo();
       return { result: "impossible" };

@@ -1,5 +1,6 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 type TimingTrySolveResult =
   | { kind: "success"; password: string }
@@ -8,15 +9,10 @@ type TimingTrySolveResult =
   | { kind: "unknown" };
 
 export class TwoGCellularCodebreaker extends Codebreaker {
-  private readonly ip: string;
-
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) {
-    super(target, ip, ns);
-    this.ip = ip;
-  }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    const length = this.target.passwordLength;
+    const length = this.info.targetPasswordLength;
     const characters = this.charactersForPasswordFormat();
 
     if (length <= 0 || characters === undefined) {
@@ -81,7 +77,7 @@ export class TwoGCellularCodebreaker extends Codebreaker {
       return { kind: "mismatch", index: directMismatch };
     }
 
-    const bleed = await this.ns.dnet.heartbleed(this.ip, {
+    const bleed = await this.ns.dnet.heartbleed(this.info.targetIp, {
       logsToCapture: 5,
     });
 
@@ -109,7 +105,7 @@ export class TwoGCellularCodebreaker extends Codebreaker {
   }
 
   private charactersForPasswordFormat(): string | undefined {
-    switch (this.target.passwordFormat) {
+    switch (this.info.targetPasswordFormat) {
       case "numeric":
         return "0123456789";
 

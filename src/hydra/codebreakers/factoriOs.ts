@@ -1,5 +1,6 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 const SMALL_PRIMES = [
   2, 3, 5, 7, 11, 13, 17, 19, 23, 29,
@@ -22,17 +23,17 @@ const LARGE_PRIMES = [
 const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
 
 export class FactoriOsCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.target.passwordFormat !== "numeric") {
+    if (this.info.targetPasswordFormat !== "numeric") {
       this.printCoreInfo();
       return { result: "impossible" };
     }
 
     const solver = new DivisiblePasswordSolver(
-      this.target.passwordLength,
-      this.target.difficulty,
+      this.info.targetPasswordLength,
+      this.info.targetPasswordDifficulty,
     );
 
     for (let attempts = 0; attempts < 250; attempts++) {
@@ -60,7 +61,7 @@ export class FactoriOsCodebreaker extends Codebreaker {
   }
 
   private async readFeedbackForPassword(password: string): Promise<boolean | undefined> {
-    const info = await this.ns.dnet.heartbleed(this.targetIp, {
+    const info = await this.ns.dnet.heartbleed(this.info.targetIp, {
       logsToCapture: 50,
       peek: true,
     });

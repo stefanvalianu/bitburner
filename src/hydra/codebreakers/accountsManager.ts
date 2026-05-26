@@ -1,13 +1,14 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 export class AccountsManagerCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
   
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.target.passwordFormat === "numeric") {
+    if (this.info.targetPasswordFormat === "numeric") {
       // guessing a number between X and Y.
-      const numbers = this.getExactlyTwoNumbers(this.target.passwordHint);
+      const numbers = this.getExactlyTwoNumbers(this.info.targetPasswordHint);
 
       if (numbers === undefined) {
         this.printCoreInfo();
@@ -32,7 +33,7 @@ export class AccountsManagerCodebreaker extends Codebreaker {
             running this operation (attacks from different sides). This means we really need to use the 
             log as a general re-calibration and update our bounds accordingly. 
           */
-          const info = await this.ns.dnet.heartbleed(this.targetIp);
+          const info = await this.ns.dnet.heartbleed(this.info.targetIp);
 
           if (info.success && info.logs.length > 0) {
             let logResult: PasswordAttemptLog | undefined;

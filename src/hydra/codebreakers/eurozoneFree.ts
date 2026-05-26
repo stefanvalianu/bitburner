@@ -1,5 +1,6 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 const EUROZONE_FREE_PASSWORDS = [
   "Austria",
@@ -32,10 +33,10 @@ const EUROZONE_FREE_PASSWORDS = [
 ] as const;
 
 export class EurozoneFreeCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    const options = EUROZONE_FREE_PASSWORDS.filter(p => p.length === this.target.passwordLength);
+    const options = EUROZONE_FREE_PASSWORDS.filter(p => p.length === this.info.targetPasswordLength);
 
     for (const option of options) {
       const result = await this.authenticate(option);

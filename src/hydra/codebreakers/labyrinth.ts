@@ -1,5 +1,5 @@
-import { DarknetResult, DarknetServerDetails, NS } from "@ns";
-import { HydraIpPortState } from "@repo/hydra/types";
+import { DarknetResult, NS } from "@ns";
+import { HydraAuthInfo, HydraIpPortState } from "@repo/hydra/types";
 import { ipv4ToUint32Fast } from "../helpers";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
 
@@ -44,9 +44,7 @@ export class LabyrinthCodebreaker extends Codebreaker {
   private static readonly MAX_STEPS = 50_000;
   private static readonly MOVE_RETRIES = 3;
 
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) {
-    super(target, ip, ns);
-  }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     let report = await this.readLabReport();
@@ -206,11 +204,11 @@ export class LabyrinthCodebreaker extends Codebreaker {
   }
 
   private markInfected(password: string): void {
-    const port = ipv4ToUint32Fast(this.targetIp);
+    const port = ipv4ToUint32Fast(this.info.targetIp);
 
     this.ns.clearPort(port);
     this.ns.writePort(port, {
-      ip: this.targetIp,
+      ip: this.info.targetIp,
       state: "infected",
       password,
     } satisfies HydraIpPortState);

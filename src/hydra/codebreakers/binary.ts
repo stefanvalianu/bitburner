@@ -1,11 +1,12 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 export class BinaryCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    const password = this.decodeBinaryPassword(this.target.data);
+    const password = this.decodeBinaryPassword(this.info.targetPasswordData);
 
     if (password) {
       const result = await this.authenticate(password);

@@ -1,5 +1,6 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 type TripleModuloTrySolveResult =
   | { kind: "success"; password: string }
@@ -15,20 +16,15 @@ type Congruence = {
 type UnknownRecord = Record<string, unknown>;
 
 export class BigMoodCodebreaker extends Codebreaker {
-  private readonly ip: string;
-
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) {
-    super(target, ip, ns);
-    this.ip = ip;
-  }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.target.passwordFormat !== "numeric" || this.target.passwordLength <= 0) {
+    if (this.info.targetPasswordFormat !== "numeric" || this.info.targetPasswordLength <= 0) {
       this.printCoreInfo();
       return { result: "impossible" };
     }
 
-    const range = this.passwordRange(this.target.passwordLength);
+    const range = this.passwordRange(this.info.targetPasswordLength);
     if (range === undefined) {
       this.printCoreInfo();
       return { result: "impossible" };
@@ -136,7 +132,7 @@ export class BigMoodCodebreaker extends Codebreaker {
       return { kind: "modulo", value: direct };
     }
 
-    const bleed = await this.ns.dnet.heartbleed(this.ip, {
+    const bleed = await this.ns.dnet.heartbleed(this.info.targetIp, {
       logsToCapture: 5,
     });
 

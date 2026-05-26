@@ -1,6 +1,7 @@
 import { NS } from "@ns";
-import { HYDRA_SCRIPT, HydraIpPortState } from "./types";
+import { HydraIpPortState } from "./types";
 import { ipv4ToUint32Fast } from "./helpers";
+import { spawnHydra } from "./infect-helper";
 
 export async function bootstrapHydra(ns: NS): Promise<void> {
   // we need to crack the first server and deploy hydra to it
@@ -19,19 +20,11 @@ export async function bootstrapHydra(ns: NS): Promise<void> {
         password: ""
       } satisfies HydraIpPortState);
 
-      copyFilesAndStart(ns, host);
+      spawnHydra(ns, host);
     } else {
       ns.tprint(`Failed to authenticate to first server: ${JSON.stringify(result)}`);
     }
   } else {
     ns.tprint(`Unexpected results from ns.dnet.probe: ${targets.join(",")}`);
-  }
-}
-
-export function copyFilesAndStart(ns: NS, host: string): void {
-  const files = ns.ls("home", ".js");
-  ns.scp(files, host, "home");
-  if (0 === ns.exec(HYDRA_SCRIPT, host, { temporary: false, preventDuplicates: true })) {
-    ns.tprint(`Failed to start ${HYDRA_SCRIPT} on ${host}`);
   }
 }

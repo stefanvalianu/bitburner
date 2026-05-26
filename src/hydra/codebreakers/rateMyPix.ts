@@ -1,23 +1,24 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 export class RateMyPixCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    const solver = new RateMyPixAuthCracker(this.target.passwordFormat === "numeric" ? DIGITS : (this.target.passwordFormat === "alphabetic" ? LETTERS : ALPHANUMERIC));
+    const solver = new RateMyPixAuthCracker(this.info.targetPasswordFormat === "numeric" ? DIGITS : (this.info.targetPasswordFormat === "alphabetic" ? LETTERS : ALPHANUMERIC));
     
     let password = solver.nextGuess();
     if (password === null) return { result: "impossible" };
     let result = await this.authenticate(password);
 
-    let maxAttempts = 1 + this.target.passwordLength * 40;
+    let maxAttempts = 1 + this.info.targetPasswordLength * 40;
     while (maxAttempts-- > 0) {
       if (result === null) return { result: "transient" };
       if (result.success) {
         return { result: "ok", password: password! };
       } else {
-        const info = await this.ns.dnet.heartbleed(this.targetIp);
+        const info = await this.ns.dnet.heartbleed(this.info.targetIp);
 
         if (info.success && info.logs.length > 0) {
           let logResult: PasswordAttemptLog | undefined;

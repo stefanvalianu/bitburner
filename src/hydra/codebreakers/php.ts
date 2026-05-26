@@ -1,12 +1,13 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 export class PhpCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.target.passwordFormat === "numeric") {
-      for (const password of this.getPermutations(this.target.data)) {
+    if (this.info.targetPasswordFormat === "numeric") {
+      for (const password of this.getPermutations(this.info.targetPasswordData)) {
         const result = await this.authenticate(password);
         if (result === null) return { result: "transient" };
         if (result.success) {

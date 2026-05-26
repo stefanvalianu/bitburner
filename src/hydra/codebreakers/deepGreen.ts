@@ -1,5 +1,6 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 const DIGITS = "0123456789";
 const LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
@@ -19,11 +20,11 @@ type AttemptResult =
   | { kind: "unknown" };
 
 export class DeepGreenCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    const length = this.target.passwordLength;
-    const alphabet = this.alphabetForPasswordFormat(this.target.passwordFormat);
+    const length = this.info.targetPasswordLength;
+    const alphabet = this.alphabetForPasswordFormat(this.info.targetPasswordFormat);
 
     if (length <= 0 || alphabet.length === 0) {
       this.printCoreInfo();
@@ -62,7 +63,7 @@ export class DeepGreenCodebreaker extends Codebreaker {
 
     // Phase 2: all remaining guesses are valid permutations of the known multiset.
     // Therefore misplaced is redundant: misplaced == length - exact for every candidate.
-    let candidates = this.uniquePermutations(chars, this.target.passwordFormat);
+    let candidates = this.uniquePermutations(chars, this.info.targetPasswordFormat);
 
     while (candidates.length > 0) {
       const password = this.chooseGuess(candidates);
@@ -111,7 +112,7 @@ export class DeepGreenCodebreaker extends Codebreaker {
   }
 
   private async readFeedbackForPassword(password: string): Promise<MastermindFeedback | undefined> {
-    const info = await this.ns.dnet.heartbleed(this.targetIp, {
+    const info = await this.ns.dnet.heartbleed(this.info.targetIp, {
       logsToCapture: 50,
       peek: true,
     });

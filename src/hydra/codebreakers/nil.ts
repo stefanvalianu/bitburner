@@ -1,5 +1,6 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 const DIGITS = "0123456789";
 const LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
@@ -152,18 +153,18 @@ class NilSolver {
 }
 
 export class NilCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.target.passwordLength <= 0) {
+    if (this.info.targetPasswordLength <= 0) {
       this.printCoreInfo();
       return { result: "impossible" };
     }
 
-    const alphabet = alphabetForPasswordFormat(this.target.passwordFormat);
-    const solver = new NilSolver(this.target.passwordLength, alphabet);
+    const alphabet = alphabetForPasswordFormat(this.info.targetPasswordFormat);
+    const solver = new NilSolver(this.info.targetPasswordLength, alphabet);
 
-    const maxAttempts = this.target.passwordLength * alphabet.length + 2;
+    const maxAttempts = this.info.targetPasswordLength * alphabet.length + 2;
 
     for (let i = 0; i < maxAttempts; i++) {
       const password = solver.nextGuess();
@@ -197,7 +198,7 @@ export class NilCodebreaker extends Codebreaker {
   }
 
   private async readFeedbackForPassword(password: string): Promise<NilFeedbackLog | undefined> {
-    const info = await this.ns.dnet.heartbleed(this.targetIp, {
+    const info = await this.ns.dnet.heartbleed(this.info.targetIp, {
       logsToCapture: 20,
       peek: true,
     });

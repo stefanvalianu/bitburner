@@ -1,13 +1,14 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 type OpenWebAccessPointPasswordFormat = "numeric" | "alphabetic" | "alphanumeric";
 
 export class OpenWebAccessPointCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    const passwordFormat = this.target.passwordFormat;
+    const passwordFormat = this.info.targetPasswordFormat;
 
     if (this.isSupportedPasswordFormat(passwordFormat)) {      
       let password = "123";
@@ -24,14 +25,14 @@ export class OpenWebAccessPointCodebreaker extends Codebreaker {
             Reminder that multiple different instances of this hydra (on different hosts) could
             be consuming the log.
           */
-          const info = await this.ns.dnet.heartbleed(this.targetIp);
+          const info = await this.ns.dnet.heartbleed(this.info.targetIp);
 
           if (info.success && info.logs.length > 0) {
             for (const log of info.logs) {
               const logResult = this.parsePasswordAttemptLog(log);
 
               if (logResult && logResult.passwordAttempted && logResult.data) {
-                const candidates = this.findPasswordsOfLength(logResult.data, this.target.passwordLength, passwordFormat);
+                const candidates = this.findPasswordsOfLength(logResult.data, this.info.targetPasswordLength, passwordFormat);
 
                 for (const candidate of candidates) {
                   result = await this.authenticate(candidate);

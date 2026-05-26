@@ -54,16 +54,29 @@ class Hydra {
       }
       
       // Infect our neighbors (and build our neighbor map)
-      await this.infectNeighbors(state);
+      const neighborsNeedingHelp = await this.infectNeighbors(state);
 
       // all our RAM is in use
       if (!this.authenticatorPid) {
         if (this.host.blockedRam > 0) {
           // kick off the reallocator script. it will eventually spawn into the phisher
-          this.runScript(RECLAIM_SCRIPT, this.host.ip);
-        } else {
+          const threads = getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, RECLAIM_SCRIPT);
+          if (threads > 0) {
+            this.ns.exec(RECLAIM_SCRIPT, this.host.ip, { temporary: false, preventDuplicates: true, threads: threads }, this.host.ip, true);
+          }
+        } else if (neighborsNeedingHelp.length > 0) {
+          // help a neighbor reclaim
+          const threads = getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, RECLAIM_SCRIPT);
+          if (threads > 0) {
+            this.ns.exec(RECLAIM_SCRIPT, this.host.ip, { temporary: false, preventDuplicates: true, threads: threads }, neighborsNeedingHelp[0].ip, false);
+          }
+        }
+        else {
           // go into phishing
-          this.runScript(PHISH_SCRIPT, this.host.ip);
+          const threads = getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, PHISH_SCRIPT);
+          if (threads > 0) {
+            this.ns.exec(PHISH_SCRIPT, this.host.ip, { temporary: false, preventDuplicates: true, threads: threads });
+          }
         }
       }
 
@@ -79,7 +92,7 @@ class Hydra {
     Build our map of neighbors, infect ones that need infecting, and update our neighbor map at the end.
     Note that this is running once per darknet cycle. Also, since authenticating can take a while, do that last.
   */
-  private async infectNeighbors(state: HydraControllerState): Promise<void> {
+  private async infectNeighbors(state: HydraControllerState): Promise<DarknetServer[]> {
     const neighborsIps = this.ns.dnet.probe(true);
 
     const neighbors = neighborsIps.map(ip => ({
@@ -91,11 +104,12 @@ class Hydra {
     if (!state.haveLabyrinthStasis &&
         undefined !== neighbors.find(s => s.modelId === "(The Labyrinth)") &&
         getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, STASIS_SCRIPT) > 0) {
-      this.ns.tprint(`${CYAN}Stasis Needed and Labyrinth Found!${RESET}`);
       // we don't want to add the RAM cost for spawn(), and we can't atExit(() => exec()) as it's too unreliable.
       this.ns.killall(undefined, true);
-      this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, true);
-      return;
+      if (0 !== this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, true)) {
+        this.ns.tprint(`${CYAN}Stasis Needed and Labyrinth Found!${RESET}`);
+      }
+      return [];
     }
 
     // ALSO URGENT: if we reached a depth that needs a link, let's link
@@ -104,15 +118,19 @@ class Hydra {
         getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, STASIS_SCRIPT) > 0) {
       const lock = getPortData<boolean>(this.ns, HYDRA_STASIS_CLAIM_PORT);
       if (!lock) {
-        this.ns.tprint(`${CYAN}Stasis Link Needed and Depth Reached!${RESET}`);
         this.ns.writePort(HYDRA_STASIS_CLAIM_PORT, true);
         this.ns.killall(undefined, true);
-        this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, false);
-        return;
+        if (0 === this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, false)) {
+          this.ns.clearPort(HYDRA_STASIS_CLAIM_PORT);
+        } else {
+          this.ns.tprint(`${CYAN}Stasis Link Needed and Depth Reached!${RESET}`);
+        }
+        return [];
       }
     }
 
     let targetsNeedingAuthentication: NeighborInfo[] = [];
+    let neighborsNeedingReclaimingHelp: DarknetServer[] = [];
 
     for (const neighbor of neighbors) {
       // we're not going to try, our rizz is lacking
@@ -120,6 +138,11 @@ class Hydra {
 
       // we probably took too long during authenticating, and the next iterator is no longer valid
       if (!neighbor.isConnectedToCurrentServer) continue;
+
+      // see if the neighbor needs help; if they do, we prioritize that over our tasks
+      if (neighbor.blockedRam > 0) {
+        neighborsNeedingReclaimingHelp.push(neighbor);
+      }
 
       // we're already connected.
       if (neighbor.hasSession) continue;
@@ -195,21 +218,15 @@ class Hydra {
 
       // We've solved the low hanging fruits (propagated to known servers), now authenticate. This
       // takes priorities over other scripts.
-      this.ns.killall(undefined, true);
-      this.authenticatorPid = this.runScript(AUTH_SCRIPT, this.host.ip, JSON.stringify(data));
-    }
-  }
-
-
-
-  private runScript(script: string, ip: string, arg?: string): number {
-    const threads = getMaxPossibleThreads(this.ns, ip, this.host.blockedRam, script);
-
-    if (threads > 0) {
-      return this.ns.exec(script, ip, { temporary: false, preventDuplicates: true, threads: threads }, arg ?? ip);
+      this.ns.killall(undefined, true);          
+      const threads = getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, AUTH_SCRIPT);
+      if (threads > 0) {
+        this.authenticatorPid = this.ns.exec(AUTH_SCRIPT, this.host.ip, { temporary: false, preventDuplicates: true, threads: threads }, JSON.stringify(data));
+      }
+      return [];
     }
 
-    return 0;
+    return neighborsNeedingReclaimingHelp;
   }
 }
 

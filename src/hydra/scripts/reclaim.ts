@@ -5,10 +5,11 @@ export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
 
   const ip = ns.args[0] as string;
+  const loot = ns.args[1] as boolean;
 
   // Bring blocked RAM to 0
-  while (ns.dnet.getBlockedRam() > 0) {
-    const result = await ns.dnet.memoryReallocation();
+  while (ns.dnet.getBlockedRam(ip) > 0) {
+    const result = await ns.dnet.memoryReallocation(ip);
     if (!result.success) {
       break;
     }
@@ -20,5 +21,7 @@ export async function main(ns: NS): Promise<void> {
     advantage to looting after this is in case we get taken offline next darknet
     cycle, since the hydra only acts at darknet cycle boundaries.
   */
-  ns.spawn(LOOT_SCRIPT, { preventDuplicates: true, temporary: true, threads: 1, spawnDelay: 0 }, ip);
+  if (loot) {
+      ns.spawn(LOOT_SCRIPT, { preventDuplicates: true, temporary: true, threads: 1, spawnDelay: 0 }, ip);
+  }
 }

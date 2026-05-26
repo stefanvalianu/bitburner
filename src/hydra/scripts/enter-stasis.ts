@@ -1,6 +1,6 @@
 import { NS } from "@ns";
 import { HydraInstanceUpdate } from "@repo/common/info/hydra";
-import { getPortData, HYDRA_UPDATE_PORT } from "@repo/common/ports";
+import { getPortData, HYDRA_STASIS_CLAIM_PORT, HYDRA_UPDATE_PORT } from "@repo/common/ports";
 import { CYAN, HydraIpPortState, RESET } from "@repo/hydra/types";
 import { ipv4ToUint32Fast } from "../helpers";
 
@@ -11,9 +11,13 @@ import { ipv4ToUint32Fast } from "../helpers";
 */
 export async function main(ns: NS): Promise<void> {
   ns.disableLog("ALL");
+  let success = false;
+
+  ns.atExit(() => !success && ns.clearPort(HYDRA_STASIS_CLAIM_PORT));
 
   // Don't claim we linked before this finishes lol, if server moves before it's done it would lead to bad state
-  await ns.dnet.setStasisLink(true);
+  const result = await ns.dnet.setStasisLink(true);
+  success = result.success;
 
   const isLab = ns.args[0] as boolean;
   const ip = ns.getIP();

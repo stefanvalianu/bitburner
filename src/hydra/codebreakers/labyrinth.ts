@@ -1,5 +1,5 @@
-import { DarknetResult, DarknetServerDetails, NS } from "@ns";
-import { HydraIpPortState } from "@repo/hydra/types";
+import { DarknetResult, NS } from "@ns";
+import { HydraAuthInfo, HydraIpPortState } from "@repo/hydra/types";
 import { ipv4ToUint32Fast } from "../helpers";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
 
@@ -44,14 +44,11 @@ export class LabyrinthCodebreaker extends Codebreaker {
   private static readonly MAX_STEPS = 50_000;
   private static readonly MOVE_RETRIES = 3;
 
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) {
-    super(target, ip, ns);
-  }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     let report = await this.readLabReport();
     if (report === null) {
-      this.printCoreInfo();
       return { result: "transient" };
     }
 
@@ -80,8 +77,7 @@ export class LabyrinthCodebreaker extends Codebreaker {
       }
 
       if (cell.backtrack === undefined) {
-        this.printCoreInfo();
-        return { result: "impossible" };
+        return { result: "failed" };
       }
 
       const move = await this.move(cell.backtrack, report);
@@ -97,7 +93,6 @@ export class LabyrinthCodebreaker extends Codebreaker {
       report = move.report;
     }
 
-    this.printCoreInfo();
     return { result: "transient" };
   }
 
@@ -105,16 +100,19 @@ export class LabyrinthCodebreaker extends Codebreaker {
     const expected = this.neighbor(from.coords, direction);
 
     for (let i = 0; i < LabyrinthCodebreaker.MOVE_RETRIES; i++) {
-      const result = await this.authenticate(direction);
-
-      if (result === null) {
-        return { result: "transient" };
-      }
+      // Labyrinth submits the move direction as the "password" and needs the
+      // raw DarknetResult so it can read the real password out of result.data
+      // on success. The base authenticate() helper only returns a status string.
+      const result = await this.ns.dnet.authenticate(this.info.targetIp, direction);
 
       if (result.success) {
         const password = this.getSolvedPassword(result, direction);
         this.markInfected(password);
         return { result: "solved", password };
+      }
+
+      if (result.code === 351 || result.code === 503) {
+        return { result: "transient" };
       }
 
       const report = await this.readLabReport();
@@ -206,11 +204,11 @@ export class LabyrinthCodebreaker extends Codebreaker {
   }
 
   private markInfected(password: string): void {
-    const port = ipv4ToUint32Fast(this.targetIp);
+    const port = ipv4ToUint32Fast(this.info.targetIp);
 
     this.ns.clearPort(port);
     this.ns.writePort(port, {
-      ip: this.targetIp,
+      ip: this.info.targetIp,
       state: "infected",
       password,
     } satisfies HydraIpPortState);

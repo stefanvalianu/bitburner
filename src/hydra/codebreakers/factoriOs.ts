@@ -1,242 +1,182 @@
-import { DarknetServerDetails, NS } from "@ns";
-import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
+import { NS } from "@ns";
+import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
+
+const SMALL_PRIMES = [
+  2, 3, 5, 7, 11, 13, 17, 19, 23, 29,
+  31, 37, 41, 43, 47, 53, 59, 61, 67,
+  71, 73, 79, 83, 89, 97,
+];
+
+const LARGE_PRIMES = [
+  1069, 1409, 1471, 1567, 1597, 1601, 1697, 1747, 1801, 1889,
+  1979, 1999, 2063, 2207, 2371, 2503, 2539, 2693, 2741, 2753,
+  2801, 2819, 2837, 2909, 2939, 3169, 3389, 3571, 3761, 3881,
+  4217, 4289, 4547, 4729, 4789, 4877, 4943, 4951, 4957, 5393,
+  5417, 5419, 5441, 5519, 5527, 5647, 5779, 5881, 6007, 6089,
+  6133, 6389, 6451, 6469, 6547, 6661, 6719, 6841, 7103, 7549,
+  7559, 7573, 7691, 7753, 7867, 8053, 8081, 8221, 8329, 8599,
+  8677, 8761, 8839, 8963, 9103, 9199, 9343, 9467, 9551, 9601,
+  9739, 9749, 9859,
+];
+
+const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
 
 export class FactoriOsCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.target.passwordFormat !== "numeric") {
-      this.printCoreInfo();
-      return { result: "impossible" };
+    if (this.info.targetPasswordFormat !== "numeric") {
+      return { result: "failed" };
     }
 
-    const solver = new DivisiblePasswordSolver(this.target.passwordLength);
-    
-    let passwordNum = solver.nextGuess();
-    if (passwordNum === null) return { result: "impossible" };
-    let password = passwordNum.toString();
-    let result = await this.authenticate(password);
+    const solver = new DivisiblePasswordSolver(
+      this.info.targetPasswordLength,
+      this.info.targetPasswordDifficulty,
+    );
 
-    let maxAttempts = 100;
-    while (maxAttempts-- > 0) {
-      if (result === null) return { result: "transient" };
-      if (result.success) {
-        return { result: "ok", password: password! };
-      } else {
-        const info = await this.ns.dnet.heartbleed(this.targetIp);
-
-        if (info.success && info.logs.length > 0) {
-          let logResult: PasswordAttemptLog | undefined;
-          
-          try {
-            logResult = JSON.parse(info.logs[0]) as PasswordAttemptLog;
-          } catch {}
-
-          if (logResult && logResult.passwordAttempted && logResult.data) {
-            const feedback = Boolean(logResult.data);
-            solver.giveFeedback(Number(logResult.passwordAttempted), feedback);
-
-            passwordNum = solver.nextGuess();
-            if (passwordNum === null) return { result: "impossible" };
-            password = passwordNum.toString();
-            result = await this.authenticate(password!);
-          }
-          // we probably read some other crappy log, keep trying (stay in the loop)
-        } 
-        else {
-          // some other hydra instance is competing with us for logs, let them get it
-          return { result: "transient" };
-        }
+    for (let attempts = 0; attempts < 250; attempts++) {
+      const passwordNum = solver.nextGuess();
+      if (passwordNum === null) {
+        break;
       }
+
+      const password = passwordNum.toString();
+      const result = await this.authenticate(password);
+
+      if (result === "transient") return { result: "transient" };
+      if (result === "ok") return { result: "ok", password };
+
+      const feedback = await this.readFeedbackForPassword(password);
+      if (feedback === undefined) {
+        return { result: "transient" };
+      }
+
+      solver.giveFeedback(passwordNum, feedback);
     }
 
-    if (maxAttempts === 0) {
-      this.ns.tprint(`Ran out of attempts solving factoriOs`);
+    return { result: "failed" };
+  }
+
+  private async readFeedbackForPassword(password: string): Promise<boolean | undefined> {
+    const info = await this.getAuthenticateResultLog(password);
+
+    if (info.result !== "ok" || !info.log) {
+      return undefined;
     }
 
-    this.printCoreInfo();
-    return { result: "impossible" };
+    if (info.log.data === "true") return true;
+    if (info.log.data === "false") return false;
+
+    return undefined;
   }
 }
 
 export class DivisiblePasswordSolver {
-  private readonly min: number;
-  private readonly max: number;
-  private readonly sparseThreshold: number;
+  private readonly primes: number[];
+  private readonly maxGuess: bigint;
 
-  private readonly candidates: number[];
-  private readonly alive: Uint8Array;
+  private primeIndex = 0;
+  private currentPower = 0n;
+  private answer = 1n;
 
-  private remaining: number;
   private pendingGuess: number | null = null;
+  private finalGuessReturned = false;
 
-  constructor(length: number) {
+  constructor(length: number, difficulty = Number.POSITIVE_INFINITY) {
+    const safeLength = Math.max(1, Math.floor(length));
+    const maxByLength = 10n ** BigInt(safeLength) - 1n;
 
-    this.min = length === 1 ? 1 : 10 ** (length - 1);
-    this.max = 10 ** length - 1;
-
-    const total = this.max - this.min + 1;
-
-    this.sparseThreshold = 20_000;
-    this.remaining = total;
-
-    this.candidates = Array(total);
-    this.alive = new Uint8Array(total);
-
-    for (let i = 0; i < total; i++) {
-      this.candidates[i] = this.min + i;
-      this.alive[i] = 1;
-    }
+    this.maxGuess = maxByLength < MAX_SAFE_BIGINT ? maxByLength : MAX_SAFE_BIGINT;
+    this.primes = difficulty > 12
+      ? [...SMALL_PRIMES, ...LARGE_PRIMES]
+      : SMALL_PRIMES;
   }
 
   public isSolved(): boolean {
-    return this.remaining === 1;
+    return this.primeIndex >= this.primes.length;
   }
 
   public getAnswer(): number | null {
-    return this.remaining === 1 ? this.candidates[0] : null;
+    if (!this.isSolved()) return null;
+    if (this.answer > MAX_SAFE_BIGINT) return null;
+    return Number(this.answer);
   }
 
   public getRemainingCount(): number {
-    return this.remaining;
+    return this.isSolved() ? 1 : -1;
   }
 
   public nextGuess(): number | null {
-    if (this.remaining === 1) {
-      return null;
-    }
-
     if (this.pendingGuess !== null) {
       return this.pendingGuess;
     }
 
-    const guess =
-      this.remaining <= this.sparseThreshold
-        ? this.chooseBestGuessSparse()
-        : this.chooseBestGuessDense();
+    while (this.primeIndex < this.primes.length) {
+      const prime = BigInt(this.primes[this.primeIndex]);
 
-    this.pendingGuess = guess;
-    return guess;
+      if (this.currentPower === 0n) {
+        this.currentPower = prime;
+      }
+
+      if (this.currentPower > this.maxGuess || this.currentPower > MAX_SAFE_BIGINT) {
+        this.moveToNextPrime();
+        continue;
+      }
+
+      const guess = Number(this.currentPower);
+      this.pendingGuess = guess;
+      return guess;
+    }
+
+    if (this.finalGuessReturned) {
+      return null;
+    }
+
+    this.finalGuessReturned = true;
+
+    if (this.answer < 1n || this.answer > this.maxGuess || this.answer > MAX_SAFE_BIGINT) {
+      return null;
+    }
+
+    this.pendingGuess = Number(this.answer);
+    return this.pendingGuess;
   }
 
   public giveFeedback(guess: number, isDivisibleByGuess: boolean): void {
-    if (this.remaining === 1) {
-      return;
-    }
-
     if (this.pendingGuess !== null && guess !== this.pendingGuess) {
       throw new Error(
         `Expected feedback for guess ${this.pendingGuess}, but got ${guess}`,
       );
     }
 
-    let write = 0;
-
-    for (let read = 0; read < this.remaining; read++) {
-      const candidate = this.candidates[read];
-      const divisible = candidate % guess === 0;
-
-      if (divisible === isDivisibleByGuess) {
-        this.candidates[write++] = candidate;
-      } else {
-        this.alive[candidate - this.min] = 0;
-      }
-    }
-
-    this.remaining = write;
     this.pendingGuess = null;
 
-    if (this.remaining === 0) {
-      throw new Error(`No candidates remain after guess ${guess}`);
+    if (this.primeIndex >= this.primes.length) {
+      return;
     }
+
+    const prime = BigInt(this.primes[this.primeIndex]);
+    const guessedPower = BigInt(guess);
+
+    if (isDivisibleByGuess) {
+      this.answer *= prime;
+
+      const nextPower = guessedPower * prime;
+      if (nextPower > this.maxGuess || nextPower > MAX_SAFE_BIGINT) {
+        this.moveToNextPrime();
+      } else {
+        this.currentPower = nextPower;
+      }
+
+      return;
+    }
+
+    this.moveToNextPrime();
   }
 
-  private chooseBestGuessDense(): number {
-    const target = this.remaining / 2;
-
-    let bestGuess = -1;
-    let bestDiff = Infinity;
-
-    for (let guess = 2; guess <= this.max; guess++) {
-      let hits = 0;
-
-      const firstMultiple = Math.ceil(this.min / guess) * guess;
-
-      for (let n = firstMultiple; n <= this.max; n += guess) {
-        hits += this.alive[n - this.min];
-      }
-
-      if (hits === 0 || hits === this.remaining) {
-        continue;
-      }
-
-      const diff = Math.abs(target - hits);
-
-      if (diff < bestDiff || (diff === bestDiff && guess > bestGuess)) {
-        bestDiff = diff;
-        bestGuess = guess;
-
-        if (diff === 0) {
-          break;
-        }
-      }
-    }
-
-    if (bestGuess === -1) {
-      return this.candidates[0];
-    }
-
-    return bestGuess;
-  }
-
-  private chooseBestGuessSparse(): number {
-    const divisorCounts = new Map<number, number>();
-
-    for (let i = 0; i < this.remaining; i++) {
-      const n = this.candidates[i];
-
-      this.increment(divisorCounts, n);
-
-      for (let d = 2; d * d <= n; d++) {
-        if (n % d !== 0) {
-          continue;
-        }
-
-        this.increment(divisorCounts, d);
-
-        const other = n / d;
-        if (other !== d) {
-          this.increment(divisorCounts, other);
-        }
-      }
-    }
-
-    const target = this.remaining / 2;
-
-    let bestGuess = -1;
-    let bestDiff = Infinity;
-
-    for (const [guess, hits] of divisorCounts) {
-      if (hits === 0 || hits === this.remaining) {
-        continue;
-      }
-
-      const diff = Math.abs(target - hits);
-
-      if (diff < bestDiff || (diff === bestDiff && guess > bestGuess)) {
-        bestDiff = diff;
-        bestGuess = guess;
-      }
-    }
-
-    if (bestGuess === -1) {
-      return this.candidates[0];
-    }
-
-    return bestGuess;
-  }
-
-  private increment(map: Map<number, number>, key: number): void {
-    map.set(key, (map.get(key) ?? 0) + 1);
+  private moveToNextPrime(): void {
+    this.primeIndex++;
+    this.currentPower = 0n;
   }
 }

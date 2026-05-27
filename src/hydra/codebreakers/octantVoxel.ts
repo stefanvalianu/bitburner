@@ -1,19 +1,18 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 export class OctantVoxelCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.target.passwordFormat !== "numeric") {
-      this.printCoreInfo();
-      return { result: "impossible" };
+    if (this.info.targetPasswordFormat !== "numeric") {
+      return { result: "failed" };
     }
 
-    const parts = this.target.data.split(",");
+    const parts = this.info.targetPasswordData.split(",");
     if (parts.length !== 2) {
-      this.printCoreInfo();
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     const base = Number(parts[0].trim());
@@ -24,15 +23,14 @@ export class OctantVoxelCodebreaker extends Codebreaker {
     // Important: "0" is a valid password, so do not use `if (password)`
     if (password !== undefined) {
       const result = await this.authenticate(password);
-      if (result === null) return { result: "transient" };
+      if (result === "transient") return { result: "transient" };
 
-      if (result.success) {
+      if (result === "ok") {
         return { result: "ok", password };
       }
     }
 
-    this.printCoreInfo();
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private convertToBase10String(value: string, base: number): string | undefined {

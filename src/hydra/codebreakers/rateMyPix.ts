@@ -1,212 +1,162 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
-
-export class RateMyPixCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
-
-  async tryAuthenticate(): Promise<CodebreakerResult> {
-    const solver = new RateMyPixAuthCracker(this.target.passwordFormat === "numeric" ? DIGITS : (this.target.passwordFormat === "alphabetic" ? LETTERS : ALPHANUMERIC));
-    
-    let password = solver.nextGuess();
-    if (password === null) return { result: "impossible" };
-    let result = await this.authenticate(password);
-
-    let maxAttempts = 1 + this.target.passwordLength * 40;
-    while (maxAttempts-- > 0) {
-      if (result === null) return { result: "transient" };
-      if (result.success) {
-        return { result: "ok", password: password! };
-      } else {
-        const info = await this.ns.dnet.heartbleed(this.targetIp);
-
-        if (info.success && info.logs.length > 0) {
-          let logResult: PasswordAttemptLog | undefined;
-          
-          try {
-            logResult = JSON.parse(info.logs[0]) as PasswordAttemptLog;
-          } catch {}
-
-          if (logResult && logResult.passwordAttempted && logResult.data) {
-            solver.giveFeedback(logResult.passwordAttempted, logResult.data);
-
-            password = solver.nextGuess();
-            if (password === null) return { result: "impossible" };
-            result = await this.authenticate(password!);
-          }
-          // we probably read some other crappy log, keep trying (stay in the loop)
-        } 
-        else {
-          // some other hydra instance is competing with us for logs, let them get it
-          return { result: "transient" };
-        }
-      }
-    }
-
-    if (maxAttempts === 0) {
-      this.ns.tprint(`Ran out of attempts solving factoriOs`);
-    }
-
-    this.printCoreInfo();
-    return { result: "impossible" };
-  }
-}
+import { HydraAuthInfo } from "../types";
 
 const DIGITS = "0123456789";
 const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const ALPHANUMERIC = DIGITS + LETTERS;
 
-type RateMyPixPhase =
-  | "probe"
-  | "baseline"
-  | "position"
-  | "final"
-  | "done";
+export class RateMyPixCodebreaker extends Codebreaker {
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
+
+  async tryAuthenticate(): Promise<CodebreakerResult> {
+    if (this.info.targetPasswordLength <= 0) {
+      return { result: "failed" };
+    }
+
+    const alphabet = alphabetForPasswordFormat(this.info.targetPasswordFormat);
+    const solver = new RateMyPixAuthCracker(this.info.targetPasswordLength, alphabet);
+
+    for (let attempts = 0; attempts < solver.maxAttempts; attempts++) {
+      const password = solver.nextGuess();
+
+      if (password === null) {
+        return { result: "failed" };
+      }
+
+      const result = await this.authenticate(password);
+
+      if (result === "transient") return { result: "transient" };
+      if (result === "ok") return { result: "ok", password };
+
+      const feedback = await this.readFeedbackForPassword(password);
+
+      if (feedback === undefined) {
+        return { result: "transient" };
+      }
+
+      solver.giveFeedback(password, feedback.data);
+    }
+
+    return { result: "failed" };
+  }
+
+  private async readFeedbackForPassword(password: string): Promise<PasswordAttemptLog | undefined> {
+    const info = await this.getAuthenticateResultLog(password);
+
+    if (info.result !== "ok" || !info.log) {
+      return undefined;
+    }
+
+    return info.log;
+  }
+}
 
 class RateMyPixAuthCracker {
   private readonly baseChar = "_";
-  private readonly alphabet: string[];
   private readonly candidates: string[];
-
-  private phase: RateMyPixPhase = "probe";
-
-  private passwordLength = 0;
-  private baselineGuess = "";
-  private baselineScore = 0;
+  private readonly knownPassword: Array<string | null>;
 
   private position = 0;
   private candidateIndex = 0;
-  private knownPassword: string[] = [];
+  private pendingGuess: string | null = null;
 
-  constructor(alphabet = ALPHANUMERIC) {
-    this.alphabet = [this.baseChar, ...new Set(alphabet)];
+  constructor(
+    private readonly passwordLength: number,
+    alphabet = ALPHANUMERIC,
+  ) {
+    this.candidates = [...new Set(alphabet.split(""))];
 
-    if (!this.alphabet.includes(this.baseChar)) {
-      throw new Error(`Alphabet must include '${this.baseChar}'.`);
+    if (this.passwordLength <= 0) {
+      throw new Error("Password length must be positive.");
     }
 
-    this.candidates = this.alphabet.filter(c => c !== this.baseChar);
+    if (this.candidates.length === 0) {
+      throw new Error("Alphabet must not be empty.");
+    }
+
+    if (this.candidates.includes(this.baseChar)) {
+      throw new Error(`Alphabet must not include '${this.baseChar}'.`);
+    }
+
+    this.knownPassword = Array.from({ length: passwordLength }, () => null);
+  }
+
+  public get maxAttempts(): number {
+    return this.passwordLength * this.candidates.length + 2;
   }
 
   public nextGuess(): string | null {
-    switch (this.phase) {
-      case "probe":
-        return this.baseChar;
-
-      case "baseline":
-        return this.baselineGuess;
-
-      case "position":
-        return this.createPositionGuess();
-
-      case "final":
-        return this.knownPassword.join("");
-
-      case "done":
-        return null;
+    const solvedPassword = this.password;
+    if (solvedPassword !== null) {
+      this.pendingGuess = solvedPassword;
+      return solvedPassword;
     }
-  }
 
-  public giveFeedback(lastGuess: string, feedback: string): void {
-    const { score, length } = this.parseFeedback(feedback);
-
-    switch (this.phase) {
-      case "probe": {
-        this.passwordLength = length;
-        this.baselineGuess = this.baseChar.repeat(length);
-        this.knownPassword = Array<string>(length).fill("");
-
-        if (lastGuess === this.baselineGuess) {
-          this.baselineScore = score;
-          this.phase = "position";
-        } else {
-          this.phase = "baseline";
-        }
-
-        return;
-      }
-
-      case "baseline": {
-        this.baselineScore = score;
-        this.phase = "position";
-        return;
-      }
-
-      case "position": {
-        this.applyPositionFeedback(score);
-        return;
-      }
-
-      case "final": {
-        if (score === length) {
-          this.phase = "done";
-          return;
-        }
-
-        throw new Error(
-          `Final RateMyPix guess '${lastGuess}' was rejected with score ${score}/${length}.`,
-        );
-      }
-
-      case "done": {
-        throw new Error("RateMyPixAuthCracker is already done.");
-      }
-    }
-  }
-
-  private createPositionGuess(): string {
     if (this.position >= this.passwordLength) {
-      this.phase = "final";
-      return this.knownPassword.join("");
+      return null;
     }
 
     if (this.candidateIndex >= this.candidates.length) {
-      throw new Error(
-        `Exhausted alphabet while solving position ${this.position}.`,
-      );
+      throw new Error(`Exhausted alphabet while solving position ${this.position}.`);
     }
 
-    const candidate = this.candidates[this.candidateIndex];
-    return replaceChar(this.baselineGuess, this.position, candidate);
+    const guess = this.createSinglePositionGuess(
+      this.position,
+      this.candidates[this.candidateIndex],
+    );
+
+    this.pendingGuess = guess;
+    return guess;
   }
 
-  private applyPositionFeedback(score: number): void {
-    const candidate = this.candidates[this.candidateIndex];
-    const delta = score - this.baselineScore;
+  public giveFeedback(lastGuess: string, feedback: string): void {
+    if (this.pendingGuess !== null && lastGuess !== this.pendingGuess) {
+      throw new Error(`Expected feedback for '${this.pendingGuess}', but got '${lastGuess}'.`);
+    }
 
-    if (delta === 1) {
-      this.knownPassword[this.position] = candidate;
-      this.advancePosition();
+    this.pendingGuess = null;
+
+    const { score, length } = this.parseFeedback(feedback);
+
+    if (length !== this.passwordLength) {
+      throw new Error(`Feedback length ${length} did not match expected length ${this.passwordLength}.`);
+    }
+
+    if (this.password !== null) {
       return;
     }
 
-    if (delta === -1) {
-      this.knownPassword[this.position] = this.baseChar;
-      this.advancePosition();
+    if (score === 1) {
+      this.knownPassword[this.position] = this.candidates[this.candidateIndex];
+      this.position++;
+      this.candidateIndex = 0;
       return;
     }
 
-    if (delta === 0) {
+    if (score === 0) {
       this.candidateIndex++;
       return;
     }
 
-    throw new Error(`Unexpected RateMyPix score delta ${delta}.`);
+    throw new Error(`Unexpected RateMyPix score ${score}; expected 0 or 1 for a single-position guess.`);
   }
 
-  private advancePosition(): void {
-    this.position++;
-    this.candidateIndex = 0;
+  private get password(): string | null {
+    return this.knownPassword.every(char => char !== null)
+      ? this.knownPassword.join("")
+      : null;
+  }
 
-    if (this.position >= this.passwordLength) {
-      this.phase = "final";
-    }
+  private createSinglePositionGuess(position: number, candidate: string): string {
+    const guess = Array.from({ length: this.passwordLength }, () => this.baseChar);
+    guess[position] = candidate;
+    return guess.join("");
   }
 
   private parseFeedback(feedback: string): { score: number; length: number } {
-    const cleaned = feedback
-      // eslint-disable-next-line no-control-regex -- Intentionally stripping ANSI SGR escape sequences from Bitburner logs.
-      .replace(/\u{001B}\[[0-9;]*m/gu, "")
-      .trim();
+    // eslint-disable-next-line no-control-regex -- Intentionally matching ANSI escape/control sequences.
+    const cleaned = feedback.replace(/\u{001B}\[[0-9;]*m/gu, "").trim();
 
     const match = cleaned.match(/^(.+)\/(\d+)$/);
 
@@ -227,12 +177,30 @@ class RateMyPixAuthCracker {
       return 0;
     }
 
-    // Source returns one emoji marker per exact character.
-    // Strip variation selectors so emojis like 🌶️ count as one code point.
-    return Array.from(value.replace(/\uFE0F/gu, "")).length;
+    // Current source uses U+FE0F as the per-correct-character marker.
+    // If a future UI renders a full emoji+variation-selector pair, counting
+    // U+FE0F still gives one marker per correct character.
+    const variationSelectorCount = Array.from(value).filter(char => char === "\uFE0F").length;
+    if (variationSelectorCount > 0) {
+      return variationSelectorCount;
+    }
+
+    return Array.from(value).length;
   }
 }
 
-function replaceChar(input: string, index: number, char: string): string {
-  return input.slice(0, index) + char + input.slice(index + 1);
+function alphabetForPasswordFormat(format: string): string {
+  switch (format) {
+    case "numeric":
+      return DIGITS;
+
+    case "alphabetic":
+      return LETTERS;
+
+    case "alphanumeric":
+      return ALPHANUMERIC;
+
+    default:
+      return ALPHANUMERIC;
+  }
 }

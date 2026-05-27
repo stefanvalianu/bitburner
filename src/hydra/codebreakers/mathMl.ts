@@ -1,24 +1,23 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 export class MathMlCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    const password = this.evaluatePassword(this.target.data);
+    const password = this.evaluatePassword(this.info.targetPasswordData);
     if (password === undefined) {
-      this.printCoreInfo();
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     const result = await this.authenticate(password);
-    if (result === null) return { result: "transient" };
-    if (result.success) {
+    if (result === "transient") return { result: "transient" };
+    if (result === "ok") {
       return { result: "ok", password };
     }
 
-    this.printCoreInfo();
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private evaluatePassword(data: string): string | undefined {

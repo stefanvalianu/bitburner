@@ -19,6 +19,9 @@ export const USER_PREFERENCES_PORT = 4;
 // Port to wait on for the main app. Should never be written to.
 export const KILLSWITCH_PORT = 5;
 
+// save a call to ns.ls by locking the files we care about
+export const SCP_FILES_PORT = 6;
+
 // Used by one of the various hacking system tasks.
 export const HACKING_SYSTEM_REQUEST_PORT = 10;
 export const HACKING_SYSTEM_STATE_PORT = 11;
@@ -43,6 +46,7 @@ export const CLOUD_SERVER_REQUEST_PORT = 42;
 
 export const HYDRA_UPDATE_PORT = 45;
 export const HYDRA_STATE_PORT = 46;
+export const HYDRA_STASIS_CLAIM_PORT = 47;
 
 export const BLADEBURNER_STATE_PORT = 48;
 
@@ -54,6 +58,7 @@ export function clearPorts(ns: NS) {
   ns.clearPort(TASK_EVENTS_PORT);
   ns.clearPort(USER_PREFERENCES_PORT);
   ns.clearPort(KILLSWITCH_PORT);
+  ns.clearPort(SCP_FILES_PORT);
 
   ns.clearPort(INFILTRATOR_STATE_PORT);
   ns.clearPort(STOCK_TRADER_STATE_PORT);
@@ -76,6 +81,7 @@ export function clearPorts(ns: NS) {
 
   ns.clearPort(HYDRA_UPDATE_PORT);
   ns.clearPort(HYDRA_STATE_PORT);
+  ns.clearPort(HYDRA_STASIS_CLAIM_PORT);
 
   ns.clearPort(BLADEBURNER_STATE_PORT);
 }

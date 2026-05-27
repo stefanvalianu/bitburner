@@ -1,17 +1,17 @@
-import { DarknetServerDetails, NS } from "@ns";
-import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
+import { NS } from "@ns";
+import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 export class AccountsManagerCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
   
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.target.passwordFormat === "numeric") {
+    if (this.info.targetPasswordFormat === "numeric") {
       // guessing a number between X and Y.
-      const numbers = this.getExactlyTwoNumbers(this.target.passwordHint);
+      const numbers = this.getExactlyTwoNumbers(this.info.targetPasswordHint);
 
       if (numbers === undefined) {
-        this.printCoreInfo();
-        return { result: "impossible" };
+        return { result: "failed" };
       }
 
       let low = numbers[0];
@@ -23,56 +23,43 @@ export class AccountsManagerCodebreaker extends Codebreaker {
 
       // binary search our way to the number
       while (low !== high) {
-        if (result === null) return { result: "transient" }
-        if (result.success) {
+        if (result === "transient") return { result: "transient" }
+        if (result === "ok") {
           return { result: "ok", password };
         } else {
-          /*
-            This is tricky since we are choosing to consume the log, but many different servers could be 
-            running this operation (attacks from different sides). This means we really need to use the 
-            log as a general re-calibration and update our bounds accordingly. 
-          */
-          const info = await this.ns.dnet.heartbleed(this.targetIp);
+          const info = await this.getAuthenticateResultLog(password);
 
-          if (info.success && info.logs.length > 0) {
-            let logResult: PasswordAttemptLog | undefined;
-            
-            try {
-              logResult = JSON.parse(info.logs[0]) as PasswordAttemptLog;
-            } catch {}
+          if (info.result === "transient") return { result: "transient" };
 
-            if (logResult && logResult.passwordAttempted && logResult.data) {
-              const logGuess = Number(logResult.passwordAttempted);
-              if (logGuess >= high || logGuess <= low) {
-                // This log seems stale, we're already closer to the target. re-generate a log
-                result = await this.authenticate(password);
-                continue;
-              }
-
-              guess = logGuess;
-
-              if (logResult.data.toLowerCase() === "lower") {
-                high = guess;
-              } else {
-                low = guess;
-              }
-
-              guess = Math.floor((low + high) / 2);
-              password = guess.toString();
-              result = await this.authenticate(password);
-            }
-            // we probably read some other crappy log, keep trying (stay in the loop)
-          } 
-          else {
-            // some other hydra instance is competing with us for logs, let them get it
-            return { result: "transient" };
+          if (info.result !== "ok" || !info.log) {
+            // No usable feedback; re-attempt to regenerate a log
+            result = await this.authenticate(password);
+            continue;
           }
+
+          const logGuess = Number(info.log.passwordAttempted);
+          if (logGuess >= high || logGuess <= low) {
+            // This log seems stale, we're already closer to the target. re-generate a log
+            result = await this.authenticate(password);
+            continue;
+          }
+
+          guess = logGuess;
+
+          if (info.log.data.toLowerCase() === "lower") {
+            high = guess;
+          } else {
+            low = guess;
+          }
+
+          guess = Math.floor((low + high) / 2);
+          password = guess.toString();
+          result = await this.authenticate(password);
         }
       }
     }
 
-    this.printCoreInfo();
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private getExactlyTwoNumbers(input: string): [number, number] | undefined {

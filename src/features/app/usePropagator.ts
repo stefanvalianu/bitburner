@@ -2,6 +2,7 @@ import { MutableRefObject, useRef } from "react";
 import { useLogger } from "@repo/features/logging/useLogger";
 import { useNs } from "@repo/features/ns/NsProvider";
 import { DashboardState } from "./DashboardProvider";
+import { SCP_FILES_PORT } from "@repo/common/ports";
 
 interface Propagation {
   version: string;
@@ -45,6 +46,9 @@ export function usePropagator(state: MutableRefObject<DashboardState>): void {
   let ok = 0;
   let fail = 0;
   const files = ns.ls("home", ".js");
+
+  ns.clearPort(SCP_FILES_PORT);
+  ns.writePort(SCP_FILES_PORT, files);
 
   for (const target of targets) {
     try {

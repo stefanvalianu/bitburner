@@ -1,5 +1,6 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 type TimingTrySolveResult =
   | { kind: "success"; password: string }
@@ -8,20 +9,14 @@ type TimingTrySolveResult =
   | { kind: "unknown" };
 
 export class TwoGCellularCodebreaker extends Codebreaker {
-  private readonly ip: string;
-
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) {
-    super(target, ip, ns);
-    this.ip = ip;
-  }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    const length = this.target.passwordLength;
+    const length = this.info.targetPasswordLength;
     const characters = this.charactersForPasswordFormat();
 
-    if (length <= 0 || characters === undefined) {
-      this.printCoreInfo();
-      return { result: "impossible" };
+    if (length <= 0 || characters === undefined || characters.length === 0) {
+      return { result: "failed" };
     }
 
     let prefix = "";
@@ -42,58 +37,62 @@ export class TwoGCellularCodebreaker extends Codebreaker {
           return { result: "ok", password: trysolve.password };
         }
 
-        if (trysolve.kind === "mismatch" && trysolve.index > index) {
+        if (trysolve.kind === "unknown") {
+          // Do not continue to the next character. Missing feedback for the
+          // current guess would corrupt the prefix search.
+          return { result: "transient" };
+        }
+
+        if (trysolve.index > index) {
           prefix += char;
           found = true;
           break;
         }
+
+        if (trysolve.index < index) {
+          // Our supposedly-known prefix is contradicted. This normally means
+          // stale feedback was read or the server changed underneath us.
+          return { result: "transient" };
+        }
       }
 
       if (!found) {
-        this.printCoreInfo();
-        return { result: "impossible" };
+        return { result: "failed" };
       }
     }
 
-    // Usually the final correct character already returns success inside the loop.
-    // This is just a defensive final exact trysolve.
     const result = await this.authenticate(prefix);
-    if (result === null) return { result: "transient" };
-    if (result.success) return { result: "ok", password: prefix };
+    if (result === "transient") return { result: "transient" };
+    if (result === "ok") return { result: "ok", password: prefix };
 
-    this.printCoreInfo();
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private async tryPasswordAndReadMismatch(password: string): Promise<TimingTrySolveResult> {
     const result = await this.authenticate(password);
-    if (result === null) {
+
+    if (result === "transient") {
       return { kind: "transient" };
     }
 
-    if (result.success) {
+    if (result === "ok") {
       return { kind: "success", password };
     }
 
-    // Some wrappers may expose useful auth response details directly.
-    const directMismatch = this.parseMismatchIndex(JSON.stringify(result));
-    if (directMismatch !== undefined) {
-      return { kind: "mismatch", index: directMismatch };
+    const info = await this.getAuthenticateResultLog(password);
+
+    if (info.result === "transient") {
+      return { kind: "transient" };
     }
 
-    const bleed = await this.ns.dnet.heartbleed(this.ip, {
-      logsToCapture: 5,
-    });
-
-    if (!bleed.success) {
+    if (info.result !== "ok" || !info.log || typeof info.log.message !== "string") {
       return { kind: "unknown" };
     }
 
-    for (let i = bleed.logs.length - 1; i >= 0; i--) {
-      const mismatch = this.parseMismatchIndex(bleed.logs[i]);
-      if (mismatch !== undefined) {
-        return { kind: "mismatch", index: mismatch };
-      }
+    const mismatch = this.parseMismatchIndex(info.log.message);
+
+    if (mismatch !== undefined) {
+      return { kind: "mismatch", index: mismatch };
     }
 
     return { kind: "unknown" };
@@ -101,15 +100,22 @@ export class TwoGCellularCodebreaker extends Codebreaker {
 
   private parseMismatchIndex(value: string): number | undefined {
     const match = value.match(/Found a mismatch while checking each character \((-?\d+)\)/);
+
     if (!match) {
       return undefined;
     }
 
-    return Number(match[1]);
+    const index = Number(match[1]);
+
+    if (!Number.isInteger(index)) {
+      return undefined;
+    }
+
+    return index;
   }
 
   private charactersForPasswordFormat(): string | undefined {
-    switch (this.target.passwordFormat) {
+    switch (this.info.targetPasswordFormat) {
       case "numeric":
         return "0123456789";
 

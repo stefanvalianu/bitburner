@@ -1,32 +1,26 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 type BellaCuoreFeedback =
   | "too-high"
   | "too-low";
-
-type BellaCuoreAttemptLog = {
-  passwordAttempted: string;
-  data: string;
-};
 
 type BellaCuorePuzzle =
   | { kind: "single"; value: number }
   | { kind: "range"; min: number; max: number };
 
 export class BellaCuoreCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.target.passwordFormat !== "numeric") {
-      this.printCoreInfo();
-      return { result: "impossible" };
+    if (this.info.targetPasswordFormat !== "numeric") {
+      return { result: "failed" };
     }
 
-    const puzzle = this.parsePuzzle(this.target.data);
+    const puzzle = this.parsePuzzle(this.info.targetPasswordData);
     if (puzzle === undefined) {
-      this.printCoreInfo();
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     if (puzzle.kind === "single") {
@@ -38,11 +32,11 @@ export class BellaCuoreCodebreaker extends Codebreaker {
 
   private async tryExactPassword(password: string): Promise<CodebreakerResult> {
     const result = await this.authenticate(password);
-    if (result === null) return { result: "transient" };
-    if (result.success) return { result: "ok", password };
 
-    this.printCoreInfo();
-    return { result: "impossible" };
+    if (result === "transient") return { result: "transient" };
+    if (result === "ok") return { result: "ok", password };
+
+    return { result: "failed" };
   }
 
   private async tryRangePassword(min: number, max: number): Promise<CodebreakerResult> {
@@ -56,10 +50,12 @@ export class BellaCuoreCodebreaker extends Codebreaker {
       const password = guess.toString();
 
       const result = await this.authenticate(password);
-      if (result === null) return { result: "transient" };
-      if (result.success) return { result: "ok", password };
+
+      if (result === "transient") return { result: "transient" };
+      if (result === "ok") return { result: "ok", password };
 
       const feedback = await this.readFeedbackForPassword(password);
+
       if (feedback === undefined) {
         return { result: "transient" };
       }
@@ -71,74 +67,17 @@ export class BellaCuoreCodebreaker extends Codebreaker {
       }
     }
 
-    this.printCoreInfo();
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private async readFeedbackForPassword(password: string): Promise<BellaCuoreFeedback | undefined> {
-    const info = await this.ns.dnet.heartbleed(this.targetIp, {
-      logsToCapture: 20,
-      peek: true,
-    });
+    const info = await this.getAuthenticateResultLog(password);
 
-    if (!info.success) {
+    if (info.result !== "ok" || !info.log) {
       return undefined;
     }
 
-    for (const log of info.logs) {
-      const parsed = this.parseAttemptLog(log);
-
-      if (parsed?.passwordAttempted !== password) {
-        continue;
-      }
-
-      return this.parseFeedback(parsed.data);
-    }
-
-    return undefined;
-  }
-
-  private parseAttemptLog(log: string): BellaCuoreAttemptLog | undefined {
-    let parsed: unknown;
-
-    try {
-      parsed = JSON.parse(log);
-    } catch {
-      return undefined;
-    }
-
-    const message = this.getMessageObject(parsed);
-
-    if (!this.isRecord(message)) {
-      return undefined;
-    }
-
-    const passwordAttempted = message.passwordAttempted;
-    const data = message.data;
-
-    if (typeof passwordAttempted !== "string" || typeof data !== "string") {
-      return undefined;
-    }
-
-    return { passwordAttempted, data };
-  }
-
-  private getMessageObject(value: unknown): unknown {
-    if (!this.isRecord(value)) {
-      return value;
-    }
-
-    const message = value.message;
-
-    if (typeof message === "string") {
-      try {
-        return JSON.parse(message);
-      } catch {
-        return message;
-      }
-    }
-
-    return message ?? value;
+    return this.parseFeedback(info.log.data);
   }
 
   private parseFeedback(data: string): BellaCuoreFeedback | undefined {
@@ -158,7 +97,8 @@ export class BellaCuoreCodebreaker extends Codebreaker {
   private parsePuzzle(data: string): BellaCuorePuzzle | undefined {
     const parts = data
       .split(",")
-      .map(part => part.trim());
+      .map(part => part.trim())
+      .filter(part => part.length > 0);
 
     if (parts.length === 1) {
       const value = this.romanNumeralToNumber(parts[0]);
@@ -220,9 +160,5 @@ export class BellaCuoreCodebreaker extends Codebreaker {
     }
 
     return total;
-  }
-
-  private isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null;
   }
 }

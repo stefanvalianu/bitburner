@@ -1,18 +1,18 @@
-import { DarknetServerDetails, NS } from "@ns";
+import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { HydraAuthInfo } from "../types";
 
 export class ZeroLogonCodebreaker extends Codebreaker {
-  constructor(target: DarknetServerDetails, ip: string, ns: NS) { super(target, ip, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     const result = await this.authenticate("");
-    if (result === null) return { result: "transient" };
+    if (result === "transient") return { result: "transient" };
 
-    if (result.success) {
+    if (result === "ok") {
       return { result: "ok", password: "" };
     }
 
-    this.printCoreInfo();
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 }

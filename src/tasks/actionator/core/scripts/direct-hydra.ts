@@ -1,12 +1,9 @@
 import { NS } from "@ns";
-import { HydraControllerState, HydraInstanceUpdate } from "@repo/common/info/hydra";
-import { drainPortData, getPortData, HYDRA_STATE_PORT, HYDRA_UPDATE_PORT } from "@repo/common/ports";
-import { bootstrapHydra, copyFilesAndStart } from "@repo/hydra/bootstrap";
-import { ipv4ToUint32Fast } from "@repo/hydra/helpers";
-import { HydraIpPortState } from "@repo/hydra/types";
+import { HydraControllerState, HydraInstanceUpdate, STASIS_LINK_FILE, StasisLinkFile } from "@repo/common/info/hydra";
+import { drainPortData, getPortData, HYDRA_STASIS_CLAIM_PORT, HYDRA_STATE_PORT, HYDRA_UPDATE_PORT, SCP_FILES_PORT } from "@repo/common/ports";
+import { bootstrapHydra } from "@repo/hydra/bootstrap";
+import { spawnHydra } from "@repo/hydra/infect-helper";
 import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
-
-const STASIS_LINK_FILE = ".state/hydra_stasis_link.txt";
 
 /*
   This script is responsible for:
@@ -23,33 +20,56 @@ export async function main(ns: NS): Promise<void> {
 
   const data = getPortData<HydraControllerState>(ns, HYDRA_STATE_PORT);
 
-  // first run - spread hydra to darkweb
-  if (data === undefined) {   
-    let needsLink = true;
-    /*
-      Check for a stasis-link data file. Test it. If test fails, it's likely stale from a previous augmentation install.
-    */
+  const maxDepth = 36; // max depth in endgame
+  const maxRegularLinks = Math.max(0, ns.dnet.getStasisLinkLimit() - 1); // reserve 1 for lab-adjacent
+  const disabledStasisDepth = Number.MAX_SAFE_INTEGER;
+
+  const depthPerLink =
+    maxRegularLinks > 0
+      ? Math.floor(maxDepth / (maxRegularLinks + 1))
+      : disabledStasisDepth;
+
+  let stasisFile: StasisLinkFile = { regularLinks: [] };
+  const rawStasis = ns.read(STASIS_LINK_FILE);
+
+  if (rawStasis) {
     try {
-      const ip = ns.read(STASIS_LINK_FILE);
+      stasisFile = JSON.parse(rawStasis) as StasisLinkFile || { regularLinks: [] };
+    } catch {}
+  }
 
-      if (ip) {
-        const port = ipv4ToUint32Fast(ip);
-        const portData = getPortData<HydraIpPortState>(ns, port);
+  stasisFile.regularLinks = stasisFile.regularLinks.slice(0, maxRegularLinks);
 
-        if (portData && portData.password && ns.dnet.connectToSession(ip, portData.password)) {
-          ns.tprint(`Kickstarting hydra on stasis-linked ip ${ip}`);
-          copyFilesAndStart(ns, ip);
-          needsLink = false;
-        } else {
-          ns.tprint(`Stale stasis link info for ip ${ip}, deleting.`);
-          ns.rm(STASIS_LINK_FILE);
-        }
+  const getNextStasisMinDepth = (): number => {
+    if (maxRegularLinks <= 0) return disabledStasisDepth;
+    if (stasisFile.regularLinks.length >= maxRegularLinks) return disabledStasisDepth;
+
+    return (stasisFile.regularLinks.length + 1) * depthPerLink;
+  };
+
+  // first run - spread hydra to darkweb
+  if (data === undefined) {
+    // Ensure these are on the port
+    const files = ns.ls("home", ".js");
+
+    ns.clearPort(SCP_FILES_PORT);
+    ns.writePort(SCP_FILES_PORT, files);
+
+    if (stasisFile.labLink && ns.dnet.connectToSession(stasisFile.labLink.ip, stasisFile.labLink.password)) {
+      spawnHydra(ns, stasisFile.labLink.ip);
+    }
+
+    for (const link of stasisFile.regularLinks) {
+      if (ns.dnet.connectToSession(link.ip, link.password)) {
+        spawnHydra(ns, link.ip);
       }
-    } catch{}
+    }
 
     ns.writePort(HYDRA_STATE_PORT, {
       up: true,
-      haveLabyrinthStasis: !needsLink
+      haveLabyrinthStasis: stasisFile.labLink !== undefined,
+      playerCharisma: ns.getPlayer().skills.charisma,
+      nextStasisMinDepth: getNextStasisMinDepth(),
     } satisfies HydraControllerState);
 
     await bootstrapHydra(ns);
@@ -57,20 +77,57 @@ export async function main(ns: NS): Promise<void> {
     return;
   }
 
+  let rewriteStasisFile = false;
+  let clearStasisClaim = false;
+
   // Drain update port
   const updates = drainPortData<HydraInstanceUpdate>(ns, HYDRA_UPDATE_PORT);
   if (updates && updates.length > 0) {
     for (const update of updates) {
       switch (update.type) {
         case "stasis-linking": {
-          ns.write(STASIS_LINK_FILE, update.ip, "w");
-          ns.clearPort(HYDRA_STATE_PORT);
-          ns.writePort(HYDRA_STATE_PORT, {
-            up: true,
-            haveLabyrinthStasis: true
-          } satisfies HydraControllerState);
-        }
+          clearStasisClaim = true;
+
+          if (stasisFile.regularLinks.length >= maxRegularLinks) {
+            break;
+          }
+
+          if (stasisFile.regularLinks.some(link => link.ip === update.info.ip)) {
+            break;
+          }
+
+          if (stasisFile.labLink?.ip === update.info.ip) {
+            break;
+          }
+
+          stasisFile.regularLinks.push(update.info);
+          rewriteStasisFile = true;
+        } break;
+
+        case "lab-stasis-linking": {
+          stasisFile.labLink = update.info;
+          stasisFile.regularLinks = stasisFile.regularLinks.filter(link => link.ip !== update.info.ip);
+
+          rewriteStasisFile = true;
+        } break;
       }
     }
+  }
+
+  if (rewriteStasisFile) {
+    ns.write(STASIS_LINK_FILE, JSON.stringify(stasisFile), "w");
+  }
+
+  // Publish new state
+  ns.clearPort(HYDRA_STATE_PORT);
+  ns.writePort(HYDRA_STATE_PORT, {
+    up: true,
+    haveLabyrinthStasis: stasisFile.labLink !== undefined,
+    playerCharisma: ns.getPlayer().skills.charisma,
+    nextStasisMinDepth: getNextStasisMinDepth(),
+  } satisfies HydraControllerState);
+
+  if (clearStasisClaim) {
+    ns.clearPort(HYDRA_STASIS_CLAIM_PORT);
   }
 }

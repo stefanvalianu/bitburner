@@ -2,7 +2,6 @@ import { DarknetServerDetails } from "@ns";
 
 export interface DarknetServer extends DarknetServerDetails {
   ip: string;
-  hostname?: string;
 }
 
 /*
@@ -25,7 +24,9 @@ export interface HydraIpPortState {
   
   /*
     Infected: hydra is successfully started on the server
-    Infecting: currently under attack by another hydra
+    Infecting: currently under attack by another hydra.
+
+    NOTE no longer used, infected is the only relevant marker
   */
   state: "infected" | "infecting";
 
@@ -33,6 +34,20 @@ export interface HydraIpPortState {
   infectingStart?: number;
   password?: string;
 
+}
+
+// minimal set of info passed from hydra to the authenticate script
+export interface HydraAuthInfo {
+  sourceIp: string;
+
+  targetIp: string;
+  targetPort: number;
+  targetModel: string;
+  targetPasswordHint: string;
+  targetPasswordData: string;
+  targetPasswordLength: number;
+  targetPasswordDifficulty: number;
+  targetPasswordFormat: "numeric" | "alphabetic" | "alphanumeric" | "ASCII" | "unicode";
 }
 
 export const CYAN = "\u001b[36m";
@@ -43,4 +58,5 @@ export const LOOT_SCRIPT = "hydra/scripts/loot.js";
 export const RECLAIM_SCRIPT = "hydra/scripts/reclaim.js";
 export const PHISH_SCRIPT = "hydra/scripts/phish.js";
 export const STASIS_SCRIPT = "hydra/scripts/enter-stasis.js";
+export const AUTH_SCRIPT = "hydra/scripts/authenticate.js";
 export const HYDRA_SCRIPT = "hydra/hydra.js";

@@ -15,12 +15,12 @@ export class BellaCuoreCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.info.targetPasswordFormat !== "numeric") {
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     const puzzle = this.parsePuzzle(this.info.targetPasswordData);
     if (puzzle === undefined) {
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     if (puzzle.kind === "single") {
@@ -36,7 +36,7 @@ export class BellaCuoreCodebreaker extends Codebreaker {
     if (result === "transient") return { result: "transient" };
     if (result === "ok") return { result: "ok", password };
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private async tryRangePassword(min: number, max: number): Promise<CodebreakerResult> {
@@ -67,7 +67,7 @@ export class BellaCuoreCodebreaker extends Codebreaker {
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private async readFeedbackForPassword(password: string): Promise<BellaCuoreFeedback | undefined> {

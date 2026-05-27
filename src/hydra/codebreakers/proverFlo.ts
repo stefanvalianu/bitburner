@@ -15,7 +15,7 @@ export class ProverFloCodebreaker extends Codebreaker {
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private overflowPassword(): string | undefined {

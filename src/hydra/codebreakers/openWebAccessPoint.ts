@@ -49,7 +49,7 @@ export class OpenWebAccessPointCodebreaker extends Codebreaker {
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private isSupportedPasswordFormat(format: string): format is OpenWebAccessPointPasswordFormat {

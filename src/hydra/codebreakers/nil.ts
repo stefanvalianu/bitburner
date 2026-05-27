@@ -146,7 +146,7 @@ export class NilCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.info.targetPasswordLength <= 0) {
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     const alphabet = alphabetForPasswordFormat(this.info.targetPasswordFormat);
@@ -176,11 +176,11 @@ export class NilCodebreaker extends Codebreaker {
         if (finalResult === "transient") return { result: "transient" };
         if (finalResult === "ok") return { result: "ok", password: solvedPassword };
 
-        return { result: "impossible" };
+        return { result: "failed" };
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private async readFeedbackForPassword(password: string): Promise<PasswordAttemptLog | undefined> {

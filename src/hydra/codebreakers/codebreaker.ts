@@ -1,7 +1,7 @@
 import { NS } from "@ns";
 import { HydraIpPortState, HydraAuthInfo } from "@repo/hydra/types";
 
-type Result = "ok" | "failed" | "transient" | "impossible";
+type Result = "ok" | "failed" | "transient";
 
 export interface PasswordAttemptLog {
   data: string;
@@ -71,36 +71,15 @@ export abstract class Codebreaker {
     }
 
     for (const log of info.logs) {
-      const candidates: unknown[] = [];
-
       try {
-        const outer = JSON.parse(log);
-        candidates.push(outer);
-
-        if (outer && typeof outer === "object") {
-          const message = (outer as { message?: unknown }).message;
-
-          if (typeof message === "string") {
-            try {
-              candidates.push(JSON.parse(message));
-            } catch {}
-          } else if (message !== undefined) {
-            candidates.push(message);
+        const data = JSON.parse(log) as PasswordAttemptLog;
+        if (data.passwordAttempted === attemptedPassword) {
+          return {
+            result: "ok",
+            log: data
           }
         }
       } catch {}
-
-      for (const candidate of candidates) {
-        if (candidate && typeof candidate === "object") {
-          const json = candidate as PasswordAttemptLog;
-          if (json.passwordAttempted === attemptedPassword) {
-            return {
-              result: "ok",
-              log: json
-            }
-          }
-        }
-      }
     }
 
     this.ns.tprint(`Failed to find logs solving ${this.info.targetModel}`);

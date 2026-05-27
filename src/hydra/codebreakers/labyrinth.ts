@@ -77,7 +77,7 @@ export class LabyrinthCodebreaker extends Codebreaker {
       }
 
       if (cell.backtrack === undefined) {
-        return { result: "impossible" };
+        return { result: "failed" };
       }
 
       const move = await this.move(cell.backtrack, report);

@@ -13,6 +13,6 @@ export class ZeroLogonCodebreaker extends Codebreaker {
       return { result: "ok", password: "" };
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 }

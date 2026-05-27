@@ -11,7 +11,7 @@ export class RateMyPixCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.info.targetPasswordLength <= 0) {
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     const alphabet = alphabetForPasswordFormat(this.info.targetPasswordFormat);
@@ -21,7 +21,7 @@ export class RateMyPixCodebreaker extends Codebreaker {
       const password = solver.nextGuess();
 
       if (password === null) {
-        return { result: "impossible" };
+        return { result: "failed" };
       }
 
       const result = await this.authenticate(password);
@@ -38,7 +38,7 @@ export class RateMyPixCodebreaker extends Codebreaker {
       solver.giveFeedback(password, feedback.data);
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private async readFeedbackForPassword(password: string): Promise<PasswordAttemptLog | undefined> {

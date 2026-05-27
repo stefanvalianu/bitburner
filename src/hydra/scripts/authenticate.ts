@@ -19,7 +19,7 @@ export async function main(ns: NS): Promise<void> {
 
     if (result.result === "ok") {
       spawnHydra(ns, target.targetIp);
-    } else if (result.result === "impossible") {
+    } else if (result.result === "failed") {
       ns.tprint(`Cannot solve ${target.targetModel}`);
       printCoreInfo(ns, target);
     } else if (result.result === "transient") {

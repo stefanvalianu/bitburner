@@ -59,7 +59,7 @@ export class AccountsManagerCodebreaker extends Codebreaker {
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private getExactlyTwoNumbers(input: string): [number, number] | undefined {

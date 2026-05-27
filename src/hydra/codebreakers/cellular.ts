@@ -16,7 +16,7 @@ export class TwoGCellularCodebreaker extends Codebreaker {
     const characters = this.charactersForPasswordFormat();
 
     if (length <= 0 || characters === undefined || characters.length === 0) {
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     let prefix = "";
@@ -57,7 +57,7 @@ export class TwoGCellularCodebreaker extends Codebreaker {
       }
 
       if (!found) {
-        return { result: "impossible" };
+        return { result: "failed" };
       }
     }
 
@@ -65,7 +65,7 @@ export class TwoGCellularCodebreaker extends Codebreaker {
     if (result === "transient") return { result: "transient" };
     if (result === "ok") return { result: "ok", password: prefix };
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private async tryPasswordAndReadMismatch(password: string): Promise<TimingTrySolveResult> {

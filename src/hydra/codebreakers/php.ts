@@ -16,7 +16,7 @@ export class PhpCodebreaker extends Codebreaker {
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private *getPermutations(value: string): IterableIterator<string> {

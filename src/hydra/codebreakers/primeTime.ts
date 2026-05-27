@@ -9,7 +9,7 @@ export class PrimeTimeCodebreaker extends Codebreaker {
     if (this.info.targetPasswordFormat === "numeric") {
       const password = this.largestPrimeFactorPassword(this.info.targetPasswordData);
       if (password === undefined) {
-        return { result: "impossible" };
+        return { result: "failed" };
       }
 
       const result = await this.authenticate(password);
@@ -19,7 +19,7 @@ export class PrimeTimeCodebreaker extends Codebreaker {
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private largestPrimeFactorPassword(data: string): string | undefined {

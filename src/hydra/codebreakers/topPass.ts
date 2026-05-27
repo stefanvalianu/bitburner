@@ -16,7 +16,7 @@ export class TopPassCodebreaker extends Codebreaker {
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private static readonly passwords = [

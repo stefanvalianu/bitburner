@@ -27,7 +27,7 @@ export class DeepGreenCodebreaker extends Codebreaker {
     const alphabet = this.alphabetForPasswordFormat(this.info.targetPasswordFormat);
 
     if (length <= 0 || alphabet.length === 0) {
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     const counts = new Map<string, number>();
@@ -42,7 +42,7 @@ export class DeepGreenCodebreaker extends Codebreaker {
       if (attempted.kind === "success") return { result: "ok", password: attempted.password };
 
       if (attempted.kind !== "feedback") {
-        return { result: "impossible" };
+        return { result: "failed" };
       }
 
       const count = attempted.feedback.exact + attempted.feedback.misplaced;
@@ -55,7 +55,7 @@ export class DeepGreenCodebreaker extends Codebreaker {
     }
 
     if (chars.length !== length) {
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     // Phase 2: all remaining guesses are valid permutations of the known multiset.
@@ -70,12 +70,12 @@ export class DeepGreenCodebreaker extends Codebreaker {
       if (attempted.kind === "success") return { result: "ok", password };
 
       if (attempted.kind !== "feedback") {
-        return { result: "impossible" };
+        return { result: "failed" };
       }
 
       if (attempted.feedback.exact === length) {
         // Failed auth + perfect exact feedback is internally inconsistent.
-        return { result: "impossible" };
+        return { result: "failed" };
       }
 
       candidates = candidates.filter(candidate =>
@@ -83,7 +83,7 @@ export class DeepGreenCodebreaker extends Codebreaker {
       );
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private async tryPasswordAndReadFeedback(password: string): Promise<AttemptResult> {

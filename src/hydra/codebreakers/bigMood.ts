@@ -18,12 +18,12 @@ export class BigMoodCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.info.targetPasswordFormat !== "numeric" || this.info.targetPasswordLength <= 0) {
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     const range = this.passwordRange(this.info.targetPasswordLength);
     if (range === undefined) {
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     const { min, max } = range;
@@ -64,7 +64,7 @@ export class BigMoodCodebreaker extends Codebreaker {
       }
 
       if (trysolve.value < 0n || trysolve.value >= modulus) {
-        return { result: "impossible" };
+        return { result: "failed" };
       }
 
       const combined = this.combineCongruences(congruence, {
@@ -73,7 +73,7 @@ export class BigMoodCodebreaker extends Codebreaker {
       });
 
       if (combined === undefined) {
-        return { result: "impossible" };
+        return { result: "failed" };
       }
 
       congruence = combined;
@@ -84,7 +84,7 @@ export class BigMoodCodebreaker extends Codebreaker {
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private async tryExactPassword(password: string): Promise<CodebreakerResult> {
@@ -93,7 +93,7 @@ export class BigMoodCodebreaker extends Codebreaker {
     if (result === "transient") return { result: "transient" };
     if (result === "ok") return { result: "ok", password };
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private async tryPasswordAndReadModulo(password: string): Promise<TripleModuloTrySolveResult> {

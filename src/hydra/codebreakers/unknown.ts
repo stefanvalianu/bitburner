@@ -6,6 +6,6 @@ export class UnknownCodebreaker extends Codebreaker {
   constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 }

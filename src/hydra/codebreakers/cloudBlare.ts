@@ -15,6 +15,6 @@ export class CloudBlareCodebreaker extends Codebreaker {
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 }

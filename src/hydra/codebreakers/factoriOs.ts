@@ -27,7 +27,7 @@ export class FactoriOsCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.info.targetPasswordFormat !== "numeric") {
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     const solver = new DivisiblePasswordSolver(
@@ -55,7 +55,7 @@ export class FactoriOsCodebreaker extends Codebreaker {
       solver.giveFeedback(passwordNum, feedback);
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private async readFeedbackForPassword(password: string): Promise<boolean | undefined> {

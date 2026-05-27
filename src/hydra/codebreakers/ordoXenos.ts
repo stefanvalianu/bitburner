@@ -15,7 +15,7 @@ export class OrdoXenosCodebreaker extends Codebreaker {
       if (result === "ok") return { result: "ok", password };
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private decryptPassword(data: string): string | undefined {

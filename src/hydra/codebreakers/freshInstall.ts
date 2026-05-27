@@ -31,6 +31,6 @@ export class FreshInstallCodebreaker extends Codebreaker {
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 }

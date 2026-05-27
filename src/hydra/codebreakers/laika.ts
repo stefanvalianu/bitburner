@@ -42,6 +42,6 @@ export class LaikaCodebreaker extends Codebreaker {
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 }

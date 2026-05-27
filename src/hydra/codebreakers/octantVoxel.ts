@@ -7,12 +7,12 @@ export class OctantVoxelCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.info.targetPasswordFormat !== "numeric") {
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     const parts = this.info.targetPasswordData.split(",");
     if (parts.length !== 2) {
-      return { result: "impossible" };
+      return { result: "failed" };
     }
 
     const base = Number(parts[0].trim());
@@ -30,7 +30,7 @@ export class OctantVoxelCodebreaker extends Codebreaker {
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private convertToBase10String(value: string, base: number): string | undefined {

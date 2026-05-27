@@ -15,7 +15,7 @@ export class BinaryCodebreaker extends Codebreaker {
       if (result === "ok") return { result: "ok", password };
     } 
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 
   private decodeBinaryPassword(data: string): string | null {

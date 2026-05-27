@@ -15,6 +15,6 @@ export class DeskMemoCodebreaker extends Codebreaker {
       }
     }
 
-    return { result: "impossible" };
+    return { result: "failed" };
   }
 }

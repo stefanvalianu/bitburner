@@ -23,7 +23,7 @@ export async function main(ns: NS): Promise<void> {
       ns.tprint(`Cannot solve ${target.targetModel}`);
       printCoreInfo(ns, target);
     } else if (result.result === "transient") {
-      ns.tprint(`Transient error trying to authenticate to ${target.targetModel}`);
+      // it happens, what can we do. could be a sign that a solver is taking too long/is too slow
     }
   }
 }

@@ -4,9 +4,7 @@ import { HydraAuthInfo } from "../types";
 
 const DIGITS = "0123456789";
 const LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
-const UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const LETTERS = LOWERCASE + UPPERCASE;
-const ALPHANUMERIC = DIGITS + LETTERS;
+const ALPHANUMERIC = DIGITS + LOWERCASE;
 
 type MastermindFeedback = {
   exact: number;
@@ -19,71 +17,144 @@ type AttemptResult =
   | { kind: "transient" }
   | { kind: "unknown" };
 
+type FeedbackRead =
+  | { kind: "feedback"; feedback: MastermindFeedback }
+  | { kind: "transient" }
+  | { kind: "unknown" };
+
+type CountDiscovery =
+  | { kind: "success"; password: string }
+  | { kind: "counts"; counts: Map<string, number> }
+  | { kind: "transient" }
+  | { kind: "failed" };
+
+type PositionConstraint = {
+  guess: string;
+  exact: number;
+};
+
 export class DeepGreenCodebreaker extends Codebreaker {
-  constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
+  constructor(target: HydraAuthInfo, ns: NS) {
+    super(target, ns);
+  }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     const length = this.info.targetPasswordLength;
     const alphabet = this.alphabetForPasswordFormat(this.info.targetPasswordFormat);
 
-    if (length <= 0 || alphabet.length === 0) {
+    if (!Number.isInteger(length) || length <= 0 || alphabet.length === 0) {
       return { result: "failed" };
     }
 
-    const counts = new Map<string, number>();
+    const discovered = await this.discoverCounts(length, alphabet);
 
-    // Phase 1: discover the password's character multiset.
-    // For "AAAA", exact + misplaced == count of "A" in the real password.
-    for (const char of alphabet) {
-      const password = char.repeat(length);
-      const attempted = await this.tryPasswordAndReadFeedback(password);
+    if (discovered.kind === "success") {
+      return { result: "ok", password: discovered.password };
+    }
 
-      if (attempted.kind === "transient") return { result: "transient" };
-      if (attempted.kind === "success") return { result: "ok", password: attempted.password };
+    if (discovered.kind === "transient") {
+      return { result: "transient" };
+    }
 
-      if (attempted.kind !== "feedback") {
+    if (discovered.kind === "failed") {
+      return { result: "failed" };
+    }
+
+    const counts = discovered.counts;
+    const isNumeric = this.info.targetPasswordFormat === "numeric";
+    const constraints: PositionConstraint[] = [];
+
+    // This should normally finish well below this. The cap prevents pathological loops.
+    const maxRounds = Math.max(32, length * 8);
+
+    for (let round = 0; round < maxRounds; round++) {
+      const sample = this.sampleCandidates(
+        counts,
+        length,
+        constraints,
+        Math.max(128, Math.min(1_024, length * 96)),
+        isNumeric,
+      );
+
+      if (sample.length === 0) {
         return { result: "failed" };
       }
 
-      const count = attempted.feedback.exact + attempted.feedback.misplaced;
-      if (count > 0) counts.set(char, count);
-    }
-
-    const chars: string[] = [];
-    for (const [char, count] of counts) {
-      for (let i = 0; i < count; i++) chars.push(char);
-    }
-
-    if (chars.length !== length) {
-      return { result: "failed" };
-    }
-
-    // Phase 2: all remaining guesses are valid permutations of the known multiset.
-    // Therefore misplaced is redundant: misplaced == length - exact for every candidate.
-    let candidates = this.uniquePermutations(chars, this.info.targetPasswordFormat);
-
-    while (candidates.length > 0) {
-      const password = this.chooseGuess(candidates);
+      const password = this.chooseGuess(sample);
       const attempted = await this.tryPasswordAndReadFeedback(password);
 
-      if (attempted.kind === "transient") return { result: "transient" };
-      if (attempted.kind === "success") return { result: "ok", password };
+      if (attempted.kind === "transient") {
+        return { result: "transient" };
+      }
+
+      if (attempted.kind === "success") {
+        return { result: "ok", password: attempted.password };
+      }
 
       if (attempted.kind !== "feedback") {
         return { result: "failed" };
       }
 
       if (attempted.feedback.exact === length) {
-        // Failed auth + perfect exact feedback is internally inconsistent.
+        // Auth failed, but feedback claims a perfect positional match.
+        // That is inconsistent, so treat it as unsolvable/bad data.
         return { result: "failed" };
       }
 
-      candidates = candidates.filter(candidate =>
-        this.exactMatches(candidate, password) === attempted.feedback.exact
-      );
+      constraints.push({
+        guess: password,
+        exact: attempted.feedback.exact,
+      });
     }
 
     return { result: "failed" };
+  }
+
+  private async discoverCounts(length: number, alphabet: string): Promise<CountDiscovery> {
+    const counts = new Map<string, number>();
+    let total = 0;
+
+    for (const char of alphabet) {
+      const password = char.repeat(length);
+      const attempted = await this.tryPasswordAndReadFeedback(password);
+
+      if (attempted.kind === "transient") {
+        return { kind: "transient" };
+      }
+
+      if (attempted.kind === "success") {
+        return { kind: "success", password: attempted.password };
+      }
+
+      if (attempted.kind !== "feedback") {
+        return { kind: "failed" };
+      }
+
+      // For a guess like "aaaa", exact + misplaced is exactly the number of
+      // "a" characters in the real password.
+      const count = attempted.feedback.exact + attempted.feedback.misplaced;
+
+      if (!Number.isInteger(count) || count < 0 || count > length) {
+        return { kind: "failed" };
+      }
+
+      if (count > 0) {
+        counts.set(char, count);
+        total += count;
+      }
+
+      if (total === length) {
+        return { kind: "counts", counts };
+      }
+
+      if (total > length) {
+        return { kind: "failed" };
+      }
+    }
+
+    return total === length
+      ? { kind: "counts", counts }
+      : { kind: "failed" };
   }
 
   private async tryPasswordAndReadFeedback(password: string): Promise<AttemptResult> {
@@ -98,59 +169,134 @@ export class DeepGreenCodebreaker extends Codebreaker {
     }
 
     const feedback = await this.readFeedbackForPassword(password);
-    if (feedback === undefined) {
-      return { kind: "unknown" };
+
+    if (feedback.kind === "transient") {
+      return { kind: "transient" };
     }
 
-    return { kind: "feedback", feedback };
+    if (feedback.kind === "feedback") {
+      return { kind: "feedback", feedback: feedback.feedback };
+    }
+
+    return { kind: "unknown" };
   }
 
-  private async readFeedbackForPassword(password: string): Promise<MastermindFeedback | undefined> {
-    const info = await this.getAuthenticateResultLog(password);
+  private async readFeedbackForPassword(password: string): Promise<FeedbackRead> {
+    // Normally the log is immediately available after authenticate() resolves.
+    // The second pass only helps with occasional log-order/race weirdness.
+    for (let round = 0; round < 2; round++) {
+      const info = await this.getAuthenticateResultLog(password);
 
-    if (info.result !== "ok" || !info.log) {
-      return undefined;
+      if (info.result === "transient") {
+        return { kind: "transient" };
+      }
+
+      if (info.result === "ok" && info.log) {
+        const match = info.log.data.match(/^\s*(\d+)\s*,\s*(\d+)\s*$/u);
+
+        if (match) {
+          return {
+            kind: "feedback",
+            feedback: {
+              exact: Number(match[1]),
+              misplaced: Number(match[2]),
+            },
+          };
+        }
+      }
+
+      if (round === 0) {
+        await this.ns.sleep(25);
+      }
     }
 
-    const match = info.log.data.match(/^\s*(\d+)\s*,\s*(\d+)\s*$/);
-    if (!match) return undefined;
-
-    return {
-      exact: Number(match[1]),
-      misplaced: Number(match[2]),
-    };
+    return { kind: "unknown" };
   }
 
-  private uniquePermutations(chars: string[], format: string): string[] {
-    const counts = new Map<string, number>();
-    for (const char of chars) {
-      counts.set(char, (counts.get(char) ?? 0) + 1);
-    }
+  private sampleCandidates(
+    counts: Map<string, number>,
+    length: number,
+    constraints: PositionConstraint[],
+    limit: number,
+    isNumeric: boolean,
+  ): string[] {
+    const chars = [...counts.keys()].filter(char => (counts.get(char) ?? 0) > 0);
+    const remaining = chars.map(char => counts.get(char) ?? 0);
 
-    const uniqueChars = [...counts.keys()];
-    const current = Array.from({ length: chars.length }, () => "");
+    const current = Array.from({ length }, () => "");
+    const exactSoFar = Array.from({ length: constraints.length }, () => 0);
+
     const result: string[] = [];
-    const isNumeric = format === "numeric";
+    const seen = new Set<string>();
 
     const visit = (index: number): void => {
-      if (index === current.length) {
-        result.push(current.join(""));
+      if (result.length >= limit) return;
+
+      if (index === length) {
+        for (let i = 0; i < constraints.length; i++) {
+          if (exactSoFar[i] !== constraints[i].exact) return;
+        }
+
+        const password = current.join("");
+
+        if (!seen.has(password)) {
+          seen.add(password);
+          result.push(password);
+        }
+
         return;
       }
 
-      for (const char of uniqueChars) {
-        const remaining = counts.get(char) ?? 0;
-        if (remaining === 0) continue;
+      const remainingPositionsAfterThis = length - index - 1;
 
-        // Official numeric password generation strips leading zeroes.
-        if (isNumeric && current.length > 1 && index === 0 && char === "0") {
+      for (const charIndex of this.shuffledIndices(chars.length)) {
+        if (remaining[charIndex] <= 0) continue;
+
+        const char = chars[charIndex];
+
+        // Official numeric generation strips leading zeroes, so a multi-digit
+        // numeric password cannot start with "0".
+        if (isNumeric && length > 1 && index === 0 && char === "0") {
           continue;
         }
 
-        counts.set(char, remaining - 1);
-        current[index] = char;
-        visit(index + 1);
-        counts.set(char, remaining);
+        let valid = true;
+        const changedConstraintIndexes: number[] = [];
+
+        for (let constraintIndex = 0; constraintIndex < constraints.length; constraintIndex++) {
+          const constraint = constraints[constraintIndex];
+
+          if (constraint.guess[index] === char) {
+            exactSoFar[constraintIndex]++;
+            changedConstraintIndexes.push(constraintIndex);
+          }
+
+          const exact = exactSoFar[constraintIndex];
+
+          if (
+            exact > constraint.exact ||
+            exact + remainingPositionsAfterThis < constraint.exact
+          ) {
+            valid = false;
+            break;
+          }
+        }
+
+        if (valid) {
+          remaining[charIndex]--;
+          current[index] = char;
+
+          visit(index + 1);
+
+          current[index] = "";
+          remaining[charIndex]++;
+        }
+
+        for (const constraintIndex of changedConstraintIndexes) {
+          exactSoFar[constraintIndex]--;
+        }
+
+        if (result.length >= limit) return;
       }
     };
 
@@ -163,8 +309,8 @@ export class DeepGreenCodebreaker extends Codebreaker {
       return candidates[0];
     }
 
-    const guesses = this.evenSample(candidates, Math.min(32, candidates.length));
-    const population = this.evenSample(candidates, Math.min(5_000, candidates.length));
+    const guesses = this.evenSample(candidates, Math.min(64, candidates.length));
+    const population = this.evenSample(candidates, Math.min(1_024, candidates.length));
 
     let bestGuess = guesses[0];
     let bestWorstBucket = Number.POSITIVE_INFINITY;
@@ -177,6 +323,7 @@ export class DeepGreenCodebreaker extends Codebreaker {
       }
 
       let worstBucket = 0;
+
       for (const bucket of buckets) {
         if (bucket > worstBucket) worstBucket = bucket;
       }
@@ -209,6 +356,20 @@ export class DeepGreenCodebreaker extends Codebreaker {
     return result;
   }
 
+  private shuffledIndices(length: number): number[] {
+    const result = Array.from({ length }, (_, index) => index);
+
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = result[i];
+
+      result[i] = result[j];
+      result[j] = temp;
+    }
+
+    return result;
+  }
+
   private exactMatches(a: string, b: string): number {
     let result = 0;
 
@@ -225,7 +386,7 @@ export class DeepGreenCodebreaker extends Codebreaker {
         return DIGITS;
 
       case "alphabetic":
-        return LETTERS;
+        return LOWERCASE;
 
       case "alphanumeric":
         return ALPHANUMERIC;

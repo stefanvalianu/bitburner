@@ -26,7 +26,7 @@ export async function main(ns: NS): Promise<void> {
   const portData = getPortData<HydraIpPortState>(ns, port);
   const password = portData!.password!;
 
-  ns.tprint(`${CYAN}STASIS LINKING${RESET} ${ns.getHostname()}`);
+  ns.toast(`${CYAN}STASIS LINKING${RESET} ${ns.getHostname()}`);
   ns.writePort(HYDRA_UPDATE_PORT, {
     info: {
       ip,

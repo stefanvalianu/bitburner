@@ -2,11 +2,28 @@ import { NS } from "@ns";
 import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
 import { HydraAuthInfo } from "../types";
 
-type KingOfTheHillPhase = "coarse" | "probe" | "final" | "zoom" | "done";
-
 type ScoredGuess = {
   guess: number;
   score: number;
+};
+
+type ProbeResult =
+  | { result: "ok"; password: string }
+  | { result: "failed" }
+  | { result: "transient" }
+  | { result: "score"; guess: number; score: number };
+
+type KingOfTheHillPhase = "coarse" | "final" | "polish" | "done";
+
+type CenterEstimate = {
+  center: number;
+  score: number;
+};
+
+type CenterCluster = {
+  center: number;
+  support: number;
+  weight: number;
 };
 
 export class KingOfTheHillCodebreaker extends Codebreaker {
@@ -19,44 +36,59 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
 
     const solver = new KingOfTheHillSolver(this.info.targetPasswordLength);
 
-    for (let attempts = 0; attempts < solver.maxAttempts; attempts++) {
-      const guess = solver.nextGuess();
+    for (;;) {
+      const guesses = solver.nextBatch();
 
-      if (guess === null) {
+      if (guesses.length === 0) {
         break;
       }
 
-      const password = guess.toString();
-      const result = await this.authenticate(password);
+      for (const guess of guesses) {
+        const probeRes = await this.probeGuess(guess);
 
-      if (result === "transient") {
-        this.ns.print(`KingOfTheHill transient: authenticate returned transient for password ${password}`);
-        return { result: "transient" };
+        if (probeRes.result === "ok") {
+          return { result: "ok", password: probeRes.password };
+        }
+
+        if (probeRes.result === "failed" || probeRes.result === "transient") {
+          return { result: probeRes.result };
+        }
+
+        solver.giveFeedback(probeRes.guess, probeRes.score);
       }
-
-      if (result === "ok") {
-        return { result: "ok", password };
-      }
-
-      const score = await this.readScoreForPassword(password);
-
-      if (score === undefined) {
-        // Do not continue. Missing the current datapoint would corrupt the hill model.
-        this.ns.print(`KingOfTheHill transient: could not read score for password ${password}`);
-        return { result: "transient" };
-      }
-
-      solver.giveFeedback(guess, score);
     }
 
     return { result: "failed" };
+  }
+
+  private async probeGuess(guess: number): Promise<ProbeResult> {
+    const password = guess.toString();
+    const result = await this.authenticate(password);
+
+    if (result === "ok") {
+      return { result: "ok", password };
+    }
+
+    if (result === "transient") {
+      this.ns.print(`KingOfTheHill transient: authenticate returned transient for ${password}`);
+      return { result: "transient" };
+    }
+
+    const score = await this.readScoreForPassword(password);
+
+    if (score === undefined) {
+      this.ns.print(`KingOfTheHill transient: could not read score for password ${password}`);
+      return { result: "transient" };
+    }
+
+    return { result: "score", guess, score };
   }
 
   private async readScoreForPassword(password: string): Promise<number | undefined> {
     const info = await this.getAuthenticateResultLog(password);
 
     if (info.result === "transient") {
-      this.ns.print(`KingOfTheHill heartbleed failed for ${this.info.targetIp}`);
+      this.ns.print(`KingOfTheHill heartbleed/log read failed for ${this.info.targetIp}`);
       return undefined;
     }
 
@@ -109,9 +141,21 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
     }
 
     const rest = message.slice(start + prefix.length).trim();
+    const token = this.readLeadingNumberToken(rest);
+
+    if (token === undefined) {
+      return undefined;
+    }
+
+    const score = Number(token);
+
+    return Number.isFinite(score) ? score : undefined;
+  }
+
+  private readLeadingNumberToken(value: string): string | undefined {
     let end = 0;
 
-    while (end < rest.length && this.isNumberCharacter(rest[end])) {
+    while (end < value.length && this.isNumberCharacter(value[end])) {
       end++;
     }
 
@@ -119,9 +163,19 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
       return undefined;
     }
 
-    const score = Number(rest.slice(0, end));
+    const token = value.slice(0, end);
 
-    return Number.isFinite(score) ? score : undefined;
+    return this.hasDigit(token) ? token : undefined;
+  }
+
+  private hasDigit(value: string): boolean {
+    for (const char of value) {
+      if (char >= "0" && char <= "9") {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private isNumberCharacter(value: string): boolean {
@@ -137,18 +191,16 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
 }
 
 export class KingOfTheHillSolver {
+  private static readonly PeakHeight = 10_000;
+
   private readonly min: number;
   private readonly max: number;
   private readonly width: number;
-  private readonly coarseStep: number;
 
   private readonly tried = new Set<number>();
   private readonly scores = new Map<number, number>();
 
   private phase: KingOfTheHillPhase = "coarse";
-  private queue: number[] = [];
-  private queueIndex = 0;
-  private zoomStep = 0;
 
   constructor(length: number) {
     if (!Number.isInteger(length) || length < 1 || length > 10) {
@@ -158,59 +210,26 @@ export class KingOfTheHillSolver {
     this.min = length === 1 ? 0 : 10 ** (length - 1);
     this.max = 10 ** length - 1;
 
-    // Matches Bitburner's getKingOfTheHillAltitude width formula.
     this.width = 10 ** Math.max(length - 2, 0) + 1;
-
-    // A half-width grid gives at least one sample close to the true peak.
-    this.coarseStep = Math.max(1, Math.floor(this.width / 2));
-
-    this.setQueue(this.buildCoarseGuesses());
   }
 
-  public get maxAttempts(): number {
-    return 2_000;
-  }
-
-  public nextGuess(): number | null {
-    for (;;) {
-      const guess = this.dequeueGuess();
-
-      if (guess !== null) {
-        return guess;
-      }
-
-      if (this.phase === "coarse") {
-        this.phase = "probe";
-        this.setQueue(this.buildProbeGuesses());
-        continue;
-      }
-
-      if (this.phase === "probe") {
-        this.phase = "final";
-        this.setQueue(this.buildFinalCandidates());
-        continue;
-      }
-
-      if (this.phase === "final") {
-        this.phase = "zoom";
-        this.zoomStep = Math.max(1, Math.floor(this.width / 20));
-        this.setQueue(this.buildZoomGuesses());
-        continue;
-      }
-
-      if (this.phase === "zoom") {
-        if (this.zoomStep <= 1) {
-          this.phase = "done";
-          continue;
-        }
-
-        this.zoomStep = Math.max(1, Math.floor(this.zoomStep / 5));
-        this.setQueue(this.buildZoomGuesses());
-        continue;
-      }
-
-      return null;
+  public nextBatch(): number[] {
+    if (this.phase === "coarse") {
+      this.phase = "final";
+      return this.takeUntried(this.buildCoarseGuesses());
     }
+
+    if (this.phase === "final") {
+      this.phase = "polish";
+      return this.takeUntried(this.buildFinalCandidates());
+    }
+
+    if (this.phase === "polish") {
+      this.phase = "done";
+      return this.takeUntried(this.buildPolishCandidates());
+    }
+
+    return [];
   }
 
   public giveFeedback(guess: number, score: number): void {
@@ -218,173 +237,120 @@ export class KingOfTheHillSolver {
       throw new Error(`Invalid KingOfTheHill guess: ${guess}`);
     }
 
-    if (!Number.isFinite(score) || score < 0) {
+    // Negative altitude is valid. Do not reject score < 0.
+    if (!Number.isFinite(score)) {
       throw new Error(`Invalid KingOfTheHill score for guess ${guess}: ${score}`);
     }
 
-    this.tried.add(guess);
     this.scores.set(guess, score);
   }
 
   private buildCoarseGuesses(): number[] {
-    const guesses: number[] = [];
+    if (this.max - this.min <= 100) {
+      const guesses: number[] = [];
 
-    for (let guess = this.min; guess <= this.max; guess += this.coarseStep) {
+      for (let guess = this.min; guess <= this.max; guess++) {
+        guesses.push(guess);
+      }
+
+      return guesses;
+    }
+
+    const guesses: number[] = [this.min, this.max];
+
+    const ratio = 1.055;
+    let value = this.min;
+
+    while (value <= this.max) {
+      const guess = Math.round(value);
       guesses.push(guess);
+
+      const next = value * ratio;
+      value = Math.round(next) <= guess ? guess + 1 : next;
     }
 
-    if (guesses.length === 0 || guesses[guesses.length - 1] !== this.max) {
-      guesses.push(this.max);
-    }
-
-    return guesses;
-  }
-
-  private buildProbeGuesses(): number[] {
-    const best = this.bestSample();
-    if (!best) return [];
-
-    const delta = Math.max(1, Math.floor(this.width / 32));
-
-    return this.uniqueInRange([
-      best.guess - delta,
-      best.guess + delta,
-      best.guess - 2 * delta,
-      best.guess + 2 * delta,
-      best.guess - 4 * delta,
-      best.guess + 4 * delta,
-      best.guess - 8 * delta,
-      best.guess + 8 * delta,
-    ]);
+    return this.uniqueInRange(guesses);
   }
 
   private buildFinalCandidates(): number[] {
+    const estimates = this.estimateCenters();
+    const clusters = this.clusterEstimates(estimates);
     const candidates: number[] = [];
+
+    for (const cluster of clusters) {
+      this.addAround(candidates, cluster.center, 2);
+    }
+
+    for (const sample of this.samples().sort((a, b) => b.score - a.score).slice(0, 8)) {
+      this.addAround(candidates, sample.guess, 8);
+    }
+
+    return this.uniqueInRange(candidates);
+  }
+
+  private buildPolishCandidates(): number[] {
     const best = this.bestSample();
 
     if (!best) {
       return [];
     }
 
-    const localSamples = this.samples()
-      .filter(sample =>
-        sample.score > 0 &&
-        Math.abs(sample.guess - best.guess) <= this.width * 2,
-      )
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 12);
-
-    const addAround = (center: number, radius: number): void => {
-      const rounded = Math.round(center);
-
-      candidates.push(rounded);
-
-      for (let offset = 1; offset <= radius; offset++) {
-        candidates.push(rounded - offset);
-        candidates.push(rounded + offset);
-      }
-    };
-
-    for (const sample of localSamples) {
-      for (const estimate of this.estimateCentersFromSingleSample(sample)) {
-        addAround(estimate, 8);
-      }
-    }
-
-    for (let i = 0; i < localSamples.length; i++) {
-      for (let j = i + 1; j < localSamples.length; j++) {
-        const estimate = this.estimateCenterFromPair(localSamples[i], localSamples[j]);
-
-        if (estimate !== null) {
-          addAround(estimate, 8);
-        }
-      }
-    }
-
-    addAround(best.guess, 25);
+    const candidates: number[] = [];
+    this.addAround(candidates, best.guess, 64);
 
     return this.uniqueInRange(candidates);
   }
 
-  private buildZoomGuesses(): number[] {
-    const best = this.bestSample();
-    if (!best) return [];
-
-    const guesses: number[] = [];
-
-    for (let offset = 0; offset <= this.zoomStep * 10; offset += this.zoomStep) {
-      guesses.push(best.guess - offset);
-      guesses.push(best.guess + offset);
-    }
-
-    return this.uniqueInRange(guesses);
-  }
-
-  private estimateCenterFromPair(a: ScoredGuess, b: ScoredGuess): number | null {
-    if (a.guess === b.guess || a.score <= 0 || b.score <= 0) {
-      return null;
-    }
-
-    // Main-hill model:
-    // score = 10000 * exp(-((x - password)^2 / width^2))
-    const x1 = a.guess;
-    const x2 = b.guess;
-    const denominator = 2 * (x2 - x1);
-
-    if (denominator === 0) {
-      return null;
-    }
-
-    const widthSquared = this.width * this.width;
-    const estimate = (x2 * x2 - x1 * x1 - widthSquared * Math.log(a.score / b.score)) / denominator;
-
-    return Number.isFinite(estimate) ? estimate : null;
-  }
-
-  private estimateCentersFromSingleSample(sample: ScoredGuess): number[] {
-    if (sample.score <= 0) {
-      return [sample.guess];
-    }
-
-    const ratio = Math.max(0, Math.min(1, sample.score / 10_000));
-    const distance = this.width * Math.sqrt(-Math.log(ratio));
-
-    if (!Number.isFinite(distance)) {
-      return [sample.guess];
-    }
-
-    const direction = this.estimateDirection(sample.guess);
-
-    if (direction < 0) {
-      return [sample.guess - distance, sample.guess + distance];
-    }
-
-    if (direction > 0) {
-      return [sample.guess + distance, sample.guess - distance];
-    }
-
-    return [sample.guess - distance, sample.guess + distance];
-  }
-
-  private estimateDirection(center: number): -1 | 0 | 1 {
-    let left: ScoredGuess | null = null;
-    let right: ScoredGuess | null = null;
+  private estimateCenters(): CenterEstimate[] {
+    const estimates: CenterEstimate[] = [];
 
     for (const sample of this.samples()) {
-      if (sample.guess < center && (!left || sample.guess > left.guess)) {
-        left = sample;
+      if (sample.score <= 0 || sample.score >= KingOfTheHillSolver.PeakHeight) {
+        continue;
       }
 
-      if (sample.guess > center && (!right || sample.guess < right.guess)) {
-        right = sample;
+      const ratio = sample.score / KingOfTheHillSolver.PeakHeight;
+      const distance = this.width * Math.sqrt(-Math.log(ratio));
+
+      if (!Number.isFinite(distance)) {
+        continue;
       }
+
+      estimates.push({ center: sample.guess - distance, score: sample.score });
+      estimates.push({ center: sample.guess + distance, score: sample.score });
     }
 
-    if (!left || !right) return 0;
-    if (left.score > right.score) return -1;
-    if (right.score > left.score) return 1;
+    return estimates
+      .filter(estimate => this.isInRange(Math.round(estimate.center)))
+      .sort((a, b) => b.score - a.score);
+  }
 
-    return 0;
+  private clusterEstimates(estimates: CenterEstimate[]): CenterCluster[] {
+    const binSize = this.width < 1_000 ? 1 : 16;
+    const clusters = new Map<number, { weightedSum: number; weight: number; support: number }>();
+
+    for (const estimate of estimates) {
+      const key = Math.round(estimate.center / binSize);
+      const weight = Math.max(1, Math.log1p(Math.max(0, estimate.score)));
+      const existing = clusters.get(key) ?? { weightedSum: 0, weight: 0, support: 0 };
+
+      existing.weightedSum += estimate.center * weight;
+      existing.weight += weight;
+      existing.support++;
+
+      clusters.set(key, existing);
+    }
+
+    return [...clusters.values()]
+      .map(cluster => ({
+        center: cluster.weightedSum / cluster.weight,
+        support: cluster.support,
+        weight: cluster.weight,
+      }))
+      .sort((a, b) => {
+        const supportDiff = b.support - a.support;
+        return supportDiff !== 0 ? supportDiff : b.weight - a.weight;
+      });
   }
 
   private bestSample(): ScoredGuess | null {
@@ -400,33 +366,39 @@ export class KingOfTheHillSolver {
   }
 
   private samples(): ScoredGuess[] {
-    const samples: ScoredGuess[] = [];
+    const result: ScoredGuess[] = [];
 
     for (const [guess, score] of this.scores) {
-      samples.push({ guess, score });
+      result.push({ guess, score });
     }
 
-    return samples;
+    return result;
   }
 
-  private setQueue(guesses: number[]): void {
-    this.queue = this.uniqueInRange(guesses);
-    this.queueIndex = 0;
+  private addAround(candidates: number[], rawCenter: number, radius: number): void {
+    const center = Math.round(rawCenter);
+
+    candidates.push(center);
+
+    for (let offset = 1; offset <= radius; offset++) {
+      candidates.push(center - offset);
+      candidates.push(center + offset);
+    }
   }
 
-  private dequeueGuess(): number | null {
-    while (this.queueIndex < this.queue.length) {
-      const guess = this.queue[this.queueIndex++];
+  private takeUntried(guesses: number[]): number[] {
+    const result: number[] = [];
 
-      if (!this.isInRange(guess) || this.tried.has(guess)) {
+    for (const guess of this.uniqueInRange(guesses)) {
+      if (this.tried.has(guess)) {
         continue;
       }
 
       this.tried.add(guess);
-      return guess;
+      result.push(guess);
     }
 
-    return null;
+    return result;
   }
 
   private uniqueInRange(guesses: number[]): number[] {

@@ -27,9 +27,6 @@ class Hydra {
       ...ns.dnet.getServerDetails(),
       ip: ns.getIP(),
     };
-
-    // exec a loot script to open any caches/share any files when we start on the server
-    ns.exec(LOOT_SCRIPT, this.host.ip, { temporary: true, preventDuplicates: true }, this.host.ip, false);
   }
 
   async start(): Promise<void> {
@@ -126,7 +123,7 @@ class Hydra {
       const stasisProcess = this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, this.host.ip, true);
       if (0 !== stasisProcess) {
         this.stasisPid = stasisProcess;
-        this.ns.tprint(`${CYAN}Labyrinth found${RESET}! Entering stasis...`);
+        this.ns.toast("${CYAN}Labyrinth found${RESET}! Entering stasis...", "info")
       }
       return [];
     }
@@ -144,7 +141,7 @@ class Hydra {
           this.ns.clearPort(HYDRA_STASIS_CLAIM_PORT);
         } else {
           this.stasisPid = stasisProcess;
-          this.ns.tprint(`Reached depth ${CYAN}${this.host.depth}${RESET}, entering stasis!`);
+          this.ns.toast(`Reached depth ${CYAN}${this.host.depth}${RESET}, entering stasis!`, "info");
         }
         return [];
       }
@@ -215,7 +212,7 @@ class Hydra {
       if (connectionResult.success) {
         // kickstart the hydra script in case it's not already running
         spawnHydra(this.ns, neighbor.ip);
-      } else {
+      } else if (connectionResult.code === 401 || connectionResult.code === 403) {
         // connection failed, this could be because the server is NEW but reusing an old IP. either way, the state is wrong
         this.ns.tprint(`Connecting to expected server ${neighbor.ip} with password ${neighborPortState.password} failed. Re-attacking.`);
         targetsNeedingAuthentication.push({ server: neighbor, port: neighborPort });
@@ -263,5 +260,20 @@ export async function main(ns: NS): Promise<void> {
   // kill any children when we exit so machine is fully clean
   ns.atExit(() => ns.killall(undefined, true));
 
+  await lootOnStart(ns);
+
   await new Hydra(ns).start();
+}
+
+async function lootOnStart(ns: NS): Promise<void> {
+  const ip = ns.getIP();
+
+  // exec a loot script to open any caches/share any files when we start on the server
+  const lootPid = ns.exec(LOOT_SCRIPT, ip, { temporary: true, preventDuplicates: true }, ip, false);
+
+  if (lootPid !== 0) {
+    while (ns.isRunning(lootPid)) {
+      await ns.asleep(500);
+    }
+  }
 }

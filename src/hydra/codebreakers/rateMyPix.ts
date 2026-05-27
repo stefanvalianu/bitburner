@@ -1,15 +1,10 @@
 import { NS } from "@ns";
-import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
 import { HydraAuthInfo } from "../types";
 
 const DIGITS = "0123456789";
 const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const ALPHANUMERIC = DIGITS + LETTERS;
-
-type RateMyPixFeedbackLog = {
-  passwordAttempted: string;
-  data: string;
-};
 
 export class RateMyPixCodebreaker extends Codebreaker {
   constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
@@ -31,8 +26,8 @@ export class RateMyPixCodebreaker extends Codebreaker {
 
       const result = await this.authenticate(password);
 
-      if (result === null) return { result: "transient" };
-      if (result.success) return { result: "ok", password };
+      if (result === "transient") return { result: "transient" };
+      if (result === "ok") return { result: "ok", password };
 
       const feedback = await this.readFeedbackForPassword(password);
 
@@ -46,66 +41,14 @@ export class RateMyPixCodebreaker extends Codebreaker {
     return { result: "impossible" };
   }
 
-  private async readFeedbackForPassword(password: string): Promise<RateMyPixFeedbackLog | undefined> {
-    const info = await this.ns.dnet.heartbleed(this.info.targetIp, {
-      logsToCapture: 50,
-      peek: true,
-    });
+  private async readFeedbackForPassword(password: string): Promise<PasswordAttemptLog | undefined> {
+    const info = await this.getAuthenticateResultLog(password);
 
-    if (!info.success) {
+    if (info.result !== "ok" || !info.log) {
       return undefined;
     }
 
-    for (const log of info.logs) {
-      const parsed = this.parseFeedbackLog(log, password);
-
-      if (parsed !== undefined) {
-        return parsed;
-      }
-    }
-
-    return undefined;
-  }
-
-  private parseFeedbackLog(log: string, expectedPassword: string): RateMyPixFeedbackLog | undefined {
-    const parsed = this.tryParseJson(log);
-    const candidates: unknown[] = [parsed];
-
-    if (this.isRecord(parsed)) {
-      const message = parsed.message;
-
-      if (typeof message === "string") {
-        candidates.push(this.tryParseJson(message));
-      } else if (message !== undefined) {
-        candidates.push(message);
-      }
-    }
-
-    for (const candidate of candidates) {
-      if (!this.isRecord(candidate)) continue;
-      if (candidate.passwordAttempted !== expectedPassword) continue;
-      if (typeof candidate.data !== "string") continue;
-      if (candidate.data.length === 0) continue;
-
-      return {
-        passwordAttempted: expectedPassword,
-        data: candidate.data,
-      };
-    }
-
-    return undefined;
-  }
-
-  private tryParseJson(value: string): unknown {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
-  }
-
-  private isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null;
+    return info.log;
   }
 }
 

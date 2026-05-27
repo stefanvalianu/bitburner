@@ -1,12 +1,6 @@
 import { NS } from "@ns";
-import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
 import { HydraAuthInfo } from "../types";
-
-type KingOfTheHillAttemptLog = {
-  passwordAttempted: string;
-  data?: string | number;
-  message?: string;
-};
 
 type KingOfTheHillPhase = "coarse" | "probe" | "final" | "zoom" | "done";
 
@@ -35,12 +29,12 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
       const password = guess.toString();
       const result = await this.authenticate(password);
 
-      if (result === null) {
-        this.ns.print(`KingOfTheHill transient: authenticate returned null for password ${password}`);
+      if (result === "transient") {
+        this.ns.print(`KingOfTheHill transient: authenticate returned transient for password ${password}`);
         return { result: "transient" };
       }
 
-      if (result.success) {
+      if (result === "ok") {
         return { result: "ok", password };
       }
 
@@ -59,100 +53,40 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
   }
 
   private async readScoreForPassword(password: string): Promise<number | undefined> {
-    const info = await this.ns.dnet.heartbleed(this.info.targetIp, {
-      logsToCapture: 100,
-      peek: true,
-    });
+    const info = await this.getAuthenticateResultLog(password);
 
-    if (!info.success) {
+    if (info.result === "transient") {
       this.ns.print(`KingOfTheHill heartbleed failed for ${this.info.targetIp}`);
       return undefined;
     }
 
-    let sawPasswordResponse = false;
-
-    // Logs are expected newest-first. Ignore non-auth logs and auth logs for
-    // other passwords. The attempted password itself is our correlation key.
-    for (const log of info.logs) {
-      const parsed = this.parseAttemptLog(log);
-
-      if (parsed === undefined) {
-        continue;
-      }
-
-      sawPasswordResponse = true;
-
-      if (parsed.passwordAttempted !== password) {
-        continue;
-      }
-
-      const score = this.parseScore(parsed);
-
-      if (score === undefined) {
-        this.ns.print(
-          `KingOfTheHill matched password ${password}, but log did not contain a numeric altitude score`,
-        );
-
-        return undefined;
-      }
-
-      return score;
+    if (info.result !== "ok" || !info.log) {
+      this.ns.print(`KingOfTheHill could not match log for password ${password}`);
+      return undefined;
     }
 
-    if (sawPasswordResponse) {
-      this.ns.print(`KingOfTheHill found auth logs, but none for password ${password}`);
-    } else {
-      this.ns.print(`KingOfTheHill found no PasswordResponse logs for password ${password}`);
+    const score = this.parseScore(info.log);
+
+    if (score === undefined) {
+      this.ns.print(
+        `KingOfTheHill matched password ${password}, but log did not contain a numeric altitude score`,
+      );
+
+      return undefined;
     }
 
-    return undefined;
+    return score;
   }
 
-  private parseAttemptLog(log: string): KingOfTheHillAttemptLog | undefined {
-    const parsed = this.tryParseJson(log);
-    const candidates: unknown[] = [parsed];
+  private parseScore(log: PasswordAttemptLog): number | undefined {
+    const data: unknown = log.data;
 
-    if (this.isRecord(parsed)) {
-      const message = parsed.message;
-
-      if (typeof message === "string") {
-        candidates.push(this.tryParseJson(message));
-      } else if (message !== undefined) {
-        candidates.push(message);
-      }
+    if (typeof data === "number") {
+      return Number.isFinite(data) ? data : undefined;
     }
 
-    for (const candidate of candidates) {
-      if (!this.isRecord(candidate)) {
-        continue;
-      }
-
-      const passwordAttempted = candidate.passwordAttempted;
-
-      if (typeof passwordAttempted !== "string") {
-        continue;
-      }
-
-      const data = candidate.data;
-      const message = candidate.message;
-
-      return {
-        passwordAttempted,
-        data: typeof data === "string" || typeof data === "number" ? data : undefined,
-        message: typeof message === "string" ? message : undefined,
-      };
-    }
-
-    return undefined;
-  }
-
-  private parseScore(log: KingOfTheHillAttemptLog): number | undefined {
-    if (typeof log.data === "number") {
-      return Number.isFinite(log.data) ? log.data : undefined;
-    }
-
-    if (typeof log.data === "string") {
-      const score = Number(log.data.trim());
+    if (typeof data === "string") {
+      const score = Number(data.trim());
 
       if (Number.isFinite(score)) {
         return score;
@@ -199,18 +133,6 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
       value === "E" ||
       (value >= "0" && value <= "9")
     );
-  }
-
-  private tryParseJson(value: string): unknown {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
-  }
-
-  private isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null;
   }
 }
 

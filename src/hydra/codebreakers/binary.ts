@@ -11,8 +11,8 @@ export class BinaryCodebreaker extends Codebreaker {
     if (password) {
       const result = await this.authenticate(password);
 
-      if (result === null) return { result: "transient" };
-      if (result.success) return { result: "ok", password };
+      if (result === "transient") return { result: "transient" };
+      if (result === "ok") return { result: "ok", password };
     } 
 
     return { result: "impossible" };

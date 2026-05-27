@@ -9,8 +9,8 @@ export class FreshInstallCodebreaker extends Codebreaker {
     if (this.info.targetPasswordFormat === "alphabetic") {
       const password = this.info.targetPasswordLength === 8 ? "password" : "admin";
       const result = await this.authenticate(password);
-      if (result === null) return { result: "transient" };
-      if (result.success) {
+      if (result === "transient") return { result: "transient" };
+      if (result === "ok") {
         return { result: "ok", password };
       }
     }
@@ -18,15 +18,15 @@ export class FreshInstallCodebreaker extends Codebreaker {
       // either a length of 0s, or an incrementing number
       let password = "0".repeat(this.info.targetPasswordLength);
       let result = await this.authenticate(password);
-      if (result === null) return { result: "transient" };
-      if (result.success) {
+      if (result === "transient") return { result: "transient" };
+      if (result === "ok") {
         return { result: "ok", password };
       }
 
       password = Array.from({ length: this.info.targetPasswordLength }, (_, i) => i + 1).join("");
       result = await this.authenticate(password);
-      if (result === null) return { result: "transient" };
-      if (result.success) {
+      if (result === "transient") return { result: "transient" };
+      if (result === "ok") {
         return { result: "ok", password };
       }
     }

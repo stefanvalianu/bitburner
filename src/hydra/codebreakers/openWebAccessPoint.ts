@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
+import { Codebreaker, CodebreakerResult } from "./codebreaker";
 import { HydraAuthInfo } from "../types";
 
 type OpenWebAccessPointPasswordFormat = "numeric" | "alphabetic" | "alphanumeric";
@@ -10,46 +10,41 @@ export class OpenWebAccessPointCodebreaker extends Codebreaker {
   async tryAuthenticate(): Promise<CodebreakerResult> {
     const passwordFormat = this.info.targetPasswordFormat;
 
-    if (this.isSupportedPasswordFormat(passwordFormat)) {      
+    if (this.isSupportedPasswordFormat(passwordFormat)) {
       let password = "123";
       let result = await this.authenticate(password!);
       let maxAttempts = 10;
 
       // scan the logs for candidates matching the required length. if there is more than 1, guess all of them
       while (maxAttempts-- > 0) {
-        if (result === null) return { result: "transient" };
-        if (result.success) {
+        if (result === "transient") return { result: "transient" };
+        if (result === "ok") {
           return { result: "ok", password: password! };
         } else {
           /*
             Reminder that multiple different instances of this hydra (on different hosts) could
             be consuming the log.
           */
-          const info = await this.ns.dnet.heartbleed(this.info.targetIp);
+          const info = await this.getAuthenticateResultLog(password!);
 
-          if (info.success && info.logs.length > 0) {
-            for (const log of info.logs) {
-              const logResult = this.parsePasswordAttemptLog(log);
-
-              if (logResult && logResult.passwordAttempted && logResult.data) {
-                const candidates = this.findPasswordsOfLength(logResult.data, this.info.targetPasswordLength, passwordFormat);
-
-                for (const candidate of candidates) {
-                  result = await this.authenticate(candidate);
-                  if (result === null) return { result: "transient" };
-                  if (result.success) {
-                    return { result: "ok", password: candidate };
-                  }
-                }
-              }
-            }
-
-            // we probably read some other crappy log, keep trying (stay in the loop)
-          } 
-          else {
+          if (info.result === "transient") {
             // some other hydra instance is competing with us for logs, let them get it
             return { result: "transient" };
           }
+
+          if (info.result === "ok" && info.log) {
+            const candidates = this.findPasswordsOfLength(info.log.data, this.info.targetPasswordLength, passwordFormat);
+
+            for (const candidate of candidates) {
+              result = await this.authenticate(candidate);
+              if (result === "transient") return { result: "transient" };
+              if (result === "ok") {
+                return { result: "ok", password: candidate };
+              }
+            }
+          }
+
+          // we probably read some other crappy log, keep trying (stay in the loop)
         }
       }
     }
@@ -59,45 +54,6 @@ export class OpenWebAccessPointCodebreaker extends Codebreaker {
 
   private isSupportedPasswordFormat(format: string): format is OpenWebAccessPointPasswordFormat {
     return format === "numeric" || format === "alphabetic" || format === "alphanumeric";
-  }
-
-  private parsePasswordAttemptLog(input: string): PasswordAttemptLog | undefined {
-    let parsed: unknown;
-
-    try {
-      parsed = JSON.parse(input);
-    } catch {
-      return undefined;
-    }
-
-    if (this.isPasswordAttemptLog(parsed)) {
-      return parsed;
-    }
-
-    /*
-      Some source paths wrap the password response in a log object.
-      Keep supporting the direct shape too, since that is what older/current scripts may already see.
-    */
-    if (parsed && typeof parsed === "object" && "message" in parsed) {
-      const wrapped = parsed as { message?: unknown };
-
-      if (this.isPasswordAttemptLog(wrapped.message)) {
-        return wrapped.message;
-      }
-    }
-
-    return undefined;
-  }
-
-  private isPasswordAttemptLog(input: unknown): input is PasswordAttemptLog {
-    return (
-      input !== null &&
-      typeof input === "object" &&
-      "passwordAttempted" in input &&
-      "data" in input &&
-      typeof (input as PasswordAttemptLog).passwordAttempted === "string" &&
-      typeof (input as PasswordAttemptLog).data === "string"
-    );
   }
 
   private findPasswordsOfLength(input: string, length: number, format: OpenWebAccessPointPasswordFormat): string[] {

@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
+import { Codebreaker, CodebreakerResult } from "./codebreaker";
 import { HydraAuthInfo } from "../types";
 
 export class AccountsManagerCodebreaker extends Codebreaker {
@@ -29,42 +29,32 @@ export class AccountsManagerCodebreaker extends Codebreaker {
         } else {
           const info = await this.getAuthenticateResultLog(password);
 
-          if (info.result === "ok") {
+          if (info.result === "transient") return { result: "transient" };
 
+          if (info.result !== "ok" || !info.log) {
+            // No usable feedback; re-attempt to regenerate a log
+            result = await this.authenticate(password);
+            continue;
+          }
+
+          const logGuess = Number(info.log.passwordAttempted);
+          if (logGuess >= high || logGuess <= low) {
+            // This log seems stale, we're already closer to the target. re-generate a log
+            result = await this.authenticate(password);
+            continue;
+          }
+
+          guess = logGuess;
+
+          if (info.log.data.toLowerCase() === "lower") {
+            high = guess;
           } else {
-            this.ns.tprint(`Failed to find logs solving ${this.info.targetModel}`)
+            low = guess;
           }
-          
-          const info = await this.ns.dnet.heartbleed(this.info.targetIp);
 
-          if (info.success && info.logs.length > 0) {
-            let logResult: PasswordAttemptLog | undefined;
-            
-            try {
-              logResult = JSON.parse(info.logs[0]) as PasswordAttemptLog;
-            } catch {}
-
-            if (logResult && logResult.passwordAttempted && logResult.data) {
-              const logGuess = Number(logResult.passwordAttempted);
-              if (logGuess >= high || logGuess <= low) {
-                // This log seems stale, we're already closer to the target. re-generate a log
-                result = await this.authenticate(password);
-                continue;
-              }
-
-              guess = logGuess;
-
-              if (logResult.data.toLowerCase() === "lower") {
-                high = guess;
-              } else {
-                low = guess;
-              }
-
-              guess = Math.floor((low + high) / 2);
-              password = guess.toString();
-              result = await this.authenticate(password);
-            }
-          }
+          guess = Math.floor((low + high) / 2);
+          password = guess.toString();
+          result = await this.authenticate(password);
         }
       }
     }

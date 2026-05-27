@@ -23,9 +23,9 @@ export class OctantVoxelCodebreaker extends Codebreaker {
     // Important: "0" is a valid password, so do not use `if (password)`
     if (password !== undefined) {
       const result = await this.authenticate(password);
-      if (result === null) return { result: "transient" };
+      if (result === "transient") return { result: "transient" };
 
-      if (result.success) {
+      if (result === "ok") {
         return { result: "ok", password };
       }
     }

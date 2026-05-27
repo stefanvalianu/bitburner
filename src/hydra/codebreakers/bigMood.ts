@@ -13,11 +13,6 @@ type Congruence = {
   modulus: bigint;
 };
 
-type BigMoodAttemptLog = {
-  passwordAttempted: string;
-  data: string;
-};
-
 export class BigMoodCodebreaker extends Codebreaker {
   constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
@@ -95,8 +90,8 @@ export class BigMoodCodebreaker extends Codebreaker {
   private async tryExactPassword(password: string): Promise<CodebreakerResult> {
     const result = await this.authenticate(password);
 
-    if (result === null) return { result: "transient" };
-    if (result.success) return { result: "ok", password };
+    if (result === "transient") return { result: "transient" };
+    if (result === "ok") return { result: "ok", password };
 
     return { result: "impossible" };
   }
@@ -104,11 +99,11 @@ export class BigMoodCodebreaker extends Codebreaker {
   private async tryPasswordAndReadModulo(password: string): Promise<TripleModuloTrySolveResult> {
     const result = await this.authenticate(password);
 
-    if (result === null) {
+    if (result === "transient") {
       return { kind: "transient" };
     }
 
-    if (result.success) {
+    if (result === "ok") {
       return { kind: "success", password };
     }
 
@@ -122,63 +117,13 @@ export class BigMoodCodebreaker extends Codebreaker {
   }
 
   private async readModuloForPassword(password: string): Promise<bigint | undefined> {
-    const info = await this.ns.dnet.heartbleed(this.info.targetIp, {
-      logsToCapture: 50,
-      peek: true,
-    });
+    const info = await this.getAuthenticateResultLog(password);
 
-    if (!info.success) {
+    if (info.result !== "ok" || !info.log) {
       return undefined;
     }
 
-    // Auth logs are newest-first. Ignore non-auth noise, but only trust the
-    // first real PasswordResponse. If it is not for the exact prober we just
-    // attempted, another attempt raced us or we are seeing stale state.
-    for (const log of info.logs) {
-      const parsed = this.parseAttemptLog(log);
-
-      if (parsed === undefined) {
-        continue;
-      }
-
-      if (parsed.passwordAttempted !== password) {
-        return undefined;
-      }
-
-      return this.parseInteger(parsed.data);
-    }
-
-    return undefined;
-  }
-
-  private parseAttemptLog(log: string): BigMoodAttemptLog | undefined {
-    const parsed = this.tryParseJson(log);
-    const candidates: unknown[] = [parsed];
-
-    if (this.isRecord(parsed)) {
-      const message = parsed.message;
-
-      if (typeof message === "string") {
-        candidates.push(this.tryParseJson(message));
-      } else if (message !== undefined) {
-        candidates.push(message);
-      }
-    }
-
-    for (const candidate of candidates) {
-      if (!this.isRecord(candidate)) continue;
-
-      const passwordAttempted = candidate.passwordAttempted;
-      const data = candidate.data;
-
-      if (typeof passwordAttempted !== "string") continue;
-      if (typeof data !== "string") continue;
-      if (data.length === 0) continue;
-
-      return { passwordAttempted, data };
-    }
-
-    return undefined;
+    return this.parseInteger(info.log.data);
   }
 
   private passwordRange(length: number): { min: bigint; max: bigint } | undefined {
@@ -253,18 +198,6 @@ export class BigMoodCodebreaker extends Codebreaker {
     }
 
     return BigInt(trimmed);
-  }
-
-  private tryParseJson(value: string): unknown {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
-  }
-
-  private isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null;
   }
 
   private gcd(a: bigint, b: bigint): bigint {

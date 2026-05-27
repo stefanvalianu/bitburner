@@ -12,8 +12,8 @@ export class MathMlCodebreaker extends Codebreaker {
     }
 
     const result = await this.authenticate(password);
-    if (result === null) return { result: "transient" };
-    if (result.success) {
+    if (result === "transient") return { result: "transient" };
+    if (result === "ok") {
       return { result: "ok", password };
     }
 

@@ -40,8 +40,8 @@ export class EurozoneFreeCodebreaker extends Codebreaker {
 
     for (const option of options) {
       const result = await this.authenticate(option);
-      if (result === null) return { result: "transient" };
-      if (result.success) {
+      if (result === "transient") return { result: "transient" };
+      if (result === "ok") {
         return {
           result: "ok",
           password: option

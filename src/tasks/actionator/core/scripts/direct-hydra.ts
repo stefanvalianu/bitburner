@@ -19,12 +19,18 @@ export async function main(ns: NS): Promise<void> {
   }
 
   const data = getPortData<HydraControllerState>(ns, HYDRA_STATE_PORT);
-  
-  const maxLinks = ns.dnet.getStasisLinkLimit() - 1; // always reserve 1 for lab-adjacent
+
   const maxDepth = 36; // max depth in endgame
-  const depthPerLink = Math.floor(maxDepth / (maxLinks + 1));
+  const maxRegularLinks = Math.max(0, ns.dnet.getStasisLinkLimit() - 1); // reserve 1 for lab-adjacent
+  const disabledStasisDepth = Number.MAX_SAFE_INTEGER;
+
+  const depthPerLink =
+    maxRegularLinks > 0
+      ? Math.floor(maxDepth / (maxRegularLinks + 1))
+      : disabledStasisDepth;
+
   let stasisFile: StasisLinkFile = { regularLinks: [] };
-  let rawStasis = ns.read(STASIS_LINK_FILE);
+  const rawStasis = ns.read(STASIS_LINK_FILE);
 
   if (rawStasis) {
     try {
@@ -32,14 +38,23 @@ export async function main(ns: NS): Promise<void> {
     } catch {}
   }
 
+  stasisFile.regularLinks = stasisFile.regularLinks.slice(0, maxRegularLinks);
+
+  const getNextStasisMinDepth = (): number => {
+    if (maxRegularLinks <= 0) return disabledStasisDepth;
+    if (stasisFile.regularLinks.length >= maxRegularLinks) return disabledStasisDepth;
+
+    return (stasisFile.regularLinks.length + 1) * depthPerLink;
+  };
+
   // first run - spread hydra to darkweb
   if (data === undefined) {
     // Ensure these are on the port
     const files = ns.ls("home", ".js");
-  
+
     ns.clearPort(SCP_FILES_PORT);
     ns.writePort(SCP_FILES_PORT, files);
-    
+
     if (stasisFile.labLink && ns.dnet.connectToSession(stasisFile.labLink.ip, stasisFile.labLink.password)) {
       spawnHydra(ns, stasisFile.labLink.ip);
     }
@@ -54,7 +69,7 @@ export async function main(ns: NS): Promise<void> {
       up: true,
       haveLabyrinthStasis: stasisFile.labLink !== undefined,
       playerCharisma: ns.getPlayer().skills.charisma,
-      nextStasisMinDepth : (stasisFile.regularLinks.length + 1) * depthPerLink,
+      nextStasisMinDepth: getNextStasisMinDepth(),
     } satisfies HydraControllerState);
 
     await bootstrapHydra(ns);
@@ -71,12 +86,28 @@ export async function main(ns: NS): Promise<void> {
     for (const update of updates) {
       switch (update.type) {
         case "stasis-linking": {
+          clearStasisClaim = true;
+
+          if (stasisFile.regularLinks.length >= maxRegularLinks) {
+            break;
+          }
+
+          if (stasisFile.regularLinks.some(link => link.ip === update.info.ip)) {
+            break;
+          }
+
+          if (stasisFile.labLink?.ip === update.info.ip) {
+            break;
+          }
+
           stasisFile.regularLinks.push(update.info);
           rewriteStasisFile = true;
-          clearStasisClaim = true;
         } break;
+
         case "lab-stasis-linking": {
           stasisFile.labLink = update.info;
+          stasisFile.regularLinks = stasisFile.regularLinks.filter(link => link.ip !== update.info.ip);
+
           rewriteStasisFile = true;
         } break;
       }
@@ -93,7 +124,7 @@ export async function main(ns: NS): Promise<void> {
     up: true,
     haveLabyrinthStasis: stasisFile.labLink !== undefined,
     playerCharisma: ns.getPlayer().skills.charisma,
-    nextStasisMinDepth : (stasisFile.regularLinks.length + 1) * depthPerLink,
+    nextStasisMinDepth: getNextStasisMinDepth(),
   } satisfies HydraControllerState);
 
   if (clearStasisClaim) {

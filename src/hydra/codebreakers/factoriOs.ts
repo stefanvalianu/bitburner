@@ -44,8 +44,8 @@ export class FactoriOsCodebreaker extends Codebreaker {
       const password = passwordNum.toString();
       const result = await this.authenticate(password);
 
-      if (result === null) return { result: "transient" };
-      if (result.success) return { result: "ok", password };
+      if (result === "transient") return { result: "transient" };
+      if (result === "ok") return { result: "ok", password };
 
       const feedback = await this.readFeedbackForPassword(password);
       if (feedback === undefined) {
@@ -59,59 +59,16 @@ export class FactoriOsCodebreaker extends Codebreaker {
   }
 
   private async readFeedbackForPassword(password: string): Promise<boolean | undefined> {
-    const info = await this.ns.dnet.heartbleed(this.info.targetIp, {
-      logsToCapture: 50,
-      peek: true,
-    });
+    const info = await this.getAuthenticateResultLog(password);
 
-    if (!info.success) {
+    if (info.result !== "ok" || !info.log) {
       return undefined;
     }
 
-    for (const log of info.logs) {
-      const feedback = this.parseFeedbackLog(log, password);
-      if (feedback !== undefined) {
-        return feedback;
-      }
-    }
+    if (info.log.data === "true") return true;
+    if (info.log.data === "false") return false;
 
     return undefined;
-  }
-
-  private parseFeedbackLog(log: string, expectedPassword: string): boolean | undefined {
-    const parsed = this.tryParseJson(log);
-    const candidates: unknown[] = [parsed];
-
-    if (this.isRecord(parsed)) {
-      const message = parsed.message;
-
-      if (typeof message === "string") {
-        candidates.push(this.tryParseJson(message));
-      } else if (message !== undefined) {
-        candidates.push(message);
-      }
-    }
-
-    for (const candidate of candidates) {
-      if (!this.isRecord(candidate)) continue;
-      if (candidate.passwordAttempted !== expectedPassword) continue;
-      if (candidate.data === "true") return true;
-      if (candidate.data === "false") return false;
-    }
-
-    return undefined;
-  }
-
-  private tryParseJson(value: string): unknown {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
-  }
-
-  private isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null;
   }
 }
 

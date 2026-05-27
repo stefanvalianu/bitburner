@@ -10,33 +10,33 @@ export class LaikaCodebreaker extends Codebreaker {
       if (this.info.targetPasswordLength === 3) {
         const password = "max";
         const result = await this.authenticate(password);
-        if (result === null) return { result: "transient" };
+        if (result === "transient") return { result: "transient" };
         
-        if (result.success) {
+        if (result === "ok") {
           return { result: "ok", password };
         } 
       } else if (this.info.targetPasswordLength === 5) {
         const password = "rover";
         const result = await this.authenticate(password);
-        if (result === null) return { result: "transient" };
+        if (result === "transient") return { result: "transient" };
         
-        if (result.success) {
+        if (result === "ok") {
           return { result: "ok", password };
         }
       } else if (this.info.targetPasswordLength === 4) {
         let password = "fido";
         let result = await this.authenticate(password);
-        if (result === null) return { result: "transient" };
+        if (result === "transient") return { result: "transient" };
         
-        if (result.success) {
+        if (result === "ok") {
           return { result: "ok", password };
         }
 
         password = "spot";
         result = await this.authenticate(password);
-        if (result === null) return { result: "transient" };
+        if (result === "transient") return { result: "transient" };
         
-        if (result.success) {
+        if (result === "ok") {
           return { result: "ok", password };
         }
       }

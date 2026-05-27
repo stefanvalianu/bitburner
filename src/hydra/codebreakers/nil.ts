@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { Codebreaker, CodebreakerResult } from "./codebreaker";
+import { Codebreaker, CodebreakerResult, PasswordAttemptLog } from "./codebreaker";
 import { HydraAuthInfo } from "../types";
 
 const DIGITS = "0123456789";
@@ -7,11 +7,6 @@ const LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
 const UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const LETTERS = LOWERCASE + UPPERCASE;
 const ALPHANUMERIC = DIGITS + LETTERS;
-
-type NilFeedbackLog = {
-  passwordAttempted: string;
-  data: string;
-};
 
 function alphabetForPasswordFormat(format: string): string {
   switch (format) {
@@ -161,8 +156,8 @@ export class NilCodebreaker extends Codebreaker {
       const password = solver.nextGuess();
       const result = await this.authenticate(password);
 
-      if (result === null) return { result: "transient" };
-      if (result.success) return { result: "ok", password };
+      if (result === "transient") return { result: "transient" };
+      if (result === "ok") return { result: "ok", password };
 
       const feedback = await this.readFeedbackForPassword(password);
 
@@ -178,8 +173,8 @@ export class NilCodebreaker extends Codebreaker {
       if (solvedPassword !== null) {
         const finalResult = await this.authenticate(solvedPassword);
 
-        if (finalResult === null) return { result: "transient" };
-        if (finalResult.success) return { result: "ok", password: solvedPassword };
+        if (finalResult === "transient") return { result: "transient" };
+        if (finalResult === "ok") return { result: "ok", password: solvedPassword };
 
         return { result: "impossible" };
       }
@@ -188,65 +183,13 @@ export class NilCodebreaker extends Codebreaker {
     return { result: "impossible" };
   }
 
-  private async readFeedbackForPassword(password: string): Promise<NilFeedbackLog | undefined> {
-    const info = await this.ns.dnet.heartbleed(this.info.targetIp, {
-      logsToCapture: 50,
-      peek: true,
-    });
+  private async readFeedbackForPassword(password: string): Promise<PasswordAttemptLog | undefined> {
+    const info = await this.getAuthenticateResultLog(password);
 
-    if (!info.success) {
+    if (info.result !== "ok" || !info.log) {
       return undefined;
     }
 
-    for (const log of info.logs) {
-      const parsed = this.parseFeedbackLog(log, password);
-
-      if (parsed !== undefined) {
-        return parsed;
-      }
-    }
-
-    return undefined;
-  }
-
-  private parseFeedbackLog(log: string, expectedPassword: string): NilFeedbackLog | undefined {
-    const parsed = this.tryParseJson(log);
-    const candidates: unknown[] = [parsed];
-
-    if (this.isRecord(parsed)) {
-      const message = parsed.message;
-
-      if (typeof message === "string") {
-        candidates.push(this.tryParseJson(message));
-      } else if (message !== undefined) {
-        candidates.push(message);
-      }
-    }
-
-    for (const candidate of candidates) {
-      if (!this.isRecord(candidate)) continue;
-      if (candidate.passwordAttempted !== expectedPassword) continue;
-      if (typeof candidate.data !== "string") continue;
-      if (candidate.data.length === 0) continue;
-
-      return {
-        passwordAttempted: expectedPassword,
-        data: candidate.data,
-      };
-    }
-
-    return undefined;
-  }
-
-  private tryParseJson(value: string): unknown {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
-  }
-
-  private isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null;
+    return info.log;
   }
 }

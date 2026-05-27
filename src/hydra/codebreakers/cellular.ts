@@ -62,8 +62,8 @@ export class TwoGCellularCodebreaker extends Codebreaker {
     }
 
     const result = await this.authenticate(prefix);
-    if (result === null) return { result: "transient" };
-    if (result.success) return { result: "ok", password: prefix };
+    if (result === "transient") return { result: "transient" };
+    if (result === "ok") return { result: "ok", password: prefix };
 
     return { result: "impossible" };
   }
@@ -71,73 +71,31 @@ export class TwoGCellularCodebreaker extends Codebreaker {
   private async tryPasswordAndReadMismatch(password: string): Promise<TimingTrySolveResult> {
     const result = await this.authenticate(password);
 
-    if (result === null) {
+    if (result === "transient") {
       return { kind: "transient" };
     }
 
-    if (result.success) {
+    if (result === "ok") {
       return { kind: "success", password };
     }
 
-    const bleed = await this.ns.dnet.heartbleed(this.info.targetIp, {
-      logsToCapture: 50,
-      peek: true,
-    });
+    const info = await this.getAuthenticateResultLog(password);
 
-    if (!bleed.success) {
+    if (info.result === "transient") {
+      return { kind: "transient" };
+    }
+
+    if (info.result !== "ok" || !info.log || typeof info.log.message !== "string") {
       return { kind: "unknown" };
     }
 
-    for (const log of bleed.logs) {
-      const mismatch = this.parseMismatchLog(log, password);
+    const mismatch = this.parseMismatchIndex(info.log.message);
 
-      if (mismatch !== undefined) {
-        return { kind: "mismatch", index: mismatch };
-      }
+    if (mismatch !== undefined) {
+      return { kind: "mismatch", index: mismatch };
     }
 
     return { kind: "unknown" };
-  }
-
-  private parseMismatchLog(log: string, expectedPassword: string): number | undefined {
-    const parsed = this.tryParseJson(log);
-    const candidates: unknown[] = [parsed];
-
-    if (this.isRecord(parsed)) {
-      const message = parsed.message;
-
-      if (typeof message === "string") {
-        candidates.push(this.tryParseJson(message));
-      } else if (message !== undefined) {
-        candidates.push(message);
-      }
-    }
-
-    for (const candidate of candidates) {
-      const mismatch = this.parsePasswordResponseMismatch(candidate, expectedPassword);
-
-      if (mismatch !== undefined) {
-        return mismatch;
-      }
-    }
-
-    return undefined;
-  }
-
-  private parsePasswordResponseMismatch(value: unknown, expectedPassword: string): number | undefined {
-    if (!this.isRecord(value)) {
-      return undefined;
-    }
-
-    if (value.passwordAttempted !== expectedPassword) {
-      return undefined;
-    }
-
-    if (typeof value.message !== "string") {
-      return undefined;
-    }
-
-    return this.parseMismatchIndex(value.message);
   }
 
   private parseMismatchIndex(value: string): number | undefined {
@@ -154,18 +112,6 @@ export class TwoGCellularCodebreaker extends Codebreaker {
     }
 
     return index;
-  }
-
-  private tryParseJson(value: string): unknown {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
-  }
-
-  private isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null;
   }
 
   private charactersForPasswordFormat(): string | undefined {

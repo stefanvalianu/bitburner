@@ -100,16 +100,19 @@ export class LabyrinthCodebreaker extends Codebreaker {
     const expected = this.neighbor(from.coords, direction);
 
     for (let i = 0; i < LabyrinthCodebreaker.MOVE_RETRIES; i++) {
-      const result = await this.authenticate(direction);
-
-      if (result === null) {
-        return { result: "transient" };
-      }
+      // Labyrinth submits the move direction as the "password" and needs the
+      // raw DarknetResult so it can read the real password out of result.data
+      // on success. The base authenticate() helper only returns a status string.
+      const result = await this.ns.dnet.authenticate(this.info.targetIp, direction);
 
       if (result.success) {
         const password = this.getSolvedPassword(result, direction);
         this.markInfected(password);
         return { result: "solved", password };
+      }
+
+      if (result.code === 351 || result.code === 503) {
+        return { result: "transient" };
       }
 
       const report = await this.readLabReport();

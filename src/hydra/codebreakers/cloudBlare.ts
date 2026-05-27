@@ -9,8 +9,8 @@ export class CloudBlareCodebreaker extends Codebreaker {
     if (this.info.targetPasswordFormat === "numeric") {
       const password = this.info.targetPasswordData.replace(/\D/g, "").substring(0, this.info.targetPasswordLength);
       const result = await this.authenticate(password);
-      if (result === null) return { result: "transient" };
-      if (result.success) {
+      if (result === "transient") return { result: "transient" };
+      if (result === "ok") {
         return { result: "ok", password };
       }
     }

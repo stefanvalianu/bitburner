@@ -89,11 +89,11 @@ export class DeepGreenCodebreaker extends Codebreaker {
   private async tryPasswordAndReadFeedback(password: string): Promise<AttemptResult> {
     const result = await this.authenticate(password);
 
-    if (result === null) {
+    if (result === "transient") {
       return { kind: "transient" };
     }
 
-    if (result.success) {
+    if (result === "ok") {
       return { kind: "success", password };
     }
 
@@ -106,57 +106,19 @@ export class DeepGreenCodebreaker extends Codebreaker {
   }
 
   private async readFeedbackForPassword(password: string): Promise<MastermindFeedback | undefined> {
-    const info = await this.ns.dnet.heartbleed(this.info.targetIp, {
-      logsToCapture: 50,
-      peek: true,
-    });
+    const info = await this.getAuthenticateResultLog(password);
 
-    if (!info.success) {
+    if (info.result !== "ok" || !info.log) {
       return undefined;
     }
 
-    for (const log of info.logs) {
-      const feedback = this.parseFeedbackLog(log, password);
-      if (feedback !== undefined) {
-        return feedback;
-      }
-    }
+    const match = info.log.data.match(/^\s*(\d+)\s*,\s*(\d+)\s*$/);
+    if (!match) return undefined;
 
-    return undefined;
-  }
-
-  private parseFeedbackLog(log: string, expectedPassword: string): MastermindFeedback | undefined {
-    const parsed = this.tryParseJson(log);
-    const candidates: unknown[] = [parsed];
-
-    // Support both shapes:
-    // 1. { data: "1,2", passwordAttempted: "..." }
-    // 2. { message: "{\"data\":\"1,2\",\"passwordAttempted\":\"...\"}" }
-    if (this.isRecord(parsed)) {
-      const message = parsed.message;
-
-      if (typeof message === "string") {
-        candidates.push(this.tryParseJson(message));
-      } else if (message !== undefined) {
-        candidates.push(message);
-      }
-    }
-
-    for (const candidate of candidates) {
-      if (!this.isRecord(candidate)) continue;
-      if (candidate.passwordAttempted !== expectedPassword) continue;
-      if (typeof candidate.data !== "string") continue;
-
-      const match = candidate.data.match(/^\s*(\d+)\s*,\s*(\d+)\s*$/);
-      if (!match) continue;
-
-      return {
-        exact: Number(match[1]),
-        misplaced: Number(match[2]),
-      };
-    }
-
-    return undefined;
+    return {
+      exact: Number(match[1]),
+      misplaced: Number(match[2]),
+    };
   }
 
   private uniquePermutations(chars: string[], format: string): string[] {
@@ -271,17 +233,5 @@ export class DeepGreenCodebreaker extends Codebreaker {
       default:
         return ALPHANUMERIC;
     }
-  }
-
-  private tryParseJson(value: string): unknown {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
-  }
-
-  private isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null;
   }
 }

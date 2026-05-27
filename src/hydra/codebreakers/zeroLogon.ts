@@ -7,9 +7,9 @@ export class ZeroLogonCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     const result = await this.authenticate("");
-    if (result === null) return { result: "transient" };
+    if (result === "transient") return { result: "transient" };
 
-    if (result.success) {
+    if (result === "ok") {
       return { result: "ok", password: "" };
     }
 

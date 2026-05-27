@@ -27,7 +27,6 @@ export class DeepGreenCodebreaker extends Codebreaker {
     const alphabet = this.alphabetForPasswordFormat(this.info.targetPasswordFormat);
 
     if (length <= 0 || alphabet.length === 0) {
-      this.printCoreInfo();
       return { result: "impossible" };
     }
 
@@ -43,7 +42,6 @@ export class DeepGreenCodebreaker extends Codebreaker {
       if (attempted.kind === "success") return { result: "ok", password: attempted.password };
 
       if (attempted.kind !== "feedback") {
-        this.printCoreInfo();
         return { result: "impossible" };
       }
 
@@ -57,7 +55,6 @@ export class DeepGreenCodebreaker extends Codebreaker {
     }
 
     if (chars.length !== length) {
-      this.printCoreInfo();
       return { result: "impossible" };
     }
 
@@ -73,13 +70,11 @@ export class DeepGreenCodebreaker extends Codebreaker {
       if (attempted.kind === "success") return { result: "ok", password };
 
       if (attempted.kind !== "feedback") {
-        this.printCoreInfo();
         return { result: "impossible" };
       }
 
       if (attempted.feedback.exact === length) {
         // Failed auth + perfect exact feedback is internally inconsistent.
-        this.printCoreInfo();
         return { result: "impossible" };
       }
 
@@ -88,7 +83,6 @@ export class DeepGreenCodebreaker extends Codebreaker {
       );
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 

@@ -1,5 +1,5 @@
 import { NS } from "@ns";
-import { HydraAuthInfo } from "../types";
+import { CYAN, HydraAuthInfo, RED, RESET } from "../types";
 import { getCodebreaker } from "../codebreakers";
 import { spawnHydra } from "../infect-helper";
 
@@ -21,8 +21,16 @@ export async function main(ns: NS): Promise<void> {
       spawnHydra(ns, target.targetIp);
     } else if (result.result === "impossible") {
       ns.tprint(`Cannot solve ${target.targetModel}`);
+      printCoreInfo(ns, target);
     } else if (result.result === "transient") {
       ns.tprint(`Transient error trying to authenticate to ${target.targetModel}`);
     }
   }
+}
+
+function printCoreInfo(ns: NS, info: HydraAuthInfo): void {
+  ns.tprint(`model: ${RED}${info.targetModel}${RESET} host: ${CYAN}${info.targetIp}${RESET}`);
+  ns.tprint(`hint: ${CYAN}${info.targetPasswordHint}${RESET} data: ${CYAN}${info.targetPasswordData}${RESET}`);
+  ns.tprint(`format: ${CYAN}${info.targetPasswordFormat}${RESET} len: ${CYAN}${info.targetPasswordLength}${RESET}`);
+  ns.tprint(`---------------------------------------------------`);
 }

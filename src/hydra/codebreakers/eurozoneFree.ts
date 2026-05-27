@@ -49,8 +49,6 @@ export class EurozoneFreeCodebreaker extends Codebreaker {
       }
     }
     
-
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 }

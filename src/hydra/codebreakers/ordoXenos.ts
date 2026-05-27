@@ -15,7 +15,6 @@ export class OrdoXenosCodebreaker extends Codebreaker {
       if (result.success) return { result: "ok", password };
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 

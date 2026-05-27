@@ -15,7 +15,6 @@ export class CloudBlareCodebreaker extends Codebreaker {
       }
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 }

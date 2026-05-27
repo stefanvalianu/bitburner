@@ -19,8 +19,8 @@ export async function main(ns: NS): Promise<void> {
   const result = await ns.dnet.setStasisLink(true);
   success = result.success;
 
-  const isLab = ns.args[0] as boolean;
-  const ip = ns.getIP();
+  const ip = ns.args[0] as string;
+  const isLab = ns.args[1] as boolean;
   const port = ipv4ToUint32Fast(ip);
 
   const portData = getPortData<HydraIpPortState>(ns, port);

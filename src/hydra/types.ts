@@ -24,7 +24,9 @@ export interface HydraIpPortState {
   
   /*
     Infected: hydra is successfully started on the server
-    Infecting: currently under attack by another hydra
+    Infecting: currently under attack by another hydra.
+
+    NOTE no longer used, infected is the only relevant marker
   */
   state: "infected" | "infecting";
 

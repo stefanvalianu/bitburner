@@ -42,7 +42,6 @@ export class LaikaCodebreaker extends Codebreaker {
       }
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 }

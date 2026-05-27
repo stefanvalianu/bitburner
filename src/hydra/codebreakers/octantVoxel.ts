@@ -7,13 +7,11 @@ export class OctantVoxelCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.info.targetPasswordFormat !== "numeric") {
-      this.printCoreInfo();
       return { result: "impossible" };
     }
 
     const parts = this.info.targetPasswordData.split(",");
     if (parts.length !== 2) {
-      this.printCoreInfo();
       return { result: "impossible" };
     }
 
@@ -32,7 +30,6 @@ export class OctantVoxelCodebreaker extends Codebreaker {
       }
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 

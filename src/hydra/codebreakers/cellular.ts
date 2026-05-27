@@ -16,7 +16,6 @@ export class TwoGCellularCodebreaker extends Codebreaker {
     const characters = this.charactersForPasswordFormat();
 
     if (length <= 0 || characters === undefined || characters.length === 0) {
-      this.printCoreInfo();
       return { result: "impossible" };
     }
 
@@ -58,7 +57,6 @@ export class TwoGCellularCodebreaker extends Codebreaker {
       }
 
       if (!found) {
-        this.printCoreInfo();
         return { result: "impossible" };
       }
     }
@@ -67,7 +65,6 @@ export class TwoGCellularCodebreaker extends Codebreaker {
     if (result === null) return { result: "transient" };
     if (result.success) return { result: "ok", password: prefix };
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 

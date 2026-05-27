@@ -151,7 +151,6 @@ export class NilCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.info.targetPasswordLength <= 0) {
-      this.printCoreInfo();
       return { result: "impossible" };
     }
 
@@ -182,12 +181,10 @@ export class NilCodebreaker extends Codebreaker {
         if (finalResult === null) return { result: "transient" };
         if (finalResult.success) return { result: "ok", password: solvedPassword };
 
-        this.printCoreInfo();
         return { result: "impossible" };
       }
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 

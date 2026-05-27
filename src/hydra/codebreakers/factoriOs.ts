@@ -27,7 +27,6 @@ export class FactoriOsCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.info.targetPasswordFormat !== "numeric") {
-      this.printCoreInfo();
       return { result: "impossible" };
     }
 
@@ -56,7 +55,6 @@ export class FactoriOsCodebreaker extends Codebreaker {
       solver.giveFeedback(passwordNum, feedback);
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 

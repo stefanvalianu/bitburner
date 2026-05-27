@@ -20,7 +20,6 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.info.targetPasswordFormat !== "numeric") {
-      this.printCoreInfo();
       return { result: "impossible" };
     }
 
@@ -56,7 +55,6 @@ export class KingOfTheHillCodebreaker extends Codebreaker {
       solver.giveFeedback(guess, score);
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 

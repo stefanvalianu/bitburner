@@ -49,7 +49,6 @@ export class LabyrinthCodebreaker extends Codebreaker {
   async tryAuthenticate(): Promise<CodebreakerResult> {
     let report = await this.readLabReport();
     if (report === null) {
-      this.printCoreInfo();
       return { result: "transient" };
     }
 
@@ -78,7 +77,6 @@ export class LabyrinthCodebreaker extends Codebreaker {
       }
 
       if (cell.backtrack === undefined) {
-        this.printCoreInfo();
         return { result: "impossible" };
       }
 
@@ -95,7 +93,6 @@ export class LabyrinthCodebreaker extends Codebreaker {
       report = move.report;
     }
 
-    this.printCoreInfo();
     return { result: "transient" };
   }
 

@@ -54,7 +54,6 @@ export class OpenWebAccessPointCodebreaker extends Codebreaker {
       }
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 

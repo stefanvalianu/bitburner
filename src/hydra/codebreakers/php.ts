@@ -16,7 +16,6 @@ export class PhpCodebreaker extends Codebreaker {
       }
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 

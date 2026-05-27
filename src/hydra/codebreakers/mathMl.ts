@@ -8,7 +8,6 @@ export class MathMlCodebreaker extends Codebreaker {
   async tryAuthenticate(): Promise<CodebreakerResult> {
     const password = this.evaluatePassword(this.info.targetPasswordData);
     if (password === undefined) {
-      this.printCoreInfo();
       return { result: "impossible" };
     }
 
@@ -18,7 +17,6 @@ export class MathMlCodebreaker extends Codebreaker {
       return { result: "ok", password };
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 

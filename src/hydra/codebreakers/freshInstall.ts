@@ -31,7 +31,6 @@ export class FreshInstallCodebreaker extends Codebreaker {
       }
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 }

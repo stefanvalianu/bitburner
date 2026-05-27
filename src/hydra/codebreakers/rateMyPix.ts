@@ -16,7 +16,6 @@ export class RateMyPixCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.info.targetPasswordLength <= 0) {
-      this.printCoreInfo();
       return { result: "impossible" };
     }
 
@@ -27,7 +26,6 @@ export class RateMyPixCodebreaker extends Codebreaker {
       const password = solver.nextGuess();
 
       if (password === null) {
-        this.printCoreInfo();
         return { result: "impossible" };
       }
 
@@ -45,7 +43,6 @@ export class RateMyPixCodebreaker extends Codebreaker {
       solver.giveFeedback(password, feedback.data);
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 
@@ -215,9 +212,8 @@ class RateMyPixAuthCracker {
   }
 
   private parseFeedback(feedback: string): { score: number; length: number } {
-    const cleaned = feedback
-      .replace(/\u{001B}\[[0-9;]*m/gu, "")
-      .trim();
+    // eslint-disable-next-line no-control-regex -- Intentionally matching ANSI escape/control sequences.
+    const cleaned = feedback.replace(/\u{001B}\[[0-9;]*m/gu, "").trim();
 
     const match = cleaned.match(/^(.+)\/(\d+)$/);
 

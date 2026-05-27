@@ -23,13 +23,11 @@ export class BigMoodCodebreaker extends Codebreaker {
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
     if (this.info.targetPasswordFormat !== "numeric" || this.info.targetPasswordLength <= 0) {
-      this.printCoreInfo();
       return { result: "impossible" };
     }
 
     const range = this.passwordRange(this.info.targetPasswordLength);
     if (range === undefined) {
-      this.printCoreInfo();
       return { result: "impossible" };
     }
 
@@ -71,7 +69,6 @@ export class BigMoodCodebreaker extends Codebreaker {
       }
 
       if (trysolve.value < 0n || trysolve.value >= modulus) {
-        this.printCoreInfo();
         return { result: "impossible" };
       }
 
@@ -81,7 +78,6 @@ export class BigMoodCodebreaker extends Codebreaker {
       });
 
       if (combined === undefined) {
-        this.printCoreInfo();
         return { result: "impossible" };
       }
 
@@ -93,7 +89,6 @@ export class BigMoodCodebreaker extends Codebreaker {
       }
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 
@@ -103,7 +98,6 @@ export class BigMoodCodebreaker extends Codebreaker {
     if (result === null) return { result: "transient" };
     if (result.success) return { result: "ok", password };
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 

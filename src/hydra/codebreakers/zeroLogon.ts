@@ -13,7 +13,6 @@ export class ZeroLogonCodebreaker extends Codebreaker {
       return { result: "ok", password: "" };
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 }

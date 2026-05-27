@@ -1,17 +1,21 @@
-import { DarknetResult, NS } from "@ns";
-import { RED, CYAN, RESET, HydraIpPortState, HydraAuthInfo } from "@repo/hydra/types";
+import { NS } from "@ns";
+import { HydraIpPortState, HydraAuthInfo } from "@repo/hydra/types";
+
+type Result = "ok" | "failed" | "transient";
 
 export interface PasswordAttemptLog {
   data: string;
   passwordAttempted: string;
 }
 
-export interface CodebreakerResult {
-  // Transient re-spawns back into a main hydra to potentially re-try.
-  // Impossible gets added to the hydra brain's blocklist.
-  result: "ok" | "transient" | "impossible";
+export interface LogResult {
+  log?: PasswordAttemptLog;
+  result: Result;
+}
 
+export interface CodebreakerResult {
   password?: string;
+  result: Result;
 };
 
 export abstract class Codebreaker {
@@ -26,7 +30,7 @@ export abstract class Codebreaker {
   abstract tryAuthenticate(): Promise<CodebreakerResult>;
 
   // Returns null if the status code indicates further authentications are pointless
-  protected async authenticate(password: string): Promise<null | DarknetResult & { data?: any; } > {
+  protected async authenticate(password: string): Promise<Result> {
     const result = await this.ns.dnet.authenticate(this.info.targetIp, password);
 
     if (result.success) {
@@ -37,24 +41,47 @@ export abstract class Codebreaker {
         password: password,
       } satisfies HydraIpPortState);
       
-      return result;
+      return "ok";
     }
 
-    if (result.code === 401) return result;
+    if (result.code === 401 ||
+        result.code === 403
+    ) return "failed";
 
     // No longer solvable
     if (result.code === 351 ||
         result.code === 503
-    ) return null;
+    ) return "transient";
 
     this.ns.tprint(`Failed authenticating to ${this.info.targetIp} with statusCode: ${result.code}`);
-    return result;
+    return "failed";
   }
 
-  protected printCoreInfo(): void {
-    this.ns.tprint(`model: ${RED}${this.info.targetModel}${RESET} host: ${CYAN}${this.info.targetIp}${RESET}`);
-    this.ns.tprint(`hint: ${CYAN}${this.info.targetPasswordHint}${RESET} data: ${CYAN}${this.info.targetPasswordData}${RESET}`);
-    this.ns.tprint(`format: ${CYAN}${this.info.targetPasswordFormat}${RESET} len: ${CYAN}${this.info.targetPasswordLength}${RESET}`);
-    this.ns.tprint(`---------------------------------------------------`);
+  // Used to run heartbleed() and retrieve the log
+  protected async getAuthenticateResultLog(attemptedPassword: string): Promise<LogResult> {
+    const info = await this.ns.dnet.heartbleed(this.info.targetIp, {
+      logsToCapture: 50,
+      peek: true,
+    });
+
+    if (!info.success) {
+      // requests can fail because servers go offline, move, etc.
+      return { result: (info.code === 401 || info.code === 403) ? "failed" : "transient" };
+    }
+
+    for (const log of info.logs) {
+      try {
+        const json = JSON.parse(log) as PasswordAttemptLog;
+        if (json.passwordAttempted === attemptedPassword) {
+          return {
+            result: "ok",
+            log: json
+          }
+        }
+      } catch {}
+    }
+
+    this.ns.tprint(`Failed to find logs solving ${this.info.targetModel}`);
+    return { result: "failed" };
   }
 }

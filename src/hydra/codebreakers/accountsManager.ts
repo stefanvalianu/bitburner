@@ -11,8 +11,7 @@ export class AccountsManagerCodebreaker extends Codebreaker {
       const numbers = this.getExactlyTwoNumbers(this.info.targetPasswordHint);
 
       if (numbers === undefined) {
-        this.printCoreInfo();
-        return { result: "impossible" };
+        return { result: "failed" };
       }
 
       let low = numbers[0];
@@ -24,15 +23,18 @@ export class AccountsManagerCodebreaker extends Codebreaker {
 
       // binary search our way to the number
       while (low !== high) {
-        if (result === null) return { result: "transient" }
-        if (result.success) {
+        if (result === "transient") return { result: "transient" }
+        if (result === "ok") {
           return { result: "ok", password };
         } else {
-          /*
-            This is tricky since we are choosing to consume the log, but many different servers could be 
-            running this operation (attacks from different sides). This means we really need to use the 
-            log as a general re-calibration and update our bounds accordingly. 
-          */
+          const info = await this.getAuthenticateResultLog(password);
+
+          if (info.result === "ok") {
+
+          } else {
+            this.ns.tprint(`Failed to find logs solving ${this.info.targetModel}`)
+          }
+          
           const info = await this.ns.dnet.heartbleed(this.info.targetIp);
 
           if (info.success && info.logs.length > 0) {
@@ -62,17 +64,11 @@ export class AccountsManagerCodebreaker extends Codebreaker {
               password = guess.toString();
               result = await this.authenticate(password);
             }
-            // we probably read some other crappy log, keep trying (stay in the loop)
-          } 
-          else {
-            // some other hydra instance is competing with us for logs, let them get it
-            return { result: "transient" };
           }
         }
       }
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 

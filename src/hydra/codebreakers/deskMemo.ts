@@ -15,7 +15,6 @@ export class DeskMemoCodebreaker extends Codebreaker {
       }
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 }

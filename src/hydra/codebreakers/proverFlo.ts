@@ -15,7 +15,6 @@ export class ProverFloCodebreaker extends Codebreaker {
       }
     }
 
-    this.printCoreInfo();
     return { result: "impossible" };
   }
 

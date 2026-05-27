@@ -18,6 +18,7 @@ class Hydra {
 
   private host: DarknetServer;
   private authenticatorPid?: number;
+  private stasisPid?: number;
 
   constructor(ns: NS) {
     this.ns = ns;
@@ -51,6 +52,18 @@ class Hydra {
       if (this.authenticatorPid && !this.ns.isRunning(this.authenticatorPid)) {
         // auhenticator finished, sweet
         this.authenticatorPid = undefined;
+      }
+
+      if (this.stasisPid) {
+        // stasis is the most important thing we could be doing
+        if (!this.ns.isRunning(this.stasisPid)) {
+          // sweet, we're done
+          this.stasisPid = undefined;
+        } else {
+          // don't do anything else, just keep waiting for this script to end
+          await this.ns.dnet.nextMutation();
+          continue;
+        }
       }
       
       // Infect our neighbors (and build our neighbor map)
@@ -110,8 +123,10 @@ class Hydra {
         getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, STASIS_SCRIPT) > 0) {
       // we don't want to add the RAM cost for spawn(), and we can't atExit(() => exec()) as it's too unreliable.
       this.ns.killall(undefined, true);
-      if (0 !== this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, true)) {
-        this.ns.tprint(`${CYAN}Stasis Needed and Labyrinth Found!${RESET}`);
+      const stasisProcess = this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, this.host.ip, true);
+      if (0 !== stasisProcess) {
+        this.stasisPid = stasisProcess;
+        this.ns.tprint(`${CYAN}Labyrinth found${RESET}! Entering stasis...`);
       }
       return [];
     }
@@ -124,10 +139,12 @@ class Hydra {
       if (!lock) {
         this.ns.writePort(HYDRA_STASIS_CLAIM_PORT, true);
         this.ns.killall(undefined, true);
-        if (0 === this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, false)) {
+        const stasisProcess = this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, this.host.ip, false);
+        if (0 === stasisProcess) {
           this.ns.clearPort(HYDRA_STASIS_CLAIM_PORT);
         } else {
-          this.ns.tprint(`${CYAN}Stasis Link Needed and Depth Reached!${RESET}`);
+          this.stasisPid = stasisProcess;
+          this.ns.tprint(`Reached depth ${CYAN}${this.host.depth}${RESET}, entering stasis!`);
         }
         return [];
       }
@@ -169,7 +186,13 @@ class Hydra {
         continue;
       }
 
-      // Another hydra instance is attacking them, unless it died
+      /*
+        Another hydra instance is attacking them, unless it died
+        NOTE we no longer use this. While it's wasteful to perform multiple attacks
+        on a single target, we don't have determinism on which 'hydra' can best attack
+        something, and artificially restricting the ability for a hydra which might be
+        neighbors for longer NOT start cracking a password is not great
+      */
       if (neighborPortState.state === "infecting") {
         if (neighborPortState.infectingStart && Date.now() > (neighborPortState.infectingStart + INFECTING_STALENESS_LIMIT_MS)) {
           this.ns.tprint(`Target ${neighbor.ip} is in 'infecting' state, but it seems to be stale. Taking over.`);

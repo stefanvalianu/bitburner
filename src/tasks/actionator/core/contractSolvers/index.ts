@@ -79,7 +79,6 @@ const solvers = {
   "Largest Rectangle in a Matrix": largestRectangleInMatrix,
 } satisfies SolverMap;
 
-const cyan = "\u001b[36m";
 const red = "\u001b[31m";
 const reset = "\u001b[0m";
 
@@ -90,7 +89,7 @@ export function solve(ns: NS, contract: CodingContractObject): void {
 
     const submit = contract.submit as (answer: unknown) => string;
     const reward = submit(answer);
-    ns.tprint(`Solved ${contract.type} and ${cyan}${reward}${reset}`);
+    ns.toast(`${reward}`, "success");
   } catch (error) {
     ns.tprint(`${red}Failed to solve coding contract "${contract.type}": ${error instanceof Error ? error.message : String(error)}${reset}`);
   }

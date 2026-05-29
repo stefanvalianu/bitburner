@@ -1,10 +1,11 @@
 import { NS } from "@ns";
 import { HydraControllerState } from "@repo/common/info/hydra";
 import { getPortData, HYDRA_STASIS_CLAIM_PORT, HYDRA_STATE_PORT } from "@repo/common/ports";
-import { AUTH_SCRIPT, CYAN, DarknetServer, HydraAuthInfo, HydraIpPortState, LOOT_SCRIPT, PHISH_SCRIPT, RECLAIM_SCRIPT, RESET, STASIS_SCRIPT } from "./types";
+import { AUTH_SCRIPT, DarknetServer, HydraAuthInfo, HydraIpPortState, PHISH_SCRIPT, RECLAIM_SCRIPT, STASIS_SCRIPT } from "./types";
 import { ipv4ToUint32Fast } from "./helpers";
 import { getMaxPossibleThreads } from "./thread-helper";
 import { spawnHydra } from "./infect-helper";
+import { loot } from "./loot-helper";
 
 const INFECTING_STALENESS_LIMIT_MS = 1000 * 60 * 2; // 2 minutes
 
@@ -30,9 +31,6 @@ class Hydra {
   }
 
   async start(): Promise<void> {
-    
-    // wait a bit for the loot script to do its thing, we don't want to kill it from authentication.
-    await this.ns.asleep(500);
 
     // every mutation: broadcast our location/position to the home controller
     // TODO - we should keep some behavior state and compare it against HydraState to change our actions at the behest of the central controller. We'll have to scriptkill everything when changing
@@ -41,6 +39,8 @@ class Hydra {
     // state being undefined is our kill-switch.;
     while (undefined !== state) {
       // at this point, we are in a new (to us) darknet cycle
+      loot(this.ns, this.host.ip, false);
+      
       this.host = {
         ...this.host,
         ...this.ns.dnet.getServerDetails(),
@@ -125,7 +125,7 @@ class Hydra {
         const stasisProcess = this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, this.host.ip, true);
         if (0 !== stasisProcess) {
           this.stasisPid = stasisProcess;
-          this.ns.toast("${CYAN}Labyrinth found${RESET}! Entering stasis...", "info")
+          this.ns.toast("Labyrinth found, entering stasis...", "info")
         }
         return [];
       }
@@ -143,7 +143,7 @@ class Hydra {
             this.ns.clearPort(HYDRA_STASIS_CLAIM_PORT);
           } else {
             this.stasisPid = stasisProcess;
-            this.ns.toast(`Reached depth ${CYAN}${this.host.depth}${RESET}, entering stasis!`, "info");
+            this.ns.toast(`Reached depth ${this.host.depth}, entering stasis...`, "info");
           }
           return [];
         }
@@ -249,6 +249,9 @@ class Hydra {
       const threads = getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, AUTH_SCRIPT);
       if (threads > 0) {
         this.authenticatorPid = this.ns.exec(AUTH_SCRIPT, this.host.ip, { temporary: false, preventDuplicates: true, threads: threads }, JSON.stringify(data));
+        if (this.authenticatorPid === 0) {
+          this.ns.tprint(`Failed to start authenticator script on ${this.host.ip} despite needing to authenticate to neighbors.`);
+        }
       }
       return [];
     }
@@ -263,20 +266,5 @@ export async function main(ns: NS): Promise<void> {
   // kill any children when we exit so machine is fully clean
   ns.atExit(() => ns.killall(undefined, true));
 
-  await lootOnStart(ns);
-
   await new Hydra(ns).start();
-}
-
-async function lootOnStart(ns: NS): Promise<void> {
-  const ip = ns.getIP();
-
-  // exec a loot script to open any caches/share any files when we start on the server
-  const lootPid = ns.exec(LOOT_SCRIPT, ip, { temporary: true, preventDuplicates: true }, ip, false);
-
-  if (lootPid !== 0) {
-    while (ns.isRunning(lootPid)) {
-      await ns.asleep(500);
-    }
-  }
 }

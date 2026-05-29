@@ -1,7 +1,7 @@
 import { NS } from "@ns";
 import { HydraInstanceUpdate } from "@repo/common/info/hydra";
 import { getPortData, HYDRA_STASIS_CLAIM_PORT, HYDRA_UPDATE_PORT } from "@repo/common/ports";
-import { CYAN, HydraIpPortState, RESET } from "@repo/hydra/types";
+import { HydraIpPortState } from "@repo/hydra/types";
 import { ipv4ToUint32Fast } from "../helpers";
 
 /*
@@ -26,12 +26,16 @@ export async function main(ns: NS): Promise<void> {
   const portData = getPortData<HydraIpPortState>(ns, port);
   const password = portData!.password!;
 
-  ns.toast(`${CYAN}STASIS LINKING${RESET} ${ns.getHostname()}`);
-  ns.writePort(HYDRA_UPDATE_PORT, {
-    info: {
-      ip,
-      password
-    },
-    type: isLab ? "lab-stasis-linking" : "stasis-linking"
-  } satisfies HydraInstanceUpdate);
+  if (success) {
+    ns.toast(`Stasis linking successful`, "success");
+    ns.writePort(HYDRA_UPDATE_PORT, {
+      info: {
+        ip,
+        password
+      },
+      type: isLab ? "lab-stasis-linking" : "stasis-linking"
+    } satisfies HydraInstanceUpdate);
+  } else {
+    ns.toast(`Stasis linking failed, code ${result.code}`, "warning");
+  }
 }

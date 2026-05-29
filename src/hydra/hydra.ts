@@ -114,36 +114,39 @@ class Hydra {
       ...this.ns.dnet.getServerDetails(ip),
     } satisfies DarknetServer));
 
-    // URGENT: if we identify a Labyrinth and stasis is still needed, do that right away
-    if (!state.haveLabyrinthStasis &&
-        undefined !== neighbors.find(s => s.modelId === "(The Labyrinth)") &&
-        getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, STASIS_SCRIPT) > 0) {
-      // we don't want to add the RAM cost for spawn(), and we can't atExit(() => exec()) as it's too unreliable.
-      this.ns.killall(undefined, true);
-      const stasisProcess = this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, this.host.ip, true);
-      if (0 !== stasisProcess) {
-        this.stasisPid = stasisProcess;
-        this.ns.toast("${CYAN}Labyrinth found${RESET}! Entering stasis...", "info")
-      }
-      return [];
-    }
-
-    // ALSO URGENT: if we reached a depth that needs a link, let's link
-    if (this.host.depth >= state.nextStasisMinDepth &&
-        this.ns.getScriptRam(STASIS_SCRIPT) &&
-        getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, STASIS_SCRIPT) > 0) {
-      const lock = getPortData<boolean>(this.ns, HYDRA_STASIS_CLAIM_PORT);
-      if (!lock) {
-        this.ns.writePort(HYDRA_STASIS_CLAIM_PORT, true);
+    // stationary servers are already stasised
+    if (!this.host.isStationary) {
+      // URGENT: if we identify a Labyrinth and stasis is still needed, do that right away
+      if (!state.haveLabyrinthStasis &&
+          undefined !== neighbors.find(s => s.modelId === "(The Labyrinth)") &&
+          getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, STASIS_SCRIPT) > 0) {
+        // we don't want to add the RAM cost for spawn(), and we can't atExit(() => exec()) as it's too unreliable.
         this.ns.killall(undefined, true);
-        const stasisProcess = this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, this.host.ip, false);
-        if (0 === stasisProcess) {
-          this.ns.clearPort(HYDRA_STASIS_CLAIM_PORT);
-        } else {
+        const stasisProcess = this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, this.host.ip, true);
+        if (0 !== stasisProcess) {
           this.stasisPid = stasisProcess;
-          this.ns.toast(`Reached depth ${CYAN}${this.host.depth}${RESET}, entering stasis!`, "info");
+          this.ns.toast("${CYAN}Labyrinth found${RESET}! Entering stasis...", "info")
         }
         return [];
+      }
+
+      // ALSO URGENT: if we reached a depth that needs a link, let's link
+      if (this.host.depth >= state.nextStasisMinDepth &&
+          this.ns.getScriptRam(STASIS_SCRIPT) &&
+          getMaxPossibleThreads(this.ns, this.host.ip, this.host.blockedRam, STASIS_SCRIPT) > 0) {
+        const lock = getPortData<boolean>(this.ns, HYDRA_STASIS_CLAIM_PORT);
+        if (!lock) {
+          this.ns.writePort(HYDRA_STASIS_CLAIM_PORT, true);
+          this.ns.killall(undefined, true);
+          const stasisProcess = this.ns.exec(STASIS_SCRIPT, this.host.ip, undefined, this.host.ip, false);
+          if (0 === stasisProcess) {
+            this.ns.clearPort(HYDRA_STASIS_CLAIM_PORT);
+          } else {
+            this.stasisPid = stasisProcess;
+            this.ns.toast(`Reached depth ${CYAN}${this.host.depth}${RESET}, entering stasis!`, "info");
+          }
+          return [];
+        }
       }
     }
 

@@ -114,8 +114,8 @@ class Hydra {
       ...this.ns.dnet.getServerDetails(ip),
     } satisfies DarknetServer));
 
-    // stationary servers are already stasised
-    if (!this.host.isStationary) {
+    // stationary servers are already stasised, also prevent us from getting in a stasis loop
+    if (!this.host.isStationary && !state.stasisLinkedIps.includes(this.host.ip)) {
       // URGENT: if we identify a Labyrinth and stasis is still needed, do that right away
       if (!state.haveLabyrinthStasis &&
           undefined !== neighbors.find(s => s.modelId === "(The Labyrinth)") &&

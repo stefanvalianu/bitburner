@@ -46,6 +46,12 @@ export async function main(ns: NS): Promise<void> {
 
     return (stasisFile.regularLinks.length + 1) * depthPerLink;
   };
+  
+  let stasisIps: string[] = [];
+  if (stasisFile.labLink) {
+    stasisIps.push(stasisFile.labLink.ip);
+  }
+  stasisIps.push(...stasisFile.regularLinks.map(link => link.ip));
 
   // first run - spread hydra to darkweb
   if (data === undefined) {
@@ -70,6 +76,7 @@ export async function main(ns: NS): Promise<void> {
       haveLabyrinthStasis: stasisFile.labLink !== undefined,
       playerCharisma: ns.getPlayer().skills.charisma,
       nextStasisMinDepth: getNextStasisMinDepth(),
+      stasisLinkedIps: stasisIps
     } satisfies HydraControllerState);
 
     await bootstrapHydra(ns);
@@ -125,6 +132,7 @@ export async function main(ns: NS): Promise<void> {
     haveLabyrinthStasis: stasisFile.labLink !== undefined,
     playerCharisma: ns.getPlayer().skills.charisma,
     nextStasisMinDepth: getNextStasisMinDepth(),
+    stasisLinkedIps: stasisIps
   } satisfies HydraControllerState);
 
   if (clearStasisClaim) {

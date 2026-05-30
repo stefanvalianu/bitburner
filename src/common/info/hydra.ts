@@ -6,6 +6,8 @@ export interface HydraControllerState {
 
   // when a hydra reaches at least this depth, stasis!
   nextStasisMinDepth: number;
+
+  stasisLinkedIps: string[];
 }
 
 // Sent by the hydra script to update the main controller

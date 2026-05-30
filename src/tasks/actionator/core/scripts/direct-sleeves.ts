@@ -10,8 +10,8 @@ import {
 import { UserPreferences } from "@repo/common/preferences";
 import { invokeNextScript } from "@repo/tasks/actionator/core/helpers";
 
-const PRE_GANG_SHOCK_TARGET = 50;
-const POST_GANG_SHOCK_TARGET = 0;
+const PRE_GANG_SHOCK_TARGET = 75;
+const POST_GANG_SHOCK_TARGET = 10;
 
 const SLEEVE_BASELINE_STAT = 75;
 

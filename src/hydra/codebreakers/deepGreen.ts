@@ -4,7 +4,9 @@ import { HydraAuthInfo } from "../types";
 
 const DIGITS = "0123456789";
 const LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
-const ALPHANUMERIC = DIGITS + LOWERCASE;
+const UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const LETTERS = LOWERCASE + UPPERCASE;
+const ALPHANUMERIC = DIGITS + LETTERS;
 
 type MastermindFeedback = {
   exact: number;
@@ -27,6 +29,22 @@ type CountDiscovery =
   | { kind: "counts"; counts: Map<string, number> }
   | { kind: "transient" }
   | { kind: "failed" };
+
+type ExactCountResult =
+  | { kind: "count"; count: number }
+  | { kind: "success"; password: string }
+  | { kind: "transient" }
+  | { kind: "failed" };
+
+type LocateResult =
+  | { kind: "positions"; positions: number[] }
+  | { kind: "success"; password: string }
+  | { kind: "transient" }
+  | { kind: "failed" };
+
+type SentinelSolveResult =
+  | CodebreakerResult
+  | { result: "unavailable" };
 
 type PositionConstraint = {
   guess: string;
@@ -61,18 +79,23 @@ export class DeepGreenCodebreaker extends Codebreaker {
     }
 
     const counts = discovered.counts;
+    const sentinelResult = await this.trySolveWithSentinel(length, alphabet, counts);
+
+    if (sentinelResult.result !== "unavailable") {
+      return sentinelResult;
+    }
+
     const isNumeric = this.info.targetPasswordFormat === "numeric";
     const constraints: PositionConstraint[] = [];
 
-    // This should normally finish well below this. The cap prevents pathological loops.
-    const maxRounds = Math.max(32, length * 8);
+    const candidateLimit = 4_096;
 
-    for (let round = 0; round < maxRounds; round++) {
+    for (let round = 0; round < Math.max(512, length * 128); round++) {
       const sample = this.sampleCandidates(
         counts,
         length,
         constraints,
-        Math.max(128, Math.min(1_024, length * 96)),
+        candidateLimit + 1,
         isNumeric,
       );
 
@@ -80,7 +103,8 @@ export class DeepGreenCodebreaker extends Codebreaker {
         return { result: "failed" };
       }
 
-      const password = this.chooseGuess(sample);
+      const candidates = sample.length > candidateLimit ? sample.slice(0, candidateLimit) : sample;
+      const password = candidates.length === 1 ? candidates[0] : this.chooseGuess(candidates);
       const attempted = await this.tryPasswordAndReadFeedback(password);
 
       if (attempted.kind === "transient") {
@@ -155,6 +179,150 @@ export class DeepGreenCodebreaker extends Codebreaker {
     return total === length
       ? { kind: "counts", counts }
       : { kind: "failed" };
+  }
+
+  private async trySolveWithSentinel(
+    length: number,
+    alphabet: string,
+    counts: Map<string, number>,
+  ): Promise<SentinelSolveResult> {
+    const sentinel = alphabet.split("").find(char => !counts.has(char));
+
+    if (sentinel === undefined) {
+      return { result: "unavailable" };
+    }
+
+    const known = Array.from({ length }, (): string | null => null);
+    const chars = [...counts.keys()];
+
+    for (let charIndex = 0; charIndex < chars.length; charIndex++) {
+      const char = chars[charIndex];
+      const unresolvedPositions = this.unresolvedPositions(known);
+      const expectedCount = counts.get(char) ?? 0;
+
+      if (charIndex === chars.length - 1) {
+        if (expectedCount !== unresolvedPositions.length) {
+          return { result: "failed" };
+        }
+
+        for (const position of unresolvedPositions) {
+          known[position] = char;
+        }
+
+        break;
+      }
+
+      const count = await this.queryExactCount(char, unresolvedPositions, sentinel, length);
+
+      if (count.kind === "transient") return { result: "transient" };
+      if (count.kind === "failed") return { result: "failed" };
+      if (count.kind === "success") return { result: "ok", password: count.password };
+      if (count.count !== expectedCount) return { result: "failed" };
+      if (count.count === 0) continue;
+
+      const located = await this.locateExactPositions(char, unresolvedPositions, count.count, sentinel, length);
+
+      if (located.kind === "transient") return { result: "transient" };
+      if (located.kind === "failed") return { result: "failed" };
+      if (located.kind === "success") return { result: "ok", password: located.password };
+
+      for (const position of located.positions) {
+        known[position] = char;
+      }
+    }
+
+    if (known.some(char => char === null)) {
+      return { result: "failed" };
+    }
+
+    const password = known.join("");
+    const result = await this.authenticate(password);
+
+    if (result === "transient") return { result: "transient" };
+    if (result === "ok") return { result: "ok", password };
+
+    return { result: "failed" };
+  }
+
+  private async locateExactPositions(
+    char: string,
+    positions: number[],
+    count: number,
+    sentinel: string,
+    length: number,
+  ): Promise<LocateResult> {
+    if (count === 0) return { kind: "positions", positions: [] };
+    if (count === positions.length) return { kind: "positions", positions };
+    if (positions.length === 1) {
+      return count === 1
+        ? { kind: "positions", positions }
+        : { kind: "failed" };
+    }
+
+    const splitIndex = Math.floor(positions.length / 2);
+    const left = positions.slice(0, splitIndex);
+    const right = positions.slice(splitIndex);
+    const leftCount = await this.queryExactCount(char, left, sentinel, length);
+
+    if (leftCount.kind !== "count") return leftCount;
+    if (leftCount.count < 0 || leftCount.count > left.length || leftCount.count > count) {
+      return { kind: "failed" };
+    }
+
+    const rightCount = count - leftCount.count;
+
+    if (rightCount < 0 || rightCount > right.length) {
+      return { kind: "failed" };
+    }
+
+    const leftMatches = await this.locateExactPositions(char, left, leftCount.count, sentinel, length);
+
+    if (leftMatches.kind !== "positions") return leftMatches;
+
+    const rightMatches = await this.locateExactPositions(char, right, rightCount, sentinel, length);
+
+    if (rightMatches.kind !== "positions") return rightMatches;
+
+    return {
+      kind: "positions",
+      positions: [...leftMatches.positions, ...rightMatches.positions],
+    };
+  }
+
+  private async queryExactCount(
+    char: string,
+    positions: number[],
+    sentinel: string,
+    length: number,
+  ): Promise<ExactCountResult> {
+    const password = this.createSentinelProbe(char, positions, sentinel, length);
+    const attempted = await this.tryPasswordAndReadFeedback(password);
+
+    if (attempted.kind === "transient") return { kind: "transient" };
+    if (attempted.kind === "success") return { kind: "success", password: attempted.password };
+    if (attempted.kind !== "feedback") return { kind: "failed" };
+
+    return { kind: "count", count: attempted.feedback.exact };
+  }
+
+  private createSentinelProbe(char: string, positions: number[], sentinel: string, length: number): string {
+    const guess = Array.from({ length }, () => sentinel);
+
+    for (const position of positions) {
+      guess[position] = char;
+    }
+
+    return guess.join("");
+  }
+
+  private unresolvedPositions(known: Array<string | null>): number[] {
+    const positions: number[] = [];
+
+    for (let i = 0; i < known.length; i++) {
+      if (known[i] === null) positions.push(i);
+    }
+
+    return positions;
   }
 
   private async tryPasswordAndReadFeedback(password: string): Promise<AttemptResult> {
@@ -249,7 +417,7 @@ export class DeepGreenCodebreaker extends Codebreaker {
 
       const remainingPositionsAfterThis = length - index - 1;
 
-      for (const charIndex of this.shuffledIndices(chars.length)) {
+      for (let charIndex = 0; charIndex < chars.length; charIndex++) {
         if (remaining[charIndex] <= 0) continue;
 
         const char = chars[charIndex];
@@ -356,20 +524,6 @@ export class DeepGreenCodebreaker extends Codebreaker {
     return result;
   }
 
-  private shuffledIndices(length: number): number[] {
-    const result = Array.from({ length }, (_, index) => index);
-
-    for (let i = result.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const temp = result[i];
-
-      result[i] = result[j];
-      result[j] = temp;
-    }
-
-    return result;
-  }
-
   private exactMatches(a: string, b: string): number {
     let result = 0;
 
@@ -386,7 +540,7 @@ export class DeepGreenCodebreaker extends Codebreaker {
         return DIGITS;
 
       case "alphabetic":
-        return LOWERCASE;
+        return LETTERS;
 
       case "alphanumeric":
         return ALPHANUMERIC;

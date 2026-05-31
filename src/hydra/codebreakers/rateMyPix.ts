@@ -10,35 +10,121 @@ export class RateMyPixCodebreaker extends Codebreaker {
   constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
   async tryAuthenticate(): Promise<CodebreakerResult> {
-    if (this.info.targetPasswordLength <= 0) {
+    const length = this.info.targetPasswordLength;
+
+    if (!Number.isInteger(length) || length <= 0) {
       return { result: "failed" };
     }
 
     const alphabet = alphabetForPasswordFormat(this.info.targetPasswordFormat);
-    const solver = new RateMyPixAuthCracker(this.info.targetPasswordLength, alphabet);
+    const solver = new RateMyPixAuthCracker(length, alphabet);
 
-    for (let attempts = 0; attempts < solver.maxAttempts; attempts++) {
-      const password = solver.nextGuess();
+    while (!solver.solved) {
+      const char = solver.nextUnresolvedChar();
 
-      if (password === null) {
-        return { result: "failed" };
+      if (char === null) break;
+
+      const positions = solver.unknownPositions;
+      const count = await this.queryCharCount(char, positions);
+
+      if (count.kind === "transient") return { result: "transient" };
+      if (count.kind === "success") return { result: "ok", password: count.password };
+      if (count.count < 0 || count.count > positions.length) return { result: "failed" };
+
+      if (count.count === 0) {
+        solver.markCharResolved(char, []);
+        continue;
       }
 
+      if (count.count === positions.length) {
+        solver.markCharResolved(char, positions);
+        continue;
+      }
+
+      const matched = await this.locateCharPositions(char, positions, count.count);
+
+      if (matched.kind === "transient") return { result: "transient" };
+      if (matched.kind === "success") return { result: "ok", password: matched.password };
+
+      solver.markCharResolved(char, matched.positions);
+    }
+
+    const password = solver.password;
+
+    if (password !== null) {
       const result = await this.authenticate(password);
 
       if (result === "transient") return { result: "transient" };
       if (result === "ok") return { result: "ok", password };
-
-      const feedback = await this.readFeedbackForPassword(password);
-
-      if (feedback === undefined) {
-        return { result: "transient" };
-      }
-
-      solver.giveFeedback(password, feedback.data);
     }
 
     return { result: "failed" };
+  }
+
+  private async locateCharPositions(
+    char: string,
+    positions: number[],
+    count: number,
+  ): Promise<LocateResult> {
+    if (count === 0) return { kind: "positions", positions: [] };
+    if (count === positions.length) return { kind: "positions", positions };
+    if (positions.length === 1) {
+      return count === 1
+        ? { kind: "positions", positions }
+        : { kind: "positions", positions: [] };
+    }
+
+    const splitIndex = Math.floor(positions.length / 2);
+    const left = positions.slice(0, splitIndex);
+    const right = positions.slice(splitIndex);
+    const leftCount = await this.queryCharCount(char, left);
+
+    if (leftCount.kind === "transient") return { kind: "transient" };
+    if (leftCount.kind === "success") return { kind: "success", password: leftCount.password };
+    if (leftCount.count < 0 || leftCount.count > left.length || leftCount.count > count) {
+      return { kind: "transient" };
+    }
+
+    const rightCount = count - leftCount.count;
+
+    if (rightCount < 0 || rightCount > right.length) {
+      return { kind: "transient" };
+    }
+
+    const leftMatches = await this.locateCharPositions(char, left, leftCount.count);
+
+    if (leftMatches.kind !== "positions") return leftMatches;
+
+    const rightMatches = await this.locateCharPositions(char, right, rightCount);
+
+    if (rightMatches.kind !== "positions") return rightMatches;
+
+    return {
+      kind: "positions",
+      positions: [...leftMatches.positions, ...rightMatches.positions],
+    };
+  }
+
+  private async queryCharCount(char: string, positions: number[]): Promise<QueryCountResult> {
+    const password = this.createProbePassword(char, positions);
+    const result = await this.authenticate(password);
+
+    if (result === "transient") return { kind: "transient" };
+    if (result === "ok") return { kind: "success", password };
+
+    const feedback = await this.readFeedbackForPassword(password);
+
+    if (feedback === undefined) {
+      return { kind: "transient" };
+    }
+
+    const parsed = RateMyPixAuthCracker.parseFeedback(feedback.data);
+
+    if (parsed.length !== this.info.targetPasswordLength) {
+      return { kind: "transient" };
+    }
+
+    return { kind: "count", count: parsed.score };
   }
 
   private async readFeedbackForPassword(password: string): Promise<PasswordAttemptLog | undefined> {
@@ -50,16 +136,34 @@ export class RateMyPixCodebreaker extends Codebreaker {
 
     return info.log;
   }
+
+  private createProbePassword(char: string, positions: number[]): string {
+    const guess = Array.from({ length: this.info.targetPasswordLength }, () => RateMyPixAuthCracker.BaseChar);
+
+    for (const position of positions) {
+      guess[position] = char;
+    }
+
+    return guess.join("");
+  }
 }
 
+type QueryCountResult =
+  | { kind: "count"; count: number }
+  | { kind: "success"; password: string }
+  | { kind: "transient" };
+
+type LocateResult =
+  | { kind: "positions"; positions: number[] }
+  | { kind: "success"; password: string }
+  | { kind: "transient" };
+
 class RateMyPixAuthCracker {
-  private readonly baseChar = "_";
+  public static readonly BaseChar = "_";
+
   private readonly candidates: string[];
   private readonly knownPassword: Array<string | null>;
-
-  private position = 0;
-  private candidateIndex = 0;
-  private pendingGuess: string | null = null;
+  private readonly unresolvedChars: string[];
 
   constructor(
     private readonly passwordLength: number,
@@ -75,86 +179,64 @@ class RateMyPixAuthCracker {
       throw new Error("Alphabet must not be empty.");
     }
 
-    if (this.candidates.includes(this.baseChar)) {
-      throw new Error(`Alphabet must not include '${this.baseChar}'.`);
+    if (this.candidates.includes(RateMyPixAuthCracker.BaseChar)) {
+      throw new Error(`Alphabet must not include '${RateMyPixAuthCracker.BaseChar}'.`);
     }
 
     this.knownPassword = Array.from({ length: passwordLength }, () => null);
+    this.unresolvedChars = [...this.candidates];
   }
 
-  public get maxAttempts(): number {
-    return this.passwordLength * this.candidates.length + 2;
+  public get solved(): boolean {
+    return this.knownPassword.every(char => char !== null);
   }
 
-  public nextGuess(): string | null {
-    const solvedPassword = this.password;
-    if (solvedPassword !== null) {
-      this.pendingGuess = solvedPassword;
-      return solvedPassword;
+  public get unknownPositions(): number[] {
+    const result: number[] = [];
+
+    for (let i = 0; i < this.knownPassword.length; i++) {
+      if (this.knownPassword[i] === null) result.push(i);
     }
 
-    if (this.position >= this.passwordLength) {
+    return result;
+  }
+
+  public nextUnresolvedChar(): string | null {
+    if (this.unresolvedChars.length === 1) {
+      this.markCharResolved(this.unresolvedChars[0], this.unknownPositions);
       return null;
     }
 
-    if (this.candidateIndex >= this.candidates.length) {
-      throw new Error(`Exhausted alphabet while solving position ${this.position}.`);
-    }
-
-    const guess = this.createSinglePositionGuess(
-      this.position,
-      this.candidates[this.candidateIndex],
-    );
-
-    this.pendingGuess = guess;
-    return guess;
+    return this.unresolvedChars[0] ?? null;
   }
 
-  public giveFeedback(lastGuess: string, feedback: string): void {
-    if (this.pendingGuess !== null && lastGuess !== this.pendingGuess) {
-      throw new Error(`Expected feedback for '${this.pendingGuess}', but got '${lastGuess}'.`);
-    }
-
-    this.pendingGuess = null;
-
-    const { score, length } = this.parseFeedback(feedback);
-
-    if (length !== this.passwordLength) {
-      throw new Error(`Feedback length ${length} did not match expected length ${this.passwordLength}.`);
-    }
-
-    if (this.password !== null) {
-      return;
-    }
-
-    if (score === 1) {
-      this.knownPassword[this.position] = this.candidates[this.candidateIndex];
-      this.position++;
-      this.candidateIndex = 0;
-      return;
-    }
-
-    if (score === 0) {
-      this.candidateIndex++;
-      return;
-    }
-
-    throw new Error(`Unexpected RateMyPix score ${score}; expected 0 or 1 for a single-position guess.`);
-  }
-
-  private get password(): string | null {
+  public get password(): string | null {
     return this.knownPassword.every(char => char !== null)
       ? this.knownPassword.join("")
       : null;
   }
 
-  private createSinglePositionGuess(position: number, candidate: string): string {
-    const guess = Array.from({ length: this.passwordLength }, () => this.baseChar);
-    guess[position] = candidate;
-    return guess.join("");
+  public markCharResolved(char: string, positions: number[]): void {
+    const expected = this.unresolvedChars[0];
+
+    if (char !== expected) {
+      throw new Error(`Expected RateMyPix character '${expected}', but resolved '${char}'.`);
+    }
+
+    const unknown = new Set(this.unknownPositions);
+
+    for (const position of positions) {
+      if (!unknown.has(position)) {
+        throw new Error(`Invalid RateMyPix position ${position} for character '${char}'.`);
+      }
+
+      this.knownPassword[position] = char;
+    }
+
+    this.unresolvedChars.shift();
   }
 
-  private parseFeedback(feedback: string): { score: number; length: number } {
+  public static parseFeedback(feedback: string): { score: number; length: number } {
     // eslint-disable-next-line no-control-regex -- Intentionally matching ANSI escape/control sequences.
     const cleaned = feedback.replace(/\u{001B}\[[0-9;]*m/gu, "").trim();
 
@@ -165,12 +247,12 @@ class RateMyPixAuthCracker {
     }
 
     return {
-      score: this.parseScore(match[1]),
+      score: RateMyPixAuthCracker.parseScore(match[1]),
       length: Number(match[2]),
     };
   }
 
-  private parseScore(scoreText: string): number {
+  private static parseScore(scoreText: string): number {
     const value = scoreText.trim();
 
     if (value === "0") {

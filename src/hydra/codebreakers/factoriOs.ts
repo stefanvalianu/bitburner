@@ -20,8 +20,6 @@ const LARGE_PRIMES = [
   9739, 9749, 9859,
 ];
 
-const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
-
 export class FactoriOsCodebreaker extends Codebreaker {
   constructor(target: HydraAuthInfo, ns: NS) { super(target, ns); }
 
@@ -36,12 +34,11 @@ export class FactoriOsCodebreaker extends Codebreaker {
     );
 
     for (let attempts = 0; attempts < 250; attempts++) {
-      const passwordNum = solver.nextGuess();
-      if (passwordNum === null) {
+      const password = solver.nextGuess();
+      if (password === null) {
         break;
       }
 
-      const password = passwordNum.toString();
       const result = await this.authenticate(password);
 
       if (result === "transient") return { result: "transient" };
@@ -52,7 +49,7 @@ export class FactoriOsCodebreaker extends Codebreaker {
         return { result: "transient" };
       }
 
-      solver.giveFeedback(passwordNum, feedback);
+      solver.giveFeedback(password, feedback);
     }
 
     return { result: "failed" };
@@ -80,14 +77,14 @@ export class DivisiblePasswordSolver {
   private currentPower = 0n;
   private answer = 1n;
 
-  private pendingGuess: number | null = null;
+  private pendingGuess: bigint | null = null;
   private finalGuessReturned = false;
 
   constructor(length: number, difficulty = Number.POSITIVE_INFINITY) {
     const safeLength = Math.max(1, Math.floor(length));
     const maxByLength = 10n ** BigInt(safeLength) - 1n;
 
-    this.maxGuess = maxByLength < MAX_SAFE_BIGINT ? maxByLength : MAX_SAFE_BIGINT;
+    this.maxGuess = maxByLength;
     this.primes = difficulty > 12
       ? [...SMALL_PRIMES, ...LARGE_PRIMES]
       : SMALL_PRIMES;
@@ -97,19 +94,19 @@ export class DivisiblePasswordSolver {
     return this.primeIndex >= this.primes.length;
   }
 
-  public getAnswer(): number | null {
+  public getAnswer(): string | null {
     if (!this.isSolved()) return null;
-    if (this.answer > MAX_SAFE_BIGINT) return null;
-    return Number(this.answer);
+    if (!this.isRepresentableByGameNumber(this.answer)) return null;
+    return this.answer.toString();
   }
 
   public getRemainingCount(): number {
     return this.isSolved() ? 1 : -1;
   }
 
-  public nextGuess(): number | null {
+  public nextGuess(): string | null {
     if (this.pendingGuess !== null) {
-      return this.pendingGuess;
+      return this.pendingGuess.toString();
     }
 
     while (this.primeIndex < this.primes.length) {
@@ -119,14 +116,13 @@ export class DivisiblePasswordSolver {
         this.currentPower = prime;
       }
 
-      if (this.currentPower > this.maxGuess || this.currentPower > MAX_SAFE_BIGINT) {
+      if (this.currentPower > this.maxGuess || !this.isRepresentableByGameNumber(this.currentPower)) {
         this.moveToNextPrime();
         continue;
       }
 
-      const guess = Number(this.currentPower);
-      this.pendingGuess = guess;
-      return guess;
+      this.pendingGuess = this.currentPower;
+      return this.pendingGuess.toString();
     }
 
     if (this.finalGuessReturned) {
@@ -135,16 +131,18 @@ export class DivisiblePasswordSolver {
 
     this.finalGuessReturned = true;
 
-    if (this.answer < 1n || this.answer > this.maxGuess || this.answer > MAX_SAFE_BIGINT) {
+    if (this.answer < 1n || this.answer > this.maxGuess || !this.isRepresentableByGameNumber(this.answer)) {
       return null;
     }
 
-    this.pendingGuess = Number(this.answer);
-    return this.pendingGuess;
+    this.pendingGuess = this.answer;
+    return this.pendingGuess.toString();
   }
 
-  public giveFeedback(guess: number, isDivisibleByGuess: boolean): void {
-    if (this.pendingGuess !== null && guess !== this.pendingGuess) {
+  public giveFeedback(guess: string, isDivisibleByGuess: boolean): void {
+    const guessedPower = BigInt(guess);
+
+    if (this.pendingGuess !== null && guessedPower !== this.pendingGuess) {
       throw new Error(
         `Expected feedback for guess ${this.pendingGuess}, but got ${guess}`,
       );
@@ -157,13 +155,12 @@ export class DivisiblePasswordSolver {
     }
 
     const prime = BigInt(this.primes[this.primeIndex]);
-    const guessedPower = BigInt(guess);
 
     if (isDivisibleByGuess) {
       this.answer *= prime;
 
       const nextPower = guessedPower * prime;
-      if (nextPower > this.maxGuess || nextPower > MAX_SAFE_BIGINT) {
+      if (nextPower > this.maxGuess || !this.isRepresentableByGameNumber(nextPower)) {
         this.moveToNextPrime();
       } else {
         this.currentPower = nextPower;
@@ -178,5 +175,10 @@ export class DivisiblePasswordSolver {
   private moveToNextPrime(): void {
     this.primeIndex++;
     this.currentPower = 0n;
+  }
+
+  private isRepresentableByGameNumber(value: bigint): boolean {
+    const asNumber = Number(value);
+    return Number.isFinite(asNumber) && BigInt(asNumber) === value;
   }
 }
